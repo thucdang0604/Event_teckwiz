@@ -1,0 +1,162 @@
+import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'firebase_options.dart';
+
+import 'providers/auth_provider.dart';
+import 'providers/event_provider.dart';
+import 'screens/splash_screen.dart';
+import 'screens/auth/login_screen.dart';
+import 'screens/auth/register_screen.dart';
+import 'screens/home/home_screen.dart';
+import 'screens/events/event_detail_screen.dart';
+import 'screens/events/create_event_screen.dart';
+import 'screens/events/event_registrations_screen.dart';
+import 'screens/qr/qr_scanner_screen.dart';
+import 'screens/chat/event_chat_screen.dart';
+import 'screens/profile/profile_screen.dart';
+import 'screens/profile/edit_profile_screen.dart';
+import 'screens/settings/settings_screen.dart';
+import 'constants/app_colors.dart';
+import 'services/notification_service.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Firebase
+  if (Firebase.apps.isEmpty) {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  }
+
+  await NotificationService.initialize();
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => EventProvider()),
+      ],
+      child: Consumer<AuthProvider>(
+        builder: (context, authProvider, _) {
+          return MaterialApp.router(
+            title: 'Quản Lý Sự Kiện',
+            debugShowCheckedModeBanner: false,
+            theme: ThemeData(
+              primarySwatch: Colors.blue,
+              primaryColor: AppColors.primary,
+              scaffoldBackgroundColor: AppColors.background,
+              textTheme: GoogleFonts.interTextTheme(),
+              appBarTheme: const AppBarTheme(
+                backgroundColor: AppColors.primary,
+                foregroundColor: AppColors.white,
+                elevation: 0,
+              ),
+              elevatedButtonTheme: ElevatedButtonThemeData(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: AppColors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+              ),
+              cardTheme: CardThemeData(
+                color: AppColors.cardBackground,
+                elevation: 4,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              inputDecorationTheme: InputDecorationTheme(
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppColors.primary),
+                ),
+              ),
+            ),
+            routerConfig: _router,
+          );
+        },
+      ),
+    );
+  }
+}
+
+final GoRouter _router = GoRouter(
+  initialLocation: '/splash',
+  routes: [
+    GoRoute(path: '/splash', builder: (context, state) => const SplashScreen()),
+    GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+    GoRoute(
+      path: '/register',
+      builder: (context, state) => const RegisterScreen(),
+    ),
+    GoRoute(path: '/home', builder: (context, state) => const HomeScreen()),
+    GoRoute(
+      path: '/event/:eventId',
+      builder: (context, state) {
+        final eventId = state.pathParameters['eventId']!;
+        return EventDetailScreen(eventId: eventId);
+      },
+    ),
+    GoRoute(
+      path: '/create-event',
+      builder: (context, state) => const CreateEventScreen(),
+    ),
+    GoRoute(
+      path: '/event/:eventId/register',
+      builder: (context, state) {
+        // This would need to be passed from the previous screen
+        return const SizedBox(); // Placeholder
+      },
+    ),
+    GoRoute(
+      path: '/qr-scanner',
+      builder: (context, state) => const QRScannerScreen(),
+    ),
+    GoRoute(
+      path: '/event/:eventId/chat',
+      builder: (context, state) {
+        final eventId = state.pathParameters['eventId']!;
+        return EventChatScreen(eventId: eventId);
+      },
+    ),
+    GoRoute(
+      path: '/event/:eventId/registrations',
+      builder: (context, state) {
+        final eventId = state.pathParameters['eventId']!;
+        final eventTitle = state.uri.queryParameters['title'] ?? 'Sự kiện';
+        return EventRegistrationsScreen(
+          eventId: eventId,
+          eventTitle: eventTitle,
+        );
+      },
+    ),
+    GoRoute(
+      path: '/profile',
+      builder: (context, state) => const ProfileScreen(),
+    ),
+    GoRoute(
+      path: '/edit-profile',
+      builder: (context, state) => const EditProfileScreen(),
+    ),
+    GoRoute(
+      path: '/settings',
+      builder: (context, state) => const SettingsScreen(),
+    ),
+  ],
+);
