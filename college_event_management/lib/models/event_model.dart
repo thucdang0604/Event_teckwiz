@@ -15,6 +15,7 @@ class EventModel {
   final String organizerId;
   final String organizerName;
   final List<String> imageUrls;
+  final List<String> videoUrls;
   final String? requirements;
   final String? contactInfo;
   final bool isFree;
@@ -39,6 +40,7 @@ class EventModel {
     required this.organizerId,
     required this.organizerName,
     this.imageUrls = const [],
+    this.videoUrls = const [],
     this.requirements,
     this.contactInfo,
     this.isFree = true,
@@ -67,6 +69,7 @@ class EventModel {
       organizerId: data['organizerId'] ?? '',
       organizerName: data['organizerName'] ?? '',
       imageUrls: List<String>.from(data['imageUrls'] ?? []),
+      videoUrls: List<String>.from(data['videoUrls'] ?? []),
       requirements: data['requirements'],
       contactInfo: data['contactInfo'],
       isFree: data['isFree'] ?? true,
@@ -93,6 +96,7 @@ class EventModel {
       'organizerId': organizerId,
       'organizerName': organizerName,
       'imageUrls': imageUrls,
+      'videoUrls': videoUrls,
       'requirements': requirements,
       'contactInfo': contactInfo,
       'isFree': isFree,
@@ -119,6 +123,7 @@ class EventModel {
     String? organizerId,
     String? organizerName,
     List<String>? imageUrls,
+    List<String>? videoUrls,
     String? requirements,
     String? contactInfo,
     bool? isFree,
@@ -143,6 +148,7 @@ class EventModel {
       organizerId: organizerId ?? this.organizerId,
       organizerName: organizerName ?? this.organizerName,
       imageUrls: imageUrls ?? this.imageUrls,
+      videoUrls: videoUrls ?? this.videoUrls,
       requirements: requirements ?? this.requirements,
       contactInfo: contactInfo ?? this.contactInfo,
       isFree: isFree ?? this.isFree,
@@ -156,6 +162,8 @@ class EventModel {
 
   bool get isPublished => status == 'published';
   bool get isDraft => status == 'draft';
+  bool get isPending => status == 'pending';
+  bool get isRejected => status == 'rejected';
   bool get isCancelled => status == 'cancelled';
   bool get isCompleted => status == 'completed';
 

@@ -15,6 +15,7 @@ class RegistrationModel {
   final String? qrCode;
   final bool attended;
   final DateTime? attendedAt;
+  final DateTime? checkedOutAt;
   final String? notes;
 
   RegistrationModel({
@@ -32,6 +33,7 @@ class RegistrationModel {
     this.qrCode,
     this.attended = false,
     this.attendedAt,
+    this.checkedOutAt,
     this.notes,
   });
 
@@ -58,6 +60,9 @@ class RegistrationModel {
       attendedAt: data['attendedAt'] != null
           ? (data['attendedAt'] as Timestamp).toDate()
           : null,
+      checkedOutAt: data['checkedOutAt'] != null
+          ? (data['checkedOutAt'] as Timestamp).toDate()
+          : null,
       notes: data['notes'],
     );
   }
@@ -77,6 +82,9 @@ class RegistrationModel {
       'qrCode': qrCode,
       'attended': attended,
       'attendedAt': attendedAt != null ? Timestamp.fromDate(attendedAt!) : null,
+      'checkedOutAt': checkedOutAt != null
+          ? Timestamp.fromDate(checkedOutAt!)
+          : null,
       'notes': notes,
     };
   }
@@ -96,6 +104,7 @@ class RegistrationModel {
     String? qrCode,
     bool? attended,
     DateTime? attendedAt,
+    DateTime? checkedOutAt,
     String? notes,
   }) {
     return RegistrationModel(
@@ -113,6 +122,7 @@ class RegistrationModel {
       qrCode: qrCode ?? this.qrCode,
       attended: attended ?? this.attended,
       attendedAt: attendedAt ?? this.attendedAt,
+      checkedOutAt: checkedOutAt ?? this.checkedOutAt,
       notes: notes ?? this.notes,
     );
   }

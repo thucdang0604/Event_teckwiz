@@ -122,18 +122,33 @@ class RegistrationService {
     }
   }
 
+  // Stream đăng ký của người dùng
+  Stream<List<RegistrationModel>> getUserRegistrationsStream(String userId) {
+    return _firestore
+        .collection(AppConstants.registrationsCollection)
+        .where('userId', isEqualTo: userId)
+        .orderBy('registeredAt', descending: true)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((d) => RegistrationModel.fromFirestore(d))
+              .toList(),
+        );
+  }
+
   // Lấy danh sách đăng ký của một sự kiện
   Future<List<RegistrationModel>> getEventRegistrations(String eventId) async {
     try {
       QuerySnapshot snapshot = await _firestore
           .collection(AppConstants.registrationsCollection)
           .where('eventId', isEqualTo: eventId)
-          .orderBy('registeredAt', descending: true)
           .get();
 
-      return snapshot.docs
+      final list = snapshot.docs
           .map((doc) => RegistrationModel.fromFirestore(doc))
           .toList();
+      list.sort((a, b) => b.registeredAt.compareTo(a.registeredAt));
+      return list;
     } catch (e) {
       throw Exception('Lỗi lấy danh sách đăng ký sự kiện: ${e.toString()}');
     }
@@ -194,6 +209,18 @@ class RegistrationService {
     }
   }
 
+  // Đánh dấu checkout
+  Future<void> markCheckout(String registrationId) async {
+    try {
+      await _firestore
+          .collection(AppConstants.registrationsCollection)
+          .doc(registrationId)
+          .update({'checkedOutAt': Timestamp.fromDate(DateTime.now())});
+    } catch (e) {
+      throw Exception('Lỗi checkout: ${e.toString()}');
+    }
+  }
+
   // Lấy đăng ký theo QR code
   Future<RegistrationModel?> getRegistrationByQRCode(String qrCode) async {
     try {
@@ -210,19 +237,5 @@ class RegistrationService {
     } catch (e) {
       throw Exception('Lỗi lấy đăng ký theo QR: ${e.toString()}');
     }
-  }
-
-  // Stream để theo dõi đăng ký real-time
-  Stream<List<RegistrationModel>> getUserRegistrationsStream(String userId) {
-    return _firestore
-        .collection(AppConstants.registrationsCollection)
-        .where('userId', isEqualTo: userId)
-        .orderBy('registeredAt', descending: true)
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map((doc) => RegistrationModel.fromFirestore(doc))
-              .toList(),
-        );
   }
 }

@@ -228,6 +228,10 @@ class EventCard extends StatelessWidget {
     switch (status) {
       case AppConstants.eventPublished:
         return AppColors.success;
+      case 'pending':
+        return AppColors.warning;
+      case 'rejected':
+        return AppColors.error;
       case AppConstants.eventDraft:
         return AppColors.warning;
       case AppConstants.eventCancelled:
@@ -243,6 +247,10 @@ class EventCard extends StatelessWidget {
     switch (status) {
       case AppConstants.eventPublished:
         return 'Đã xuất bản';
+      case 'pending':
+        return 'Chờ duyệt';
+      case 'rejected':
+        return 'Từ chối';
       case AppConstants.eventDraft:
         return 'Bản nháp';
       case AppConstants.eventCancelled:

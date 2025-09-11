@@ -73,6 +73,8 @@ dependencies:
   uuid: ^4.5.1
   url_launcher: ^6.3.1
   path: ^1.9.0
+  http: ^1.1.0
+  crypto: ^3.0.3
 
 dev_dependencies:
   flutter_test:

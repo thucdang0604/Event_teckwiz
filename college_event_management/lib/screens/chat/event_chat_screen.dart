@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
+import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import '../../models/chat_message_model.dart';
 import '../../providers/auth_provider.dart';
@@ -20,6 +21,8 @@ class _EventChatScreenState extends State<EventChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final ImagePicker _imagePicker = ImagePicker();
+  final ImageService _imageService = ImageService();
 
   @override
   void dispose() {
@@ -73,17 +76,17 @@ class _EventChatScreenState extends State<EventChatScreen> {
 
   void _sendImage() async {
     try {
-      final File? imageFile = await ImageService.pickImageFromGallery();
-      if (imageFile == null) return;
+      final XFile? pickedFile = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+      );
+      if (pickedFile == null) return;
 
+      final File imageFile = File(pickedFile.path);
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       if (authProvider.currentUser == null) return;
 
       // Upload image
-      final String imageUrl = await ImageService.uploadImage(
-        imageFile: imageFile,
-        folder: 'event_chat_images',
-      );
+      final String imageUrl = await _imageService.uploadImage(imageFile);
 
       // Send message with image
       final message = ChatMessageModel(

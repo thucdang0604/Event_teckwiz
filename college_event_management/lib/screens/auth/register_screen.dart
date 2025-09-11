@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../constants/app_colors.dart';
+import '../../widgets/custom_text_field.dart';
+import '../../widgets/custom_button.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -11,8 +13,7 @@ class RegisterScreen extends StatefulWidget {
   State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _RegisterScreenState extends State<RegisterScreen>
-    with TickerProviderStateMixin {
+class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -20,61 +21,26 @@ class _RegisterScreenState extends State<RegisterScreen>
   final _fullNameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _studentIdController = TextEditingController();
+  final _departmentController = TextEditingController();
 
   String _selectedRole = 'student';
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
-  bool _isLoading = false;
-
-  late AnimationController _fadeController;
-  late AnimationController _slideController;
-  late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _fadeController = AnimationController(
-      duration: const Duration(milliseconds: 1000),
-      vsync: this,
-    );
-    _slideController = AnimationController(
-      duration: const Duration(milliseconds: 800),
-      vsync: this,
-    );
-
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
-    );
-
-    _slideAnimation =
-        Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(
-          CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic),
-        );
-
-    _fadeController.forward();
-    _slideController.forward();
-  }
 
   @override
   void dispose() {
-    _fadeController.dispose();
-    _slideController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _fullNameController.dispose();
     _phoneController.dispose();
     _studentIdController.dispose();
+    _departmentController.dispose();
     super.dispose();
   }
 
   void _register() async {
     if (_formKey.currentState!.validate()) {
-      setState(() {
-        _isLoading = true;
-      });
-
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
       bool success = await authProvider.register(
@@ -84,766 +50,309 @@ class _RegisterScreenState extends State<RegisterScreen>
         phoneNumber: _phoneController.text.trim().isNotEmpty
             ? _phoneController.text.trim()
             : null,
-        studentId:
-            _selectedRole == 'student' &&
-                _studentIdController.text.trim().isNotEmpty
+        studentId: _studentIdController.text.trim().isNotEmpty
             ? _studentIdController.text.trim()
             : null,
-        department: null,
+        department: _departmentController.text.trim().isNotEmpty
+            ? _departmentController.text.trim()
+            : null,
         role: _selectedRole,
       );
 
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+      if (success && mounted) {
+        // Xóa form
+        _emailController.clear();
+        _passwordController.clear();
+        _confirmPasswordController.clear();
+        _fullNameController.clear();
+        _phoneController.clear();
+        _studentIdController.clear();
+        _departmentController.clear();
 
-        if (success) {
-          // Xóa form
-          _emailController.clear();
-          _passwordController.clear();
-          _confirmPasswordController.clear();
-          _fullNameController.clear();
-          _phoneController.clear();
-          _studentIdController.clear();
+        // Hiển thị thông báo thành công
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Đăng ký thành công!'),
+            backgroundColor: AppColors.success,
+          ),
+        );
 
-          // Hiển thị thông báo thành công
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Registration successful!'),
-              backgroundColor: Colors.green,
-            ),
-          );
-
-          // Chuyển trang
-          context.go('/home');
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(authProvider.errorMessage ?? 'Registration failed'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
+        // Chuyển trang
+        context.go('/home');
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(authProvider.errorMessage ?? 'Đăng ký thất bại'),
+            backgroundColor: AppColors.error,
+          ),
+        );
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
-    final isSmallScreen = screenHeight < 700;
-    final isMobile = screenWidth < 600;
-
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF667eea), Color(0xFF764ba2)],
-          ),
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.primary,
+        foregroundColor: AppColors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: AppColors.white),
+          onPressed: () => context.go('/login'),
         ),
-        child: SafeArea(
-          child: FadeTransition(
-            opacity: _fadeAnimation,
-            child: SlideTransition(
-              position: _slideAnimation,
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  return SingleChildScrollView(
-                    physics: const BouncingScrollPhysics(),
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight: constraints.maxHeight,
+      ),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          return SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight - 48,
+                ),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Title
+                      const Text(
+                        'Tạo tài khoản mới',
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimary,
+                        ),
                       ),
-                      child: IntrinsicHeight(
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: isMobile
-                                ? screenWidth * 0.05
-                                : screenWidth * 0.06,
-                            vertical: isSmallScreen ? 6 : 10,
-                          ),
-                          child: Column(
-                            children: [
-                              // Header Section
-                              Column(
-                                children: [
-                                  SizedBox(height: isMobile ? 10 : 15),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Điền thông tin để đăng ký',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
 
-                                  // Back Button
-                                  Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: IconButton(
-                                      onPressed: () {
-                                        if (Navigator.canPop(context)) {
-                                          context.pop();
-                                        } else {
-                                          context.go('/login');
-                                        }
-                                      },
-                                      icon: Icon(
-                                        Icons.arrow_back_ios,
-                                        color: Colors.white,
-                                        size: isMobile ? 20 : 24,
-                                      ),
-                                    ),
-                                  ),
+                      const SizedBox(height: 32),
 
-                                  SizedBox(height: isMobile ? 8 : 12),
+                      // Full Name
+                      CustomTextField(
+                        controller: _fullNameController,
+                        label: 'Họ và tên *',
+                        hint: 'Nhập họ và tên của bạn',
+                        prefixIcon: Icons.person_outlined,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Vui lòng nhập họ và tên';
+                          }
+                          return null;
+                        },
+                      ),
 
-                                  // Logo
-                                  Container(
-                                    width: isMobile
-                                        ? 45
-                                        : (isSmallScreen ? 50 : 60),
-                                    height: isMobile
-                                        ? 45
-                                        : (isSmallScreen ? 50 : 60),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(
-                                        isMobile ? 15 : 20,
-                                      ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withOpacity(0.1),
-                                          blurRadius: isMobile ? 15 : 20,
-                                          offset: const Offset(0, 8),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Icon(
-                                      Icons.person_add,
-                                      size: isMobile
-                                          ? 25
-                                          : (isSmallScreen ? 30 : 35),
-                                      color: const Color(0xFF667eea),
-                                    ),
-                                  ),
+                      const SizedBox(height: 16),
 
-                                  SizedBox(
-                                    height: isMobile
-                                        ? 8
-                                        : (isSmallScreen ? 10 : 15),
-                                  ),
+                      // Email
+                      CustomTextField(
+                        controller: _emailController,
+                        label: 'Email *',
+                        hint: 'Nhập email của bạn',
+                        keyboardType: TextInputType.emailAddress,
+                        prefixIcon: Icons.email_outlined,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Vui lòng nhập email';
+                          }
+                          if (!value.contains('@')) {
+                            return 'Email không hợp lệ';
+                          }
+                          return null;
+                        },
+                      ),
 
-                                  // Title
-                                  Text(
-                                    'Create Account',
-                                    style: TextStyle(
-                                      fontSize: isMobile
-                                          ? 18
-                                          : (isSmallScreen ? 20 : 24),
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                    ),
-                                  ),
+                      const SizedBox(height: 16),
 
-                                  SizedBox(height: isMobile ? 2 : 4),
+                      // Phone Number
+                      CustomTextField(
+                        controller: _phoneController,
+                        label: 'Số điện thoại',
+                        hint: 'Nhập số điện thoại (không bắt buộc)',
+                        keyboardType: TextInputType.phone,
+                        prefixIcon: Icons.phone_outlined,
+                      ),
 
-                                  // Subtitle
-                                  Text(
-                                    'Join us and start your journey',
-                                    style: TextStyle(
-                                      fontSize: isMobile
-                                          ? 11
-                                          : (isSmallScreen ? 12 : 14),
-                                      color: Colors.white.withOpacity(0.8),
-                                    ),
-                                  ),
+                      const SizedBox(height: 16),
 
-                                  SizedBox(
-                                    height: isMobile
-                                        ? 8
-                                        : (isSmallScreen ? 10 : 15),
-                                  ),
-                                ],
+                      // Student ID
+                      CustomTextField(
+                        controller: _studentIdController,
+                        label: 'Mã sinh viên',
+                        hint: 'Nhập mã sinh viên (không bắt buộc)',
+                        prefixIcon: Icons.badge_outlined,
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // Department
+                      CustomTextField(
+                        controller: _departmentController,
+                        label: 'Khoa/Bộ môn',
+                        hint: 'Nhập khoa/bộ môn (không bắt buộc)',
+                        prefixIcon: Icons.school_outlined,
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // Role Selection
+                      const Text(
+                        'Vai trò *',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: AppColors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppColors.grey),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _selectedRole,
+                            isExpanded: true,
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'student',
+                                child: Text('Sinh viên'),
                               ),
-
-                              SizedBox(height: isMobile ? 15 : 20),
-
-                              // Registration Form Card
-                              Flexible(
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(
-                                      isMobile ? 15 : 20,
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.1),
-                                        blurRadius: isMobile ? 15 : 20,
-                                        offset: const Offset(0, 8),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Padding(
-                                    padding: EdgeInsets.all(
-                                      isMobile ? 14 : (isSmallScreen ? 16 : 20),
-                                    ),
-                                    child: Form(
-                                      key: _formKey,
-                                      child: Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          // Full Name Field
-                                          Container(
-                                            decoration: BoxDecoration(
-                                              color: Colors.grey[50],
-                                              borderRadius:
-                                                  BorderRadius.circular(
-                                                    isMobile ? 10 : 12,
-                                                  ),
-                                              border: Border.all(
-                                                color: Colors.grey[300]!,
-                                                width: 1,
-                                              ),
-                                            ),
-                                            child: TextFormField(
-                                              controller: _fullNameController,
-                                              decoration: InputDecoration(
-                                                labelText: 'Full Name',
-                                                hintText:
-                                                    'Enter your full name',
-                                                border: InputBorder.none,
-                                                contentPadding:
-                                                    EdgeInsets.symmetric(
-                                                      horizontal: isMobile
-                                                          ? 14
-                                                          : 16,
-                                                      vertical: isMobile
-                                                          ? 14
-                                                          : 16,
-                                                    ),
-                                                labelStyle: TextStyle(
-                                                  color: Colors.grey[600],
-                                                  fontSize: isMobile ? 13 : 14,
-                                                ),
-                                                hintStyle: TextStyle(
-                                                  color: Colors.grey[400],
-                                                  fontSize: isMobile ? 13 : 14,
-                                                ),
-                                              ),
-                                              style: TextStyle(
-                                                fontSize: isMobile ? 13 : 14,
-                                              ),
-                                              validator: (value) {
-                                                if (value == null ||
-                                                    value.isEmpty) {
-                                                  return 'Please enter your full name';
-                                                }
-                                                return null;
-                                              },
-                                            ),
-                                          ),
-
-                                          SizedBox(
-                                            height: isMobile
-                                                ? 10
-                                                : (isSmallScreen ? 12 : 16),
-                                          ),
-
-                                          // Email Field
-                                          Container(
-                                            decoration: BoxDecoration(
-                                              color: Colors.grey[50],
-                                              borderRadius:
-                                                  BorderRadius.circular(
-                                                    isMobile ? 10 : 12,
-                                                  ),
-                                              border: Border.all(
-                                                color: Colors.grey[300]!,
-                                                width: 1,
-                                              ),
-                                            ),
-                                            child: TextFormField(
-                                              controller: _emailController,
-                                              keyboardType:
-                                                  TextInputType.emailAddress,
-                                              decoration: InputDecoration(
-                                                labelText: 'Email',
-                                                hintText: 'Enter your email',
-                                                border: InputBorder.none,
-                                                contentPadding:
-                                                    EdgeInsets.symmetric(
-                                                      horizontal: isMobile
-                                                          ? 14
-                                                          : 16,
-                                                      vertical: isMobile
-                                                          ? 14
-                                                          : 16,
-                                                    ),
-                                                labelStyle: TextStyle(
-                                                  color: Colors.grey[600],
-                                                  fontSize: isMobile ? 13 : 14,
-                                                ),
-                                                hintStyle: TextStyle(
-                                                  color: Colors.grey[400],
-                                                  fontSize: isMobile ? 13 : 14,
-                                                ),
-                                              ),
-                                              style: TextStyle(
-                                                fontSize: isMobile ? 13 : 14,
-                                              ),
-                                              validator: (value) {
-                                                if (value == null ||
-                                                    value.isEmpty) {
-                                                  return 'Please enter your email';
-                                                }
-                                                if (!RegExp(
-                                                  r'^[^@]+@[^@]+\.[^@]+',
-                                                ).hasMatch(value)) {
-                                                  return 'Please enter a valid email';
-                                                }
-                                                return null;
-                                              },
-                                            ),
-                                          ),
-
-                                          SizedBox(
-                                            height: isMobile
-                                                ? 10
-                                                : (isSmallScreen ? 12 : 16),
-                                          ),
-
-                                          // Phone Field
-                                          Container(
-                                            decoration: BoxDecoration(
-                                              color: Colors.grey[50],
-                                              borderRadius:
-                                                  BorderRadius.circular(
-                                                    isMobile ? 10 : 12,
-                                                  ),
-                                              border: Border.all(
-                                                color: Colors.grey[300]!,
-                                                width: 1,
-                                              ),
-                                            ),
-                                            child: TextFormField(
-                                              controller: _phoneController,
-                                              keyboardType: TextInputType.phone,
-                                              decoration: InputDecoration(
-                                                labelText:
-                                                    'Phone Number (Optional)',
-                                                hintText:
-                                                    'Enter your phone number',
-                                                border: InputBorder.none,
-                                                contentPadding:
-                                                    EdgeInsets.symmetric(
-                                                      horizontal: isMobile
-                                                          ? 14
-                                                          : 16,
-                                                      vertical: isMobile
-                                                          ? 14
-                                                          : 16,
-                                                    ),
-                                                labelStyle: TextStyle(
-                                                  color: Colors.grey[600],
-                                                  fontSize: isMobile ? 13 : 14,
-                                                ),
-                                                hintStyle: TextStyle(
-                                                  color: Colors.grey[400],
-                                                  fontSize: isMobile ? 13 : 14,
-                                                ),
-                                              ),
-                                              style: TextStyle(
-                                                fontSize: isMobile ? 13 : 14,
-                                              ),
-                                            ),
-                                          ),
-
-                                          SizedBox(
-                                            height: isMobile
-                                                ? 10
-                                                : (isSmallScreen ? 12 : 16),
-                                          ),
-
-                                          // Student ID Field (only for students)
-                                          if (_selectedRole == 'student') ...[
-                                            Container(
-                                              decoration: BoxDecoration(
-                                                color: Colors.grey[50],
-                                                borderRadius:
-                                                    BorderRadius.circular(
-                                                      isMobile ? 10 : 12,
-                                                    ),
-                                                border: Border.all(
-                                                  color: Colors.grey[300]!,
-                                                  width: 1,
-                                                ),
-                                              ),
-                                              child: TextFormField(
-                                                controller:
-                                                    _studentIdController,
-                                                decoration: InputDecoration(
-                                                  labelText: 'Student ID',
-                                                  hintText:
-                                                      'Enter your student ID',
-                                                  border: InputBorder.none,
-                                                  contentPadding:
-                                                      EdgeInsets.symmetric(
-                                                        horizontal: isMobile
-                                                            ? 14
-                                                            : 16,
-                                                        vertical: isMobile
-                                                            ? 14
-                                                            : 16,
-                                                      ),
-                                                  labelStyle: TextStyle(
-                                                    color: Colors.grey[600],
-                                                    fontSize: isMobile
-                                                        ? 13
-                                                        : 14,
-                                                  ),
-                                                  hintStyle: TextStyle(
-                                                    color: Colors.grey[400],
-                                                    fontSize: isMobile
-                                                        ? 13
-                                                        : 14,
-                                                  ),
-                                                ),
-                                                style: TextStyle(
-                                                  fontSize: isMobile ? 13 : 14,
-                                                ),
-                                                validator: (value) {
-                                                  if (_selectedRole ==
-                                                          'student' &&
-                                                      (value == null ||
-                                                          value.isEmpty)) {
-                                                    return 'Please enter your student ID';
-                                                  }
-                                                  return null;
-                                                },
-                                              ),
-                                            ),
-
-                                            SizedBox(
-                                              height: isMobile
-                                                  ? 10
-                                                  : (isSmallScreen ? 12 : 16),
-                                            ),
-                                          ],
-
-                                          // Role Selection
-                                          Container(
-                                            decoration: BoxDecoration(
-                                              color: Colors.grey[50],
-                                              borderRadius:
-                                                  BorderRadius.circular(
-                                                    isMobile ? 10 : 12,
-                                                  ),
-                                              border: Border.all(
-                                                color: Colors.grey[300]!,
-                                                width: 1,
-                                              ),
-                                            ),
-                                            child: Padding(
-                                              padding: EdgeInsets.symmetric(
-                                                horizontal: isMobile ? 14 : 16,
-                                                vertical: isMobile ? 4 : 8,
-                                              ),
-                                              child: DropdownButtonHideUnderline(
-                                                child: DropdownButton<String>(
-                                                  value: _selectedRole,
-                                                  isExpanded: true,
-                                                  style: TextStyle(
-                                                    fontSize: isMobile
-                                                        ? 13
-                                                        : 14,
-                                                    color: Colors.grey[800],
-                                                  ),
-                                                  items: const [
-                                                    DropdownMenuItem(
-                                                      value: 'student',
-                                                      child: Text('Student'),
-                                                    ),
-                                                    DropdownMenuItem(
-                                                      value: 'organizer',
-                                                      child: Text('Organizer'),
-                                                    ),
-                                                  ],
-                                                  onChanged: (value) {
-                                                    setState(() {
-                                                      _selectedRole = value!;
-                                                      if (_selectedRole ==
-                                                          'organizer') {
-                                                        _studentIdController
-                                                            .clear();
-                                                      }
-                                                    });
-                                                  },
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-
-                                          SizedBox(
-                                            height: isMobile
-                                                ? 10
-                                                : (isSmallScreen ? 12 : 16),
-                                          ),
-
-                                          // Password Field
-                                          Container(
-                                            decoration: BoxDecoration(
-                                              color: Colors.grey[50],
-                                              borderRadius:
-                                                  BorderRadius.circular(
-                                                    isMobile ? 10 : 12,
-                                                  ),
-                                              border: Border.all(
-                                                color: Colors.grey[300]!,
-                                                width: 1,
-                                              ),
-                                            ),
-                                            child: TextFormField(
-                                              controller: _passwordController,
-                                              obscureText: _obscurePassword,
-                                              decoration: InputDecoration(
-                                                labelText: 'Password',
-                                                hintText: 'Enter your password',
-                                                border: InputBorder.none,
-                                                contentPadding:
-                                                    EdgeInsets.symmetric(
-                                                      horizontal: isMobile
-                                                          ? 14
-                                                          : 16,
-                                                      vertical: isMobile
-                                                          ? 14
-                                                          : 16,
-                                                    ),
-                                                suffixIcon: IconButton(
-                                                  onPressed: () {
-                                                    setState(() {
-                                                      _obscurePassword =
-                                                          !_obscurePassword;
-                                                    });
-                                                  },
-                                                  icon: Icon(
-                                                    _obscurePassword
-                                                        ? Icons.visibility_off
-                                                        : Icons.visibility,
-                                                    color: Colors.grey[600],
-                                                    size: isMobile ? 18 : 20,
-                                                  ),
-                                                ),
-                                                labelStyle: TextStyle(
-                                                  color: Colors.grey[600],
-                                                  fontSize: isMobile ? 13 : 14,
-                                                ),
-                                                hintStyle: TextStyle(
-                                                  color: Colors.grey[400],
-                                                  fontSize: isMobile ? 13 : 14,
-                                                ),
-                                              ),
-                                              style: TextStyle(
-                                                fontSize: isMobile ? 13 : 14,
-                                              ),
-                                              validator: (value) {
-                                                if (value == null ||
-                                                    value.isEmpty) {
-                                                  return 'Please enter your password';
-                                                }
-                                                if (value.length < 6) {
-                                                  return 'Password must be at least 6 characters';
-                                                }
-                                                return null;
-                                              },
-                                            ),
-                                          ),
-
-                                          SizedBox(
-                                            height: isMobile
-                                                ? 10
-                                                : (isSmallScreen ? 12 : 16),
-                                          ),
-
-                                          // Confirm Password Field
-                                          Container(
-                                            decoration: BoxDecoration(
-                                              color: Colors.grey[50],
-                                              borderRadius:
-                                                  BorderRadius.circular(
-                                                    isMobile ? 10 : 12,
-                                                  ),
-                                              border: Border.all(
-                                                color: Colors.grey[300]!,
-                                                width: 1,
-                                              ),
-                                            ),
-                                            child: TextFormField(
-                                              controller:
-                                                  _confirmPasswordController,
-                                              obscureText:
-                                                  _obscureConfirmPassword,
-                                              decoration: InputDecoration(
-                                                labelText: 'Confirm Password',
-                                                hintText:
-                                                    'Confirm your password',
-                                                border: InputBorder.none,
-                                                contentPadding:
-                                                    EdgeInsets.symmetric(
-                                                      horizontal: isMobile
-                                                          ? 14
-                                                          : 16,
-                                                      vertical: isMobile
-                                                          ? 14
-                                                          : 16,
-                                                    ),
-                                                suffixIcon: IconButton(
-                                                  onPressed: () {
-                                                    setState(() {
-                                                      _obscureConfirmPassword =
-                                                          !_obscureConfirmPassword;
-                                                    });
-                                                  },
-                                                  icon: Icon(
-                                                    _obscureConfirmPassword
-                                                        ? Icons.visibility_off
-                                                        : Icons.visibility,
-                                                    color: Colors.grey[600],
-                                                    size: isMobile ? 18 : 20,
-                                                  ),
-                                                ),
-                                                labelStyle: TextStyle(
-                                                  color: Colors.grey[600],
-                                                  fontSize: isMobile ? 13 : 14,
-                                                ),
-                                                hintStyle: TextStyle(
-                                                  color: Colors.grey[400],
-                                                  fontSize: isMobile ? 13 : 14,
-                                                ),
-                                              ),
-                                              style: TextStyle(
-                                                fontSize: isMobile ? 13 : 14,
-                                              ),
-                                              validator: (value) {
-                                                if (value == null ||
-                                                    value.isEmpty) {
-                                                  return 'Please confirm your password';
-                                                }
-                                                if (value !=
-                                                    _passwordController.text) {
-                                                  return 'Passwords do not match';
-                                                }
-                                                return null;
-                                              },
-                                            ),
-                                          ),
-
-                                          SizedBox(
-                                            height: isMobile
-                                                ? 12
-                                                : (isSmallScreen ? 16 : 20),
-                                          ),
-
-                                          // Register Button
-                                          SizedBox(
-                                            width: double.infinity,
-                                            height: isMobile
-                                                ? 50
-                                                : (isSmallScreen ? 52 : 56),
-                                            child: ElevatedButton(
-                                              onPressed: _isLoading
-                                                  ? null
-                                                  : _register,
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor:
-                                                    AppColors.primary,
-                                                foregroundColor: Colors.white,
-                                                elevation: 0,
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(
-                                                        isMobile ? 10 : 12,
-                                                      ),
-                                                ),
-                                              ),
-                                              child: _isLoading
-                                                  ? SizedBox(
-                                                      width: 20,
-                                                      height: 20,
-                                                      child: CircularProgressIndicator(
-                                                        strokeWidth: 2,
-                                                        valueColor:
-                                                            AlwaysStoppedAnimation<
-                                                              Color
-                                                            >(Colors.white),
-                                                      ),
-                                                    )
-                                                  : Text(
-                                                      'Create Account',
-                                                      style: TextStyle(
-                                                        fontSize: isMobile
-                                                            ? 13
-                                                            : (isSmallScreen
-                                                                  ? 14
-                                                                  : 16),
-                                                        fontWeight:
-                                                            FontWeight.w600,
-                                                      ),
-                                                    ),
-                                            ),
-                                          ),
-
-                                          SizedBox(
-                                            height: isMobile
-                                                ? 10
-                                                : (isSmallScreen ? 12 : 16),
-                                          ),
-
-                                          // Login Link
-                                          Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            children: [
-                                              Text(
-                                                "Already have an account? ",
-                                                style: TextStyle(
-                                                  fontSize: isMobile ? 11 : 12,
-                                                  color: Colors.grey[600],
-                                                ),
-                                              ),
-                                              GestureDetector(
-                                                onTap: () {
-                                                  context.go('/login');
-                                                },
-                                                child: Text(
-                                                  'Sign In',
-                                                  style: TextStyle(
-                                                    fontSize: isMobile
-                                                        ? 11
-                                                        : 12,
-                                                    color: AppColors.primary,
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
+                              DropdownMenuItem(
+                                value: 'organizer',
+                                child: Text('Người tổ chức'),
                               ),
                             ],
+                            onChanged: (value) {
+                              setState(() {
+                                _selectedRole = value!;
+                              });
+                            },
                           ),
                         ),
                       ),
-                    ),
-                  );
-                },
+
+                      const SizedBox(height: 16),
+
+                      // Password
+                      CustomTextField(
+                        controller: _passwordController,
+                        label: 'Mật khẩu *',
+                        hint: 'Nhập mật khẩu của bạn',
+                        obscureText: _obscurePassword,
+                        prefixIcon: Icons.lock_outlined,
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility
+                                : Icons.visibility_off,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _obscurePassword = !_obscurePassword;
+                            });
+                          },
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Vui lòng nhập mật khẩu';
+                          }
+                          if (value.length < 6) {
+                            return 'Mật khẩu phải có ít nhất 6 ký tự';
+                          }
+                          return null;
+                        },
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // Confirm Password
+                      CustomTextField(
+                        controller: _confirmPasswordController,
+                        label: 'Xác nhận mật khẩu *',
+                        hint: 'Nhập lại mật khẩu',
+                        obscureText: _obscureConfirmPassword,
+                        prefixIcon: Icons.lock_outlined,
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscureConfirmPassword
+                                ? Icons.visibility
+                                : Icons.visibility_off,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _obscureConfirmPassword =
+                                  !_obscureConfirmPassword;
+                            });
+                          },
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Vui lòng xác nhận mật khẩu';
+                          }
+                          if (value != _passwordController.text) {
+                            return 'Mật khẩu xác nhận không khớp';
+                          }
+                          return null;
+                        },
+                      ),
+
+                      const SizedBox(height: 32),
+
+                      // Register Button
+                      Consumer<AuthProvider>(
+                        builder: (context, authProvider, _) {
+                          return CustomButton(
+                            text: 'Đăng ký',
+                            onPressed: authProvider.isLoading
+                                ? null
+                                : _register,
+                            isLoading: authProvider.isLoading,
+                          );
+                        },
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // Login Link
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text(
+                            'Đã có tài khoản? ',
+                            style: TextStyle(color: AppColors.textSecondary),
+                          ),
+                          TextButton(
+                            onPressed: () => context.go('/login'),
+                            child: const Text(
+                              'Đăng nhập ngay',
+                              style: TextStyle(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }

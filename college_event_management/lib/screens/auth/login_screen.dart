@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import '../../providers/auth_provider.dart';
 import '../../constants/app_colors.dart';
+import '../../widgets/custom_text_field.dart';
+import '../../widgets/custom_button.dart';
+import '../../providers/auth_provider.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -11,506 +13,376 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen>
-    with TickerProviderStateMixin {
+class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  bool _isPasswordVisible = false;
+  bool _obscurePassword = true;
   bool _isLoading = false;
-
-  late AnimationController _animationController;
-  late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 1000),
-      vsync: this,
-    );
-
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
-    );
-
-    _slideAnimation =
-        Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(
-          CurvedAnimation(
-            parent: _animationController,
-            curve: Curves.easeOutCubic,
-          ),
-        );
-
-    _animationController.forward();
-  }
 
   @override
   void dispose() {
-    _animationController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
-  Future<void> _login() async {
-    if (!_formKey.currentState!.validate()) return;
+  void _login() async {
+    if (_formKey.currentState!.validate()) {
+      setState(() {
+        _isLoading = true;
+      });
 
+      try {
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        bool success = await authProvider.signIn(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+        );
+
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+
+          if (success && authProvider.isAuthenticated) {
+            // Xóa form
+            _emailController.clear();
+            _passwordController.clear();
+
+            // Hiển thị thông báo thành công
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Đăng nhập thành công!'),
+                backgroundColor: AppColors.success,
+              ),
+            );
+
+            // Chuyển trang
+            context.go('/home');
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  authProvider.errorMessage ?? 'Đăng nhập thất bại',
+                ),
+                backgroundColor: AppColors.error,
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Lỗi đăng nhập: ${e.toString()}'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  void _goToRegister() {
+    context.go('/register');
+  }
+
+  void _loginDemo() async {
     setState(() {
       _isLoading = true;
     });
 
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      await authProvider.signIn(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
-      );
+      bool success = await authProvider.signInAnonymously();
 
-      if (mounted) {
-        context.go('/home');
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Login failed: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
       if (mounted) {
         setState(() {
           _isLoading = false;
         });
+
+        if (success && authProvider.isAuthenticated) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Đăng nhập demo thành công!'),
+              backgroundColor: AppColors.success,
+            ),
+          );
+          context.go('/home');
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                authProvider.errorMessage ?? 'Đăng nhập demo thất bại',
+              ),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi đăng nhập demo: ${e.toString()}'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
+  void _createTestAdmin() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      bool success = await authProvider.register(
+        email: 'admin@test.com',
+        password: '123456',
+        fullName: 'Admin Test',
+        role: 'admin',
+      );
+
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+
+        if (success && authProvider.isAuthenticated) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Tạo tài khoản admin thành công!'),
+              backgroundColor: AppColors.success,
+            ),
+          );
+          context.go('/home');
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                authProvider.errorMessage ?? 'Tạo tài khoản admin thất bại',
+              ),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi tạo tài khoản admin: ${e.toString()}'),
+            backgroundColor: AppColors.error,
+          ),
+        );
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
-    final isSmallScreen = screenHeight < 700;
-    final isMobile = screenWidth < 600;
-
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF667eea), Color(0xFF764ba2)],
-          ),
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.primary,
+        foregroundColor: AppColors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: AppColors.white),
+          onPressed: () => context.go('/home'),
         ),
-        child: SafeArea(
-          child: FadeTransition(
-            opacity: _fadeAnimation,
-            child: SlideTransition(
-              position: _slideAnimation,
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  return SingleChildScrollView(
-                    physics: const BouncingScrollPhysics(),
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight: constraints.maxHeight,
-                      ),
-                      child: IntrinsicHeight(
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: isMobile
-                                ? screenWidth * 0.05
-                                : screenWidth * 0.06,
-                            vertical: isSmallScreen ? 6 : 10,
+      ),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          return SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight - 48, // 48 = padding
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SizedBox(height: 60),
+
+                    // Logo and Title
+                    Column(
+                      children: [
+                        Container(
+                          width: 80,
+                          height: 80,
+                          decoration: BoxDecoration(
+                            color: AppColors.primary,
+                            borderRadius: BorderRadius.circular(20),
                           ),
-                          child: Column(
-                            children: [
-                              // Header Section
-                              Column(
-                                children: [
-                                  SizedBox(height: isMobile ? 10 : 15),
-
-                                  // Back Button
-                                  Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: IconButton(
-                                      onPressed: () {
-                                        if (Navigator.canPop(context)) {
-                                          context.pop();
-                                        } else {
-                                          context.go('/splash');
-                                        }
-                                      },
-                                      icon: Icon(
-                                        Icons.arrow_back_ios,
-                                        color: Colors.white,
-                                        size: isMobile ? 20 : 24,
-                                      ),
-                                    ),
-                                  ),
-
-                                  SizedBox(height: isMobile ? 8 : 12),
-
-                                  // Logo
-                                  Container(
-                                    width: isMobile
-                                        ? 45
-                                        : (isSmallScreen ? 50 : 60),
-                                    height: isMobile
-                                        ? 45
-                                        : (isSmallScreen ? 50 : 60),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(
-                                        isMobile ? 15 : 20,
-                                      ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withOpacity(0.1),
-                                          blurRadius: isMobile ? 15 : 20,
-                                          offset: const Offset(0, 8),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Icon(
-                                      Icons.event,
-                                      size: isMobile
-                                          ? 25
-                                          : (isSmallScreen ? 30 : 35),
-                                      color: const Color(0xFF667eea),
-                                    ),
-                                  ),
-
-                                  SizedBox(
-                                    height: isMobile
-                                        ? 8
-                                        : (isSmallScreen ? 10 : 15),
-                                  ),
-
-                                  // Title
-                                  Text(
-                                    'Welcome Back!',
-                                    style: TextStyle(
-                                      fontSize: isMobile
-                                          ? 18
-                                          : (isSmallScreen ? 20 : 24),
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-
-                                  SizedBox(height: isMobile ? 2 : 4),
-
-                                  // Subtitle
-                                  Text(
-                                    'Sign in to continue',
-                                    style: TextStyle(
-                                      fontSize: isMobile
-                                          ? 11
-                                          : (isSmallScreen ? 12 : 14),
-                                      color: Colors.white.withOpacity(0.8),
-                                    ),
-                                  ),
-
-                                  SizedBox(
-                                    height: isMobile
-                                        ? 8
-                                        : (isSmallScreen ? 10 : 15),
-                                  ),
-                                ],
-                              ),
-
-                              // Login Form Card
-                              Flexible(
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(
-                                      isMobile ? 15 : 20,
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.1),
-                                        blurRadius: isMobile ? 15 : 20,
-                                        offset: const Offset(0, 8),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Padding(
-                                    padding: EdgeInsets.all(
-                                      isMobile ? 14 : (isSmallScreen ? 16 : 20),
-                                    ),
-                                    child: Form(
-                                      key: _formKey,
-                                      child: Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          // Email Field
-                                          Container(
-                                            decoration: BoxDecoration(
-                                              color: Colors.grey[50],
-                                              borderRadius:
-                                                  BorderRadius.circular(
-                                                    isMobile ? 10 : 12,
-                                                  ),
-                                              border: Border.all(
-                                                color: Colors.grey[300]!,
-                                                width: 1,
-                                              ),
-                                            ),
-                                            child: TextFormField(
-                                              controller: _emailController,
-                                              keyboardType:
-                                                  TextInputType.emailAddress,
-                                              decoration: InputDecoration(
-                                                labelText: 'Email',
-                                                hintText: 'Enter your email',
-                                                border: InputBorder.none,
-                                                contentPadding:
-                                                    EdgeInsets.symmetric(
-                                                      horizontal: isMobile
-                                                          ? 14
-                                                          : 16,
-                                                      vertical: isMobile
-                                                          ? 14
-                                                          : 16,
-                                                    ),
-                                                labelStyle: TextStyle(
-                                                  color: Colors.grey[600],
-                                                  fontSize: isMobile ? 13 : 14,
-                                                ),
-                                                hintStyle: TextStyle(
-                                                  color: Colors.grey[400],
-                                                  fontSize: isMobile ? 13 : 14,
-                                                ),
-                                              ),
-                                              style: TextStyle(
-                                                fontSize: isMobile ? 13 : 14,
-                                              ),
-                                              validator: (value) {
-                                                if (value == null ||
-                                                    value.isEmpty) {
-                                                  return 'Please enter your email';
-                                                }
-                                                if (!value.contains('@')) {
-                                                  return 'Please enter a valid email';
-                                                }
-                                                return null;
-                                              },
-                                            ),
-                                          ),
-
-                                          SizedBox(
-                                            height: isMobile
-                                                ? 10
-                                                : (isSmallScreen ? 12 : 16),
-                                          ),
-
-                                          // Password Field
-                                          Container(
-                                            decoration: BoxDecoration(
-                                              color: Colors.grey[50],
-                                              borderRadius:
-                                                  BorderRadius.circular(
-                                                    isMobile ? 10 : 12,
-                                                  ),
-                                              border: Border.all(
-                                                color: Colors.grey[300]!,
-                                                width: 1,
-                                              ),
-                                            ),
-                                            child: TextFormField(
-                                              controller: _passwordController,
-                                              obscureText: !_isPasswordVisible,
-                                              decoration: InputDecoration(
-                                                labelText: 'Password',
-                                                hintText: 'Enter your password',
-                                                border: InputBorder.none,
-                                                contentPadding:
-                                                    EdgeInsets.symmetric(
-                                                      horizontal: isMobile
-                                                          ? 14
-                                                          : 16,
-                                                      vertical: isMobile
-                                                          ? 14
-                                                          : 16,
-                                                    ),
-                                                suffixIcon: IconButton(
-                                                  onPressed: () {
-                                                    setState(() {
-                                                      _isPasswordVisible =
-                                                          !_isPasswordVisible;
-                                                    });
-                                                  },
-                                                  icon: Icon(
-                                                    _isPasswordVisible
-                                                        ? Icons.visibility_off
-                                                        : Icons.visibility,
-                                                    color: Colors.grey[600],
-                                                    size: isMobile ? 18 : 20,
-                                                  ),
-                                                ),
-                                                labelStyle: TextStyle(
-                                                  color: Colors.grey[600],
-                                                  fontSize: isMobile ? 13 : 14,
-                                                ),
-                                                hintStyle: TextStyle(
-                                                  color: Colors.grey[400],
-                                                  fontSize: isMobile ? 13 : 14,
-                                                ),
-                                              ),
-                                              style: TextStyle(
-                                                fontSize: isMobile ? 13 : 14,
-                                              ),
-                                              validator: (value) {
-                                                if (value == null ||
-                                                    value.isEmpty) {
-                                                  return 'Please enter your password';
-                                                }
-                                                if (value.length < 6) {
-                                                  return 'Password must be at least 6 characters';
-                                                }
-                                                return null;
-                                              },
-                                            ),
-                                          ),
-
-                                          SizedBox(
-                                            height: isMobile
-                                                ? 6
-                                                : (isSmallScreen ? 8 : 12),
-                                          ),
-
-                                          // Forgot Password
-                                          Align(
-                                            alignment: Alignment.centerRight,
-                                            child: TextButton(
-                                              onPressed: () {
-                                                // TODO: Implement forgot password
-                                              },
-                                              child: Text(
-                                                'Forgot Password?',
-                                                style: TextStyle(
-                                                  color: AppColors.primary,
-                                                  fontSize: isMobile ? 11 : 12,
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-
-                                          SizedBox(
-                                            height: isMobile
-                                                ? 10
-                                                : (isSmallScreen ? 12 : 16),
-                                          ),
-
-                                          // Sign In Button
-                                          SizedBox(
-                                            width: double.infinity,
-                                            height: isMobile
-                                                ? 50
-                                                : (isSmallScreen ? 52 : 56),
-                                            child: ElevatedButton(
-                                              onPressed: _isLoading
-                                                  ? null
-                                                  : _login,
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor:
-                                                    AppColors.primary,
-                                                foregroundColor: Colors.white,
-                                                elevation: 0,
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(
-                                                        isMobile ? 10 : 12,
-                                                      ),
-                                                ),
-                                              ),
-                                              child: _isLoading
-                                                  ? SizedBox(
-                                                      width: 20,
-                                                      height: 20,
-                                                      child: CircularProgressIndicator(
-                                                        strokeWidth: 2,
-                                                        valueColor:
-                                                            AlwaysStoppedAnimation<
-                                                              Color
-                                                            >(Colors.white),
-                                                      ),
-                                                    )
-                                                  : Text(
-                                                      'Sign In',
-                                                      style: TextStyle(
-                                                        fontSize: isMobile
-                                                            ? 13
-                                                            : (isSmallScreen
-                                                                  ? 14
-                                                                  : 16),
-                                                        fontWeight:
-                                                            FontWeight.w600,
-                                                      ),
-                                                    ),
-                                            ),
-                                          ),
-
-                                          SizedBox(
-                                            height: isMobile
-                                                ? 10
-                                                : (isSmallScreen ? 12 : 16),
-                                          ),
-
-                                          // Sign Up Link
-                                          Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            children: [
-                                              Text(
-                                                "Don't have an account? ",
-                                                style: TextStyle(
-                                                  color: Colors.grey[600],
-                                                  fontSize: isMobile ? 11 : 12,
-                                                ),
-                                              ),
-                                              GestureDetector(
-                                                onTap: () {
-                                                  context.go('/register');
-                                                },
-                                                child: Text(
-                                                  'Sign Up',
-                                                  style: TextStyle(
-                                                    color: AppColors.primary,
-                                                    fontSize: isMobile
-                                                        ? 11
-                                                        : 12,
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
+                          child: const Icon(
+                            Icons.event_note,
+                            color: AppColors.white,
+                            size: 40,
                           ),
                         ),
+                        const SizedBox(height: 24),
+                        const Text(
+                          'Chào mừng trở lại!',
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textPrimary,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Đăng nhập để tiếp tục',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: AppColors.textSecondary,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 48),
+
+                    // Login Form
+                    Form(
+                      key: _formKey,
+                      child: Column(
+                        children: [
+                          CustomTextField(
+                            controller: _emailController,
+                            label: 'Email',
+                            hint: 'Nhập email của bạn',
+                            keyboardType: TextInputType.emailAddress,
+                            prefixIcon: Icons.email_outlined,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Vui lòng nhập email';
+                              }
+                              if (!value.contains('@')) {
+                                return 'Email không hợp lệ';
+                              }
+                              return null;
+                            },
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          CustomTextField(
+                            controller: _passwordController,
+                            label: 'Mật khẩu',
+                            hint: 'Nhập mật khẩu của bạn',
+                            obscureText: _obscurePassword,
+                            prefixIcon: Icons.lock_outline,
+                            suffixIcon: IconButton(
+                              onPressed: () {
+                                setState(() {
+                                  _obscurePassword = !_obscurePassword;
+                                });
+                              },
+                              icon: Icon(
+                                _obscurePassword
+                                    ? Icons.visibility
+                                    : Icons.visibility_off,
+                              ),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Vui lòng nhập mật khẩu';
+                              }
+                              if (value.length < 6) {
+                                return 'Mật khẩu phải có ít nhất 6 ký tự';
+                              }
+                              return null;
+                            },
+                          ),
+
+                          const SizedBox(height: 24),
+
+                          CustomButton(
+                            text: 'Đăng nhập',
+                            onPressed: _isLoading ? null : _login,
+                            isLoading: _isLoading,
+                          ),
+                        ],
                       ),
                     ),
-                  );
-                },
+
+                    const SizedBox(height: 24),
+
+                    // Register Link
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text(
+                          'Chưa có tài khoản? ',
+                          style: TextStyle(color: AppColors.textSecondary),
+                        ),
+                        GestureDetector(
+                          onTap: _goToRegister,
+                          child: const Text(
+                            'Đăng ký ngay',
+                            style: TextStyle(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 32),
+
+                    // Demo Buttons
+                    Column(
+                      children: [
+                        TextButton(
+                          onPressed: _isLoading ? null : _loginDemo,
+                          child: const Text(
+                            'Tiếp tục với tài khoản demo',
+                            style: TextStyle(
+                              color: AppColors.primary,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed: _isLoading ? null : _createTestAdmin,
+                          child: const Text(
+                            'Tạo tài khoản admin test',
+                            style: TextStyle(
+                              color: AppColors.secondary,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }

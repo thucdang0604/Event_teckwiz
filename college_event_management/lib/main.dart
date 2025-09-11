@@ -7,6 +7,7 @@ import 'firebase_options.dart';
 
 import 'providers/auth_provider.dart';
 import 'providers/event_provider.dart';
+import 'providers/admin_provider.dart';
 import 'screens/splash_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
@@ -19,6 +20,12 @@ import 'screens/chat/event_chat_screen.dart';
 import 'screens/profile/profile_screen.dart';
 import 'screens/profile/edit_profile_screen.dart';
 import 'screens/settings/settings_screen.dart';
+import 'screens/admin/admin_dashboard_screen.dart';
+import 'screens/admin/user_management_screen.dart';
+import 'screens/admin/event_approval_screen.dart';
+import 'screens/admin/location_management_screen.dart';
+import 'screens/admin/event_statistics_screen.dart';
+import 'screens/admin/location_calendar_screen.dart';
 import 'constants/app_colors.dart';
 import 'services/notification_service.dart';
 
@@ -45,6 +52,7 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => EventProvider()),
+        ChangeNotifierProvider(create: (_) => AdminProvider()),
       ],
       child: Consumer<AuthProvider>(
         builder: (context, authProvider, _) {
@@ -107,7 +115,7 @@ final GoRouter _router = GoRouter(
     ),
     GoRoute(path: '/home', builder: (context, state) => const HomeScreen()),
     GoRoute(
-      path: '/event/:eventId',
+      path: '/event-detail/:eventId',
       builder: (context, state) {
         final eventId = state.pathParameters['eventId']!;
         return EventDetailScreen(eventId: eventId);
@@ -157,6 +165,30 @@ final GoRouter _router = GoRouter(
     GoRoute(
       path: '/settings',
       builder: (context, state) => const SettingsScreen(),
+    ),
+    GoRoute(
+      path: '/admin-dashboard',
+      builder: (context, state) => const AdminDashboardScreen(),
+    ),
+    GoRoute(
+      path: '/admin/users',
+      builder: (context, state) => const UserManagementScreen(),
+    ),
+    GoRoute(
+      path: '/admin/events',
+      builder: (context, state) => const EventApprovalScreen(),
+    ),
+    GoRoute(
+      path: '/admin/locations',
+      builder: (context, state) => const LocationManagementScreen(),
+    ),
+    GoRoute(
+      path: '/admin/statistics',
+      builder: (context, state) => const EventStatisticsScreen(),
+    ),
+    GoRoute(
+      path: '/admin/calendar',
+      builder: (context, state) => const LocationCalendarScreen(),
     ),
   ],
 );

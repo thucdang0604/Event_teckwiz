@@ -191,9 +191,61 @@ class EventService {
               .map((doc) => EventModel.fromFirestore(doc))
               .toList();
 
-          // Lọc chỉ sự kiện đã published
+          // Lọc sự kiện đã published và (còn hạn đăng ký hoặc đang diễn ra)
+          final now = DateTime.now();
+          events = events.where((event) {
+            final isPublished = event.status == AppConstants.eventPublished;
+            final registrationOpen =
+                now.isBefore(event.registrationDeadline) &&
+                event.currentParticipants < event.maxParticipants;
+            final ongoing =
+                now.isAfter(event.startDate) && now.isBefore(event.endDate);
+            return isPublished && (registrationOpen || ongoing);
+          }).toList();
+
+          // Sắp xếp theo createdAt
+          events.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+          return events;
+        });
+  }
+
+  // Stream để theo dõi tất cả sự kiện (bao gồm pending) - dành cho admin
+  Stream<List<EventModel>> getAllEventsStream() {
+    return _firestore
+        .collection(AppConstants.eventsCollection)
+        .where('isActive', isEqualTo: true)
+        .snapshots()
+        .map((snapshot) {
+          List<EventModel> events = snapshot.docs
+              .map((doc) => EventModel.fromFirestore(doc))
+              .toList();
+
+          // Sắp xếp theo createdAt
+          events.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+          return events;
+        });
+  }
+
+  // Stream để theo dõi sự kiện cho organizer - hiển thị sự kiện đã published + sự kiện của organizer
+  Stream<List<EventModel>> getOrganizerEventsStream(String organizerId) {
+    return _firestore
+        .collection(AppConstants.eventsCollection)
+        .where('isActive', isEqualTo: true)
+        .snapshots()
+        .map((snapshot) {
+          List<EventModel> events = snapshot.docs
+              .map((doc) => EventModel.fromFirestore(doc))
+              .toList();
+
+          // Lọc sự kiện: published hoặc của organizer này
           events = events
-              .where((event) => event.status == AppConstants.eventPublished)
+              .where(
+                (event) =>
+                    event.status == AppConstants.eventPublished ||
+                    event.organizerId == organizerId,
+              )
               .toList();
 
           // Sắp xếp theo createdAt
