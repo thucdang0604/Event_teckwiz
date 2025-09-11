@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
+import '../../services/image_service.dart';
 import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../constants/app_colors.dart';
@@ -22,6 +25,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   String _selectedRole = 'student';
   bool _isLoading = false;
+  final ImagePicker _imagePicker = ImagePicker();
+  File? _selectedAvatar;
 
   @override
   void initState() {
@@ -65,6 +70,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       final currentUser = authProvider.currentUser;
 
       if (currentUser != null) {
+        String? avatarUrl = currentUser.profileImageUrl;
+        if (_selectedAvatar != null) {
+          final imageService = ImageService();
+          avatarUrl = await imageService.uploadImage(_selectedAvatar!);
+        }
         final updatedUser = UserModel(
           id: currentUser.id,
           fullName: _fullNameController.text.trim(),
@@ -73,6 +83,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           studentId: _studentIdController.text.trim(),
           department: _departmentController.text.trim(),
           role: _selectedRole,
+          profileImageUrl: avatarUrl,
           createdAt: currentUser.createdAt,
           updatedAt: DateTime.now(),
         );
@@ -139,11 +150,33 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     CircleAvatar(
                       radius: 60,
                       backgroundColor: AppColors.primary.withOpacity(0.1),
-                      child: const Icon(
-                        Icons.person,
-                        size: 60,
-                        color: AppColors.primary,
-                      ),
+                      backgroundImage: _selectedAvatar != null
+                          ? FileImage(_selectedAvatar!)
+                          : (Provider.of<AuthProvider>(
+                                      context,
+                                      listen: false,
+                                    ).currentUser?.profileImageUrl !=
+                                    null
+                                ? NetworkImage(
+                                    Provider.of<AuthProvider>(
+                                      context,
+                                      listen: false,
+                                    ).currentUser!.profileImageUrl!,
+                                  )
+                                : null),
+                      child:
+                          _selectedAvatar == null &&
+                              (Provider.of<AuthProvider>(
+                                    context,
+                                    listen: false,
+                                  ).currentUser?.profileImageUrl ==
+                                  null)
+                          ? const Icon(
+                              Icons.person,
+                              size: 60,
+                              color: AppColors.primary,
+                            )
+                          : null,
                     ),
                     Positioned(
                       bottom: 0,
@@ -154,13 +187,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           shape: BoxShape.circle,
                         ),
                         child: IconButton(
-                          onPressed: () {
-                            // TODO: Implement image picker
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Tính năng đang được phát triển'),
-                              ),
+                          onPressed: () async {
+                            final picked = await _imagePicker.pickImage(
+                              source: ImageSource.gallery,
+                              maxWidth: 1024,
+                              imageQuality: 85,
                             );
+                            if (picked != null) {
+                              setState(() {
+                                _selectedAvatar = File(picked.path);
+                              });
+                            }
                           },
                           icon: const Icon(
                             Icons.camera_alt,

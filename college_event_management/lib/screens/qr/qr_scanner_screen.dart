@@ -27,10 +27,10 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
 
   void _onDetect(BarcodeCapture capture) async {
     final List<Barcode> barcodes = capture.barcodes;
-    
+
     if (barcodes.isNotEmpty) {
       final String qrCode = barcodes.first.rawValue ?? '';
-      
+
       if (qrCode.isEmpty) return;
 
       setState(() {
@@ -77,15 +77,55 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Đánh dấu tham dự thành công!'),
+            content: Text('Check-in thành công!'),
             backgroundColor: AppColors.success,
           ),
         );
-        
+
         setState(() {
           _scannedRegistration = null;
           _isLoading = false;
         });
+        Navigator.pop(context, true);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi: ${e.toString()}'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _markCheckout() async {
+    if (_scannedRegistration == null) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await _registrationService.markCheckout(_scannedRegistration!.id);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Check-out thành công!'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+
+        setState(() {
+          _scannedRegistration = null;
+          _isLoading = false;
+        });
+        Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {
@@ -123,20 +163,15 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
       body: Stack(
         children: [
           // Camera View
-          MobileScanner(
-            controller: controller,
-            onDetect: _onDetect,
-          ),
+          MobileScanner(controller: controller, onDetect: _onDetect),
 
           // Overlay
           Container(
-            decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.5),
-            ),
+            decoration: BoxDecoration(color: Colors.black.withOpacity(0.5)),
             child: Column(
               children: [
                 const Spacer(),
-                
+
                 // Scanning Area
                 Container(
                   margin: const EdgeInsets.symmetric(horizontal: 50),
@@ -147,14 +182,12 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(10),
-                    child: Container(
-                      color: Colors.transparent,
-                    ),
+                    child: Container(color: Colors.transparent),
                   ),
                 ),
-                
+
                 const Spacer(),
-                
+
                 // Instructions
                 Container(
                   padding: const EdgeInsets.all(16),
@@ -282,11 +315,13 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
                       children: [
                         Expanded(
                           child: ElevatedButton(
-                            onPressed: _isLoading ? null : () {
-                              setState(() {
-                                _scannedRegistration = null;
-                              });
-                            },
+                            onPressed: _isLoading
+                                ? null
+                                : () {
+                                    setState(() {
+                                      _scannedRegistration = null;
+                                    });
+                                  },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.grey,
                               foregroundColor: AppColors.white,
@@ -311,7 +346,27 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
                                       color: AppColors.white,
                                     ),
                                   )
-                                : const Text('Xác nhận tham dự'),
+                                : const Text('Check-in'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: _isLoading ? null : _markCheckout,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.warning,
+                              foregroundColor: AppColors.white,
+                            ),
+                            child: _isLoading
+                                ? const SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: AppColors.white,
+                                    ),
+                                  )
+                                : const Text('Check-out'),
                           ),
                         ),
                       ],

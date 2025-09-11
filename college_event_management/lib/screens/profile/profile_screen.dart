@@ -24,6 +24,10 @@ class ProfileScreen extends StatelessWidget {
         return Scaffold(
           appBar: AppBar(
             title: const Text('Hồ sơ'),
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () => context.go('/home'),
+            ),
             actions: [
               IconButton(
                 icon: const Icon(Icons.edit),

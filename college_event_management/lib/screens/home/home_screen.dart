@@ -5,6 +5,8 @@ import '../../constants/app_colors.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/event_provider.dart';
 import '../../services/event_service.dart';
+import '../../services/registration_service.dart';
+import '../../models/registration_model.dart';
 import '../../models/event_model.dart';
 import '../../widgets/event_card.dart';
 import '../../widgets/search_bar.dart' as custom;
@@ -37,11 +39,23 @@ class _HomeScreenState extends State<HomeScreen> {
         foregroundColor: AppColors.white,
         elevation: 0,
         actions: [
-          IconButton(
-            onPressed: () {
-              context.go('/profile');
+          Consumer<AuthProvider>(
+            builder: (context, authProvider, _) {
+              if (authProvider.currentUser?.isAdmin == true) {
+                return IconButton(
+                  onPressed: () {
+                    context.go('/admin-dashboard');
+                  },
+                  icon: const Icon(Icons.admin_panel_settings),
+                );
+              }
+              return IconButton(
+                onPressed: () {
+                  context.go('/profile');
+                },
+                icon: const Icon(Icons.person),
+              );
             },
-            icon: const Icon(Icons.person),
           ),
         ],
       ),
@@ -95,244 +109,341 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildEventsTab() {
     return Consumer2<AuthProvider, EventProvider>(
       builder: (context, authProvider, eventProvider, _) {
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Welcome Section
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AppColors.primary,
-                      AppColors.primary.withOpacity(0.8),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(16),
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight - 32,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Xin chào, ${authProvider.currentUser?.fullName ?? 'Người dùng'}!',
-                      style: const TextStyle(
-                        color: AppColors.white,
-                        fontSize: 16,
+                    // Welcome Section
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            AppColors.primary,
+                            AppColors.primary.withOpacity(0.8),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Xin chào, ${authProvider.currentUser?.fullName ?? 'Người dùng'}!',
+                            style: const TextStyle(
+                              color: AppColors.white,
+                              fontSize: 16,
+                            ),
+                          ),
+                          const Text(
+                            'Hệ thống quản lý sự kiện',
+                            style: TextStyle(
+                              color: AppColors.white,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Khám phá và tham gia các sự kiện thú vị',
+                            style: TextStyle(
+                              color: AppColors.white,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
+
+                    const SizedBox(height: 24),
+
+                    // Search Bar
+                    custom.SearchBar(
+                      onSearch: (value) {
+                        eventProvider.searchEvents(value);
+                      },
+                      hintText: 'Tìm kiếm sự kiện...',
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // Categories
+                    CategoryFilter(
+                      selectedCategory: _selectedCategory,
+                      onCategorySelected: (category) {
+                        setState(() {
+                          _selectedCategory = category;
+                        });
+                        eventProvider.filterEventsByCategory(category);
+                      },
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // Events List
                     const Text(
-                      'Hệ thống quản lý sự kiện',
+                      'Sự kiện sắp diễn ra',
                       style: TextStyle(
-                        color: AppColors.white,
-                        fontSize: 24,
+                        fontSize: 18,
                         fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Khám phá và tham gia các sự kiện thú vị',
-                      style: TextStyle(color: AppColors.white, fontSize: 14),
+                    const SizedBox(height: 16),
+
+                    // Events List - Sử dụng StreamBuilder
+                    StreamBuilder<List<EventModel>>(
+                      stream: authProvider.currentUser?.isAdmin == true
+                          ? EventService().getAllEventsStream()
+                          : authProvider.currentUser?.isOrganizer == true
+                          ? EventService().getOrganizerEventsStream(
+                              authProvider.currentUser!.id,
+                            )
+                          : EventService().getEventsStream(),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
+                        }
+
+                        if (snapshot.hasError) {
+                          return Center(
+                            child: Column(
+                              children: [
+                                const Icon(
+                                  Icons.error_outline,
+                                  size: 64,
+                                  color: AppColors.error,
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'Lỗi tải sự kiện: ${snapshot.error}',
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    color: AppColors.error,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+
+                        final events = snapshot.data ?? [];
+
+                        if (events.isEmpty) {
+                          return const Center(
+                            child: Column(
+                              children: [
+                                Icon(
+                                  Icons.event_note_outlined,
+                                  size: 64,
+                                  color: AppColors.textSecondary,
+                                ),
+                                SizedBox(height: 16),
+                                Text(
+                                  'Chưa có sự kiện nào',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+
+                        return ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: events.length,
+                          itemBuilder: (context, index) {
+                            final event = events[index];
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: EventCard(
+                                event: event,
+                                onTap: () {
+                                  context.go('/event-detail/${event.id}');
+                                },
+                              ),
+                            );
+                          },
+                        );
+                      },
                     ),
                   ],
                 ),
               ),
-
-              const SizedBox(height: 24),
-
-              // Search Bar
-              custom.SearchBar(
-                onSearch: (value) {
-                  eventProvider.searchEvents(value);
-                },
-                hintText: 'Tìm kiếm sự kiện...',
-              ),
-
-              const SizedBox(height: 24),
-
-              // Categories
-              CategoryFilter(
-                selectedCategory: _selectedCategory,
-                onCategorySelected: (category) {
-                  setState(() {
-                    _selectedCategory = category;
-                  });
-                  eventProvider.filterEventsByCategory(category);
-                },
-              ),
-
-              const SizedBox(height: 24),
-
-              // Events List
-              const Text(
-                'Sự kiện sắp diễn ra',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Events List - Sử dụng StreamBuilder
-              StreamBuilder<List<EventModel>>(
-                stream: EventService().getEventsStream(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-
-                  if (snapshot.hasError) {
-                    return Center(
-                      child: Column(
-                        children: [
-                          const Icon(
-                            Icons.error_outline,
-                            size: 64,
-                            color: AppColors.error,
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Lỗi tải sự kiện: ${snapshot.error}',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              color: AppColors.error,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-
-                  final events = snapshot.data ?? [];
-
-                  if (events.isEmpty) {
-                    return const Center(
-                      child: Column(
-                        children: [
-                          Icon(
-                            Icons.event_note_outlined,
-                            size: 64,
-                            color: AppColors.textSecondary,
-                          ),
-                          SizedBox(height: 16),
-                          Text(
-                            'Chưa có sự kiện nào',
-                            style: TextStyle(
-                              fontSize: 18,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-
-                  return ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: events.length,
-                    itemBuilder: (context, index) {
-                      final event = events[index];
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: EventCard(
-                          event: event,
-                          onTap: () {
-                            context.go('/event-detail/${event.id}');
-                          },
-                        ),
-                      );
-                    },
-                  );
-                },
-              ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
   }
 
   Widget _buildMyEventsTab() {
-    return Consumer2<AuthProvider, EventProvider>(
-      builder: (context, authProvider, eventProvider, _) {
-        final myEvents = eventProvider.events
-            .where((event) => event.organizerId == authProvider.currentUser?.id)
-            .toList();
+    return Consumer<AuthProvider>(
+      builder: (context, authProvider, _) {
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight - 32,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Sự kiện của tôi',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
 
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Sự kiện của tôi',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
+                    // Organizer: sự kiện của mình; Sinh viên: sự kiện đã đăng ký
+                    StreamBuilder(
+                      stream: authProvider.currentUser?.isOrganizer == true
+                          ? EventService().getOrganizerEventsStream(
+                              authProvider.currentUser!.id,
+                            )
+                          : RegistrationService().getUserRegistrationsStream(
+                              authProvider.currentUser!.id,
+                            ),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
+                        }
+
+                        if (snapshot.hasError) {
+                          return Center(
+                            child: Column(
+                              children: [
+                                const Icon(
+                                  Icons.error_outline,
+                                  size: 64,
+                                  color: AppColors.error,
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'Lỗi tải sự kiện: ${snapshot.error}',
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    color: AppColors.error,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+                        if (authProvider.currentUser?.isOrganizer == true) {
+                          final myEvents =
+                              (snapshot.data as List<EventModel>?) ?? [];
+                          if (myEvents.isEmpty) {
+                            return _emptyMyEventsMessage();
+                          }
+                          return ListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: myEvents.length,
+                            itemBuilder: (context, index) {
+                              final event = myEvents[index];
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: EventCard(
+                                  event: event,
+                                  onTap: () {
+                                    context.go('/event-detail/${event.id}');
+                                  },
+                                ),
+                              );
+                            },
+                          );
+                        } else {
+                          final registrations =
+                              (snapshot.data as List?)
+                                  ?.cast<RegistrationModel>() ??
+                              [];
+                          if (registrations.isEmpty) {
+                            return _emptyMyEventsMessage();
+                          }
+                          return ListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: registrations.length,
+                            itemBuilder: (context, index) {
+                              final reg = registrations[index];
+                              return FutureBuilder<EventModel?>(
+                                future: EventService().getEventById(
+                                  reg.eventId,
+                                ),
+                                builder: (context, snap) {
+                                  if (!snap.hasData)
+                                    return const SizedBox.shrink();
+                                  final event = snap.data!;
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 12),
+                                    child: EventCard(
+                                      event: event,
+                                      onTap: () {
+                                        context.go('/event-detail/${event.id}');
+                                      },
+                                    ),
+                                  );
+                                },
+                              );
+                            },
+                          );
+                        }
+                      },
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 16),
-
-              if (eventProvider.isLoading)
-                const Center(child: CircularProgressIndicator())
-              else if (myEvents.isEmpty)
-                const Center(
-                  child: Column(
-                    children: [
-                      Icon(
-                        Icons.event_note_outlined,
-                        size: 64,
-                        color: AppColors.textSecondary,
-                      ),
-                      SizedBox(height: 16),
-                      Text(
-                        'Chưa có sự kiện nào',
-                        style: TextStyle(
-                          fontSize: 18,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                      SizedBox(height: 8),
-                      Text(
-                        'Tạo sự kiện đầu tiên của bạn',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              else
-                ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: myEvents.length,
-                  itemBuilder: (context, index) {
-                    final event = myEvents[index];
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: EventCard(
-                        event: event,
-                        onTap: () {
-                          context.go('/event-detail/${event.id}');
-                        },
-                      ),
-                    );
-                  },
-                ),
-            ],
-          ),
+            );
+          },
         );
       },
+    );
+  }
+
+  Widget _emptyMyEventsMessage() {
+    return const Center(
+      child: Column(
+        children: [
+          Icon(
+            Icons.event_note_outlined,
+            size: 64,
+            color: AppColors.textSecondary,
+          ),
+          SizedBox(height: 16),
+          Text(
+            'Chưa có sự kiện nào',
+            style: TextStyle(fontSize: 18, color: AppColors.textSecondary),
+          ),
+        ],
+      ),
     );
   }
 }
