@@ -19,6 +19,7 @@ import 'screens/chat/event_chat_screen.dart';
 import 'screens/profile/profile_screen.dart';
 import 'screens/profile/edit_profile_screen.dart';
 import 'screens/settings/settings_screen.dart';
+import 'screens/student/student_dashboard_screen.dart';
 import 'constants/app_colors.dart';
 import 'services/notification_service.dart';
 
@@ -157,6 +158,10 @@ final GoRouter _router = GoRouter(
     GoRoute(
       path: '/settings',
       builder: (context, state) => const SettingsScreen(),
+    ),
+    GoRoute(
+      path: '/student',
+      builder: (context, state) => const StudentDashboardScreen(),
     ),
   ],
 );

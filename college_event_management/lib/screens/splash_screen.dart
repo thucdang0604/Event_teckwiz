@@ -48,7 +48,12 @@ class _SplashScreenState extends State<SplashScreen>
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
       if (authProvider.isAuthenticated) {
-        context.go('/home');
+        final user = authProvider.currentUser;
+        if (user != null && user.isStudent) {
+          context.go('/student');
+        } else {
+          context.go('/home');
+        }
       } else {
         context.go('/login');
       }

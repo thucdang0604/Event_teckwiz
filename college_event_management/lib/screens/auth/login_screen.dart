@@ -69,7 +69,12 @@ class _LoginScreenState extends State<LoginScreen>
       );
 
       if (mounted) {
-        context.go('/home');
+        final user = authProvider.currentUser;
+        if (user != null && user.isStudent) {
+          context.go('/student');
+        } else {
+          context.go('/home');
+        }
       }
     } catch (e) {
       if (mounted) {
