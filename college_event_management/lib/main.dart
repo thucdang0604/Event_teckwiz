@@ -20,12 +20,7 @@ import 'screens/chat/event_chat_screen.dart';
 import 'screens/profile/profile_screen.dart';
 import 'screens/profile/edit_profile_screen.dart';
 import 'screens/settings/settings_screen.dart';
-import 'screens/admin/admin_dashboard_screen.dart';
-import 'screens/admin/user_management_screen.dart';
-import 'screens/admin/event_approval_screen.dart';
-import 'screens/admin/location_management_screen.dart';
-import 'screens/admin/event_statistics_screen.dart';
-import 'screens/admin/location_calendar_screen.dart';
+import 'screens/student/student_dashboard_screen.dart';
 import 'constants/app_colors.dart';
 import 'services/notification_service.dart';
 
@@ -167,28 +162,8 @@ final GoRouter _router = GoRouter(
       builder: (context, state) => const SettingsScreen(),
     ),
     GoRoute(
-      path: '/admin-dashboard',
-      builder: (context, state) => const AdminDashboardScreen(),
-    ),
-    GoRoute(
-      path: '/admin/users',
-      builder: (context, state) => const UserManagementScreen(),
-    ),
-    GoRoute(
-      path: '/admin/events',
-      builder: (context, state) => const EventApprovalScreen(),
-    ),
-    GoRoute(
-      path: '/admin/locations',
-      builder: (context, state) => const LocationManagementScreen(),
-    ),
-    GoRoute(
-      path: '/admin/statistics',
-      builder: (context, state) => const EventStatisticsScreen(),
-    ),
-    GoRoute(
-      path: '/admin/calendar',
-      builder: (context, state) => const LocationCalendarScreen(),
+      path: '/student',
+      builder: (context, state) => const StudentDashboardScreen(),
     ),
   ],
 );

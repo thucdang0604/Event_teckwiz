@@ -102,6 +102,24 @@ class _LoginScreenState extends State<LoginScreen> {
       bool success = await authProvider.signInAnonymously();
 
       if (mounted) {
+        final user = authProvider.currentUser;
+        if (user != null && user.isStudent) {
+          context.go('/student');
+        } else {
+          context.go('/home');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Login failed: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
         setState(() {
           _isLoading = false;
         });

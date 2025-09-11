@@ -1,0 +1,1937 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Student Dashboard - FusionFiesta</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary: #8b5cf6;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --info: #3b82f6;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --shadow: 0 4px 20px rgba(0,0,0,0.08);
+            --shadow-lg: 0 8px 30px rgba(0,0,0,0.12);
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            color: var(--gray-800);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+        
+        /* App Container */
+        .app-container {
+            width: 100%;
+            max-width: 400px;
+            min-height: 100vh;
+            background: var(--gray-50);
+            border-radius: 24px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+            overflow: hidden;
+            position: relative;
+            animation: slideUp 0.6s ease;
+            padding-bottom: 80px;
+        }
+        
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Header */
+        .app-header {
+            background: white;
+            padding: 1rem;
+            box-shadow: var(--shadow);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        
+        .user-avatar {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+        
+        .user-details h6 {
+            font-weight: 600;
+            margin-bottom: 0.125rem;
+            color: var(--gray-800);
+        }
+        
+        .user-role {
+            font-size: 0.8rem;
+            color: var(--gray-500);
+            font-weight: 500;
+        }
+        
+        .header-actions {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+        
+        .header-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: var(--gray-100);
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--gray-600);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        
+        .header-btn:hover {
+            background: var(--gray-200);
+            transform: scale(1.05);
+        }
+        
+        .notification-badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: var(--danger);
+            color: white;
+            border-radius: 10px;
+            padding: 0.125rem 0.375rem;
+            font-size: 0.65rem;
+            font-weight: 700;
+            min-width: 18px;
+            text-align: center;
+            line-height: 1.2;
+        }
+        
+        /* Main Content */
+        .main-content {
+            padding: 1rem;
+        }
+        
+        .screen {
+            display: none;
+            animation: slideIn 0.3s ease;
+        }
+        
+        .screen.active {
+            display: block;
+        }
+        
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        
+        /* Welcome Section */
+        .welcome-section {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            padding: 1.5rem;
+            border-radius: 16px;
+            margin-bottom: 1.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .welcome-section::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -20%;
+            width: 200px;
+            height: 200px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 50%;
+        }
+        
+        .welcome-content {
+            position: relative;
+            z-index: 1;
+        }
+        
+        .welcome-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        
+        .welcome-subtitle {
+            opacity: 0.9;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+        }
+        
+        .quick-stats {
+            display: flex;
+            gap: 1.5rem;
+        }
+        
+        .stat-item {
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+        
+        .stat-label {
+            font-size: 0.75rem;
+            opacity: 0.8;
+        }
+        
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.25rem;
+            box-shadow: var(--shadow);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 60px;
+            height: 60px;
+            opacity: 0.1;
+            border-radius: 50%;
+            transform: translate(20px, -20px);
+        }
+        
+        .stat-card.primary::before { background: var(--primary); }
+        .stat-card.success::before { background: var(--success); }
+        .stat-card.warning::before { background: var(--warning); }
+        .stat-card.info::before { background: var(--info); }
+        
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+        
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            margin-bottom: 0.75rem;
+        }
+        
+        .stat-icon.primary { background: rgba(99, 102, 241, 0.1); color: var(--primary); }
+        .stat-icon.success { background: rgba(16, 185, 129, 0.1); color: var(--success); }
+        .stat-icon.warning { background: rgba(245, 158, 11, 0.1); color: var(--warning); }
+        .stat-icon.info { background: rgba(59, 130, 246, 0.1); color: var(--info); }
+        
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+            color: var(--gray-800);
+        }
+        
+        .stat-title {
+            font-size: 0.85rem;
+            color: var(--gray-600);
+            font-weight: 500;
+        }
+        
+        /* Section Headers */
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--gray-800);
+        }
+        
+        .see-all-btn {
+            color: var(--primary);
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        
+        /* Event Cards */
+        .event-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .event-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1rem;
+            box-shadow: var(--shadow);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .event-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+        
+        .event-card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: var(--primary);
+        }
+        
+        .event-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 0.75rem;
+        }
+        
+        .event-category {
+            background: rgba(99, 102, 241, 0.1);
+            color: var(--primary);
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        .event-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--gray-800);
+            margin-bottom: 0.25rem;
+        }
+        
+        .event-desc {
+            font-size: 0.85rem;
+            color: var(--gray-600);
+            line-height: 1.4;
+            margin-bottom: 0.75rem;
+        }
+        
+        .event-meta {
+            display: flex;
+            gap: 1rem;
+            font-size: 0.8rem;
+            color: var(--gray-500);
+            margin-bottom: 0.75rem;
+        }
+        
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        
+        .event-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .btn-sm {
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary-sm {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .btn-outline-sm {
+            background: transparent;
+            color: var(--primary);
+            border: 2px solid var(--primary);
+        }
+        
+        .btn-sm:hover {
+            transform: translateY(-1px);
+        }
+        
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        .status-approved { background: rgba(16, 185, 129, 0.1); color: var(--success); }
+        .status-pending { background: rgba(245, 158, 11, 0.1); color: var(--warning); }
+        .status-live { background: rgba(59, 130, 246, 0.1); color: var(--info); }
+        .status-done { background: rgba(139, 92, 246, 0.1); color: var(--secondary); }
+        .status-registered { background: rgba(16, 185, 129, 0.1); color: var(--success); }
+        
+        /* Quick Actions */
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .action-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.25rem;
+            box-shadow: var(--shadow);
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            color: inherit;
+        }
+        
+        .action-card:hover {
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-lg);
+            color: inherit;
+            text-decoration: none;
+        }
+        
+        .action-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin: 0 auto 0.75rem;
+        }
+        
+        .action-title {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+            color: var(--gray-800);
+        }
+        
+        .action-desc {
+            font-size: 0.8rem;
+            color: var(--gray-600);
+        }
+        
+        /* Bottom Navigation */
+        .bottom-nav {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            border-top: 1px solid var(--gray-200);
+            padding: 0.5rem 0;
+            z-index: 1000;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
+            border-bottom-left-radius: 24px;
+            border-bottom-right-radius: 24px;
+        }
+        
+        .nav-container {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            width: 100%;
+            padding: 0 1rem;
+        }
+        
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 0.5rem;
+            text-decoration: none;
+            color: var(--gray-500);
+            transition: all 0.3s ease;
+            border-radius: 12px;
+            min-width: 60px;
+            position: relative;
+        }
+        
+        .nav-item.active {
+            color: var(--primary);
+            background: rgba(99, 102, 241, 0.1);
+        }
+        
+        .nav-item i {
+            font-size: 1.3rem;
+            margin-bottom: 0.25rem;
+        }
+        
+        .nav-item span {
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+        
+        .nav-badge {
+            position: absolute;
+            top: 0.25rem;
+            right: 1rem;
+            background: var(--danger);
+            color: white;
+            border-radius: 10px;
+            padding: 0.125rem 0.375rem;
+            font-size: 0.6rem;
+            font-weight: 700;
+            min-width: 16px;
+            text-align: center;
+        }
+        
+        /* Empty States */
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: var(--gray-500);
+        }
+        
+        .empty-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+        
+        .empty-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--gray-700);
+        }
+        
+        .empty-desc {
+            font-size: 0.9rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+        }
+        
+        /* Certificate Cards */
+        .certificate-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1rem;
+            box-shadow: var(--shadow);
+            margin-bottom: 1rem;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .certificate-card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: var(--success);
+        }
+        
+        .certificate-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 0.75rem;
+        }
+        
+        .certificate-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            margin-bottom: 0.75rem;
+        }
+        
+        /* Ticket Cards */
+        .ticket-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1rem;
+            box-shadow: var(--shadow);
+            margin-bottom: 1rem;
+            position: relative;
+            overflow: hidden;
+            border: 2px dashed var(--gray-200);
+        }
+        
+        .ticket-card::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: -10px;
+            width: 20px;
+            height: 20px;
+            background: var(--gray-50);
+            border-radius: 50%;
+            transform: translateY(-50%);
+        }
+        
+        .ticket-card::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            right: -10px;
+            width: 20px;
+            height: 20px;
+            background: var(--gray-50);
+            border-radius: 50%;
+            transform: translateY(-50%);
+        }
+        
+        /* QR Code */
+        .qr-code {
+            width: 80px;
+            height: 80px;
+            background: var(--gray-100);
+            border: 2px solid var(--gray-300);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            color: var(--gray-400);
+        }
+        
+        /* Search Bar */
+        .search-container {
+            position: relative;
+            margin-bottom: 1rem;
+        }
+        
+        .search-input {
+            width: 100%;
+            padding: 1rem 1rem 1rem 3rem;
+            border: 2px solid var(--gray-200);
+            border-radius: 12px;
+            font-size: 1rem;
+            background: white;
+            transition: all 0.3s ease;
+        }
+        
+        .search-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+        
+        .search-icon {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--gray-400);
+        }
+        
+        /* Filter Tabs */
+        .filter-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            overflow-x: auto;
+            padding-bottom: 0.5rem;
+        }
+        
+        .filter-tab {
+            padding: 0.75rem 1.5rem;
+            border-radius: 25px;
+            background: white;
+            color: var(--gray-600);
+            border: 2px solid var(--gray-200);
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        
+        .filter-tab.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+        
+        /* Sort Options */
+        .sort-options {
+            margin-bottom: 1rem;
+        }
+        
+        .sort-options select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid var(--gray-200);
+            border-radius: 8px;
+            background: white;
+            font-size: 0.9rem;
+        }
+        
+        /* Media Grid */
+        .media-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+        
+        .media-item {
+            aspect-ratio: 1;
+            border-radius: 12px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            background: var(--gray-100);
+        }
+        
+        .media-item:hover {
+            transform: scale(1.02);
+        }
+        
+        .media-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .media-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+        
+        .media-item:hover .media-overlay {
+            opacity: 1;
+        }
+        
+        .media-overlay i {
+            color: white;
+            font-size: 1.5rem;
+        }
+        
+        /* Feedback Form */
+        .feedback-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+            margin-bottom: 1rem;
+        }
+        
+        .feedback-title {
+            font-weight: 700;
+            margin-bottom: 1rem;
+            color: var(--gray-800);
+        }
+        
+        .rating-stars {
+            display: flex;
+            gap: 0.5rem;
+            margin: 1rem 0;
+        }
+        
+        .star {
+            font-size: 1.5rem;
+            color: var(--gray-300);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .star.active {
+            color: #fbbf24;
+        }
+        
+        .star:hover {
+            transform: scale(1.1);
+        }
+        
+        .feedback-textarea {
+            width: 100%;
+            min-height: 100px;
+            padding: 1rem;
+            border: 2px solid var(--gray-200);
+            border-radius: 8px;
+            resize: vertical;
+            font-family: inherit;
+        }
+        
+        .feedback-textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+        
+        /* Profile Verification */
+        .verification-banner {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--warning);
+            padding: 1rem;
+            border-radius: 12px;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+        
+        .verification-banner.verified {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+        }
+        
+        /* Gamification */
+        .achievements-section {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+            margin-bottom: 1rem;
+        }
+        
+        .badge-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .badge-item {
+            text-align: center;
+            padding: 1rem;
+            border-radius: 12px;
+            background: var(--gray-50);
+            transition: all 0.3s ease;
+        }
+        
+        .badge-item.earned {
+            background: rgba(99, 102, 241, 0.1);
+            color: var(--primary);
+        }
+        
+        .badge-icon {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            opacity: 0.3;
+        }
+        
+        .badge-item.earned .badge-icon {
+            opacity: 1;
+        }
+        
+        .badge-title {
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        /* Responsive */
+        @media (max-width: 480px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .quick-actions {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .quick-stats {
+                flex-direction: column;
+                gap: 1rem;
+            }
+            
+            .media-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .badge-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <div class="app-header">
+            <div class="header-content">
+                <div class="user-info">
+                    <div class="user-avatar">JS</div>
+                    <div class="user-details">
+                        <h6>Hello, John Smith</h6>
+                        <div class="user-role">Student - Computer Science</div>
+                    </div>
+                </div>
+                <div class="header-actions">
+                    <button class="header-btn" onclick="showScreen('search')">
+                        <i class="fas fa-search"></i>
+                    </button>
+                    <button class="header-btn" onclick="showScreen('notifications')">
+                        <i class="fas fa-bell"></i>
+                        <div class="notification-badge" id="notificationCount">3</div>
+                    </button>
+                    <button class="header-btn" onclick="showProfileMenu()">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Home Screen -->
+            <div id="home" class="screen active">
+                <!-- Welcome Section -->
+                <div class="welcome-section">
+                    <div class="welcome-content">
+                        <div class="welcome-title">Welcome back, John!</div>
+                        <div class="welcome-subtitle">Discover amazing events happening around campus</div>
+                        <div class="quick-stats">
+                            <div class="stat-item">
+                                <div class="stat-number">12</div>
+                                <div class="stat-label">Available</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-number">5</div>
+                                <div class="stat-label">Registered</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-number">8</div>
+                                <div class="stat-label">Completed</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stats Grid -->
+                <div class="stats-grid">
+                    <div class="stat-card primary">
+                        <div class="stat-icon primary">
+                            <i class="fas fa-calendar-alt"></i>
+                        </div>
+                        <div class="stat-value">25</div>
+                        <div class="stat-title">Available Events</div>
+                    </div>
+                    <div class="stat-card success">
+                        <div class="stat-icon success">
+                            <i class="fas fa-ticket-alt"></i>
+                        </div>
+                        <div class="stat-value">12</div>
+                        <div class="stat-title">My Registrations</div>
+                    </div>
+                    <div class="stat-card warning">
+                        <div class="stat-icon warning">
+                            <i class="fas fa-certificate"></i>
+                        </div>
+                        <div class="stat-value">8</div>
+                        <div class="stat-title">Certificates Earned</div>
+                    </div>
+                    <div class="stat-card info">
+                        <div class="stat-icon info">
+                            <i class="fas fa-star"></i>
+                        </div>
+                        <div class="stat-value">4.8</div>
+                        <div class="stat-title">Average Rating</div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="section-header">
+                    <h3 class="section-title">Quick Actions</h3>
+                </div>
+                <div class="quick-actions">
+                    <a href="#" class="action-card" onclick="showScreen('events')">
+                        <div class="action-icon primary">
+                            <i class="fas fa-calendar"></i>
+                        </div>
+                        <div class="action-title">Browse Events</div>
+                        <div class="action-desc">Find exciting events</div>
+                    </a>
+                    <a href="#" class="action-card" onclick="showScreen('saved')">
+                        <div class="action-icon danger" style="background: rgba(239, 68, 68, 0.1); color: var(--danger);">
+                            <i class="fas fa-heart"></i>
+                        </div>
+                        <div class="action-title">Saved Events</div>
+                        <div class="action-desc">Your bookmarks</div>
+                    </a>
+                    <a href="#" class="action-card" onclick="showScreen('tickets')">
+                        <div class="action-icon success">
+                            <i class="fas fa-qrcode"></i>
+                        </div>
+                        <div class="action-title">My Tickets</div>
+                        <div class="action-desc">View QR codes</div>
+                    </a>
+                    <a href="#" class="action-card" onclick="showScreen('certificates')">
+                        <div class="action-icon warning">
+                            <i class="fas fa-award"></i>
+                        </div>
+                        <div class="action-title">Certificates</div>
+                        <div class="action-desc">Download & verify</div>
+                    </a>
+                    <a href="#" class="action-card" onclick="showScreen('gallery')">
+                        <div class="action-icon info">
+                            <i class="fas fa-images"></i>
+                        </div>
+                        <div class="action-title">Gallery</div>
+                        <div class="action-desc">Event photos</div>
+                    </a>
+                    <a href="#" class="action-card" onclick="showScreen('feedback')">
+                        <div class="action-icon secondary" style="background: rgba(139, 92, 246, 0.1); color: var(--secondary);">
+                            <i class="fas fa-comment-alt"></i>
+                        </div>
+                        <div class="action-title">Feedback</div>
+                        <div class="action-desc">Rate events</div>
+                    </a>
+                </div>
+
+                <!-- Upcoming Events -->
+                <div class="section-header">
+                    <h3 class="section-title">Upcoming Events</h3>
+                    <a href="#" class="see-all-btn" onclick="showScreen('events')">
+                        See All <i class="fas fa-chevron-right"></i>
+                    </a>
+                </div>
+                <div class="event-list" id="upcomingEvents">
+                    <!-- Events will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Events Screen -->
+            <div id="events" class="screen">
+                <div class="section-header">
+                    <h3 class="section-title">All Events</h3>
+                    <button class="header-btn" onclick="showFilters()">
+                        <i class="fas fa-filter"></i>
+                    </button>
+                </div>
+                
+                <!-- Search Bar -->
+                <div class="search-container">
+                    <input type="text" class="search-input" placeholder="Search events..." id="eventSearch" oninput="searchEvents()">
+                    <i class="fas fa-search search-icon"></i>
+                </div>
+                
+                <!-- Filter Tabs -->
+                <div class="filter-tabs" id="filterTabs">
+                    <div class="filter-tab active" onclick="filterEvents('all')">All</div>
+                    <div class="filter-tab" onclick="filterEvents('tech')">Technology</div>
+                    <div class="filter-tab" onclick="filterEvents('culture')">Culture</div>
+                    <div class="filter-tab" onclick="filterEvents('sports')">Sports</div>
+                    <div class="filter-tab" onclick="filterEvents('career')">Career</div>
+                </div>
+                
+                <!-- Sort Options -->
+                <div class="sort-options">
+                    <select class="form-control" onchange="sortEvents(this.value)">
+                        <option value="latest">Latest</option>
+                        <option value="popular">Popular</option>
+                        <option value="date">By Date</option>
+                        <option value="title">By Title</option>
+                    </select>
+                </div>
+                
+                <div class="event-list" id="allEvents">
+                    <!-- Events will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Tickets Screen -->
+            <div id="tickets" class="screen">
+                <div class="section-header">
+                    <h3 class="section-title">My Tickets</h3>
+                </div>
+                <div id="ticketsList">
+                    <!-- Tickets will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Certificates Screen -->
+            <div id="certificates" class="screen">
+                <div class="section-header">
+                    <h3 class="section-title">My Certificates</h3>
+                </div>
+                <div class="stats-grid">
+                    <div class="stat-card success">
+                        <div class="stat-icon success">
+                            <i class="fas fa-certificate"></i>
+                        </div>
+                        <div class="stat-value">8</div>
+                        <div class="stat-title">Total Earned</div>
+                    </div>
+                    <div class="stat-card info">
+                        <div class="stat-icon info">
+                            <i class="fas fa-download"></i>
+                        </div>
+                        <div class="stat-value">6</div>
+                        <div class="stat-title">Downloaded</div>
+                    </div>
+                </div>
+                <div id="certificatesList">
+                    <!-- Certificates will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Saved Events Screen -->
+            <div id="saved" class="screen">
+                <div class="section-header">
+                    <h3 class="section-title">Saved Events</h3>
+                </div>
+                <div id="savedEventsList">
+                    <!-- Saved events will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Media Gallery Screen -->
+            <div id="gallery" class="screen">
+                <div class="section-header">
+                    <h3 class="section-title">Event Gallery</h3>
+                </div>
+                <div class="media-grid" id="mediaGallery">
+                    <!-- Media items will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Feedback Screen -->
+            <div id="feedback" class="screen">
+                <div class="section-header">
+                    <h3 class="section-title">Event Feedback</h3>
+                </div>
+                <div id="feedbackList">
+                    <!-- Feedback forms will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Profile Screen -->
+            <div id="profile" class="screen">
+                <div class="section-header">
+                    <h3 class="section-title">Profile Settings</h3>
+                </div>
+                
+                <!-- Profile Verification Status -->
+                <div class="verification-banner verified" id="verificationStatus">
+                    <i class="fas fa-check-circle" style="margin-right: 0.5rem;"></i>
+                    Profile Verified - Ready to register for events
+                </div>
+                
+                <div class="action-card" style="margin-bottom: 1rem;">
+                    <div class="user-avatar" style="margin: 0 auto 1rem;">JS</div>
+                    <div class="action-title">John Smith</div>
+                    <div class="action-desc">john.smith@university.edu</div>
+                    <div class="action-desc">Student ID: 2024001</div>
+                    <div class="action-desc">Computer Science Department</div>
+                    <div class="action-desc" style="margin-top: 0.5rem; color: var(--success);">
+                        <i class="fas fa-trophy"></i> 1,250 points • Level 5
+                    </div>
+                </div>
+                
+                <!-- Achievements Section -->
+                <div class="achievements-section">
+                    <h6 style="font-weight: 700; margin-bottom: 1rem;">Achievements & Badges</h6>
+                    <div class="badge-grid">
+                        <div class="badge-item earned">
+                            <div class="badge-icon"><i class="fas fa-calendar-check"></i></div>
+                            <div class="badge-title">Event Enthusiast</div>
+                        </div>
+                        <div class="badge-item earned">
+                            <div class="badge-icon"><i class="fas fa-star"></i></div>
+                            <div class="badge-title">Top Reviewer</div>
+                        </div>
+                        <div class="badge-item">
+                            <div class="badge-icon"><i class="fas fa-trophy"></i></div>
+                            <div class="badge-title">Champion</div>
+                        </div>
+                        <div class="badge-item earned">
+                            <div class="badge-icon"><i class="fas fa-certificate"></i></div>
+                            <div class="badge-title">Certified</div>
+                        </div>
+                        <div class="badge-item">
+                            <div class="badge-icon"><i class="fas fa-users"></i></div>
+                            <div class="badge-title">Social Butterfly</div>
+                        </div>
+                        <div class="badge-item">
+                            <div class="badge-icon"><i class="fas fa-fire"></i></div>
+                            <div class="badge-title">Streak Master</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="quick-actions">
+                    <a href="#" class="action-card">
+                        <div class="action-icon primary">
+                            <i class="fas fa-user-edit"></i>
+                        </div>
+                        <div class="action-title">Edit Profile</div>
+                        <div class="action-desc">Update your info</div>
+                    </a>
+                    <a href="#" class="action-card">
+                        <div class="action-icon success">
+                            <i class="fas fa-download"></i>
+                        </div>
+                        <div class="action-title">Export Data</div>
+                        <div class="action-desc">Activity history</div>
+                    </a>
+                    <a href="#" class="action-card">
+                        <div class="action-icon warning">
+                            <i class="fas fa-bell"></i>
+                        </div>
+                        <div class="action-title">Notifications</div>
+                        <div class="action-desc">Manage alerts</div>
+                    </a>
+                    <a href="#" class="action-card">
+                        <div class="action-icon info">
+                            <i class="fas fa-shield-alt"></i>
+                        </div>
+                        <div class="action-title">Privacy</div>
+                        <div class="action-desc">Data settings</div>
+                    </a>
+                    <a href="#" class="action-card">
+                        <div class="action-icon secondary" style="background: rgba(139, 92, 246, 0.1); color: var(--secondary);">
+                            <i class="fas fa-palette"></i>
+                        </div>
+                        <div class="action-title">Appearance</div>
+                        <div class="action-desc">Theme & language</div>
+                    </a>
+                    <a href="mobile-auth-complete.html" class="action-card">
+                        <div class="action-icon danger" style="background: rgba(239, 68, 68, 0.1); color: var(--danger);">
+                            <i class="fas fa-sign-out-alt"></i>
+                        </div>
+                        <div class="action-title">Logout</div>
+                        <div class="action-desc">Sign out safely</div>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Navigation -->
+        <div class="bottom-nav">
+            <div class="nav-container">
+                <a href="#" class="nav-item active" onclick="showScreen('home')">
+                    <i class="fas fa-home"></i>
+                    <span>Home</span>
+                </a>
+                <a href="#" class="nav-item" onclick="showScreen('events')">
+                    <i class="fas fa-calendar"></i>
+                    <span>Events</span>
+                </a>
+                <a href="#" class="nav-item" onclick="showScreen('tickets')">
+                    <i class="fas fa-ticket-alt"></i>
+                    <span>Tickets</span>
+                    <div class="nav-badge">5</div>
+                </a>
+                <a href="#" class="nav-item" onclick="showScreen('saved')">
+                    <i class="fas fa-heart"></i>
+                    <span>Saved</span>
+                </a>
+                <a href="#" class="nav-item" onclick="showScreen('profile')">
+                    <i class="fas fa-user"></i>
+                    <span>Profile</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Sample data
+        const sampleEvents = [
+            {
+                id: 1,
+                title: "Tech Conference 2024",
+                description: "Annual technology conference featuring latest innovations in AI, ML, and blockchain.",
+                category: "Technology",
+                date: "Dec 15, 2024",
+                time: "9:00 AM",
+                venue: "Auditorium A",
+                status: "approved",
+                registered: 150,
+                capacity: 200
+            },
+            {
+                id: 2,
+                title: "Cultural Festival",
+                description: "Celebrate diverse cultures with performances, food, and traditional art displays.",
+                category: "Culture",
+                date: "Dec 20, 2024",
+                time: "2:00 PM",
+                venue: "Main Hall",
+                status: "live",
+                registered: 320,
+                capacity: 500
+            },
+            {
+                id: 3,
+                title: "Career Fair 2024",
+                description: "Meet with top companies and explore internship and job opportunities.",
+                category: "Career",
+                date: "Dec 25, 2024",
+                time: "10:00 AM",
+                venue: "Exhibition Center",
+                status: "approved",
+                registered: 180,
+                capacity: 300
+            }
+        ];
+
+        const myTickets = [
+            {
+                id: 1,
+                eventTitle: "Tech Conference 2024",
+                date: "Dec 15, 2024",
+                time: "9:00 AM",
+                venue: "Auditorium A",
+                status: "confirmed",
+                qrCode: "TC2024-JS-001"
+            },
+            {
+                id: 2,
+                eventTitle: "Cultural Festival",
+                date: "Dec 20, 2024",
+                time: "2:00 PM",
+                venue: "Main Hall",
+                status: "confirmed",
+                qrCode: "CF2024-JS-002"
+            }
+        ];
+
+        const myCertificates = [
+            {
+                id: 1,
+                title: "Web Development Workshop",
+                eventTitle: "Tech Skills Bootcamp",
+                issuedDate: "Nov 15, 2024",
+                status: "verified"
+            },
+            {
+                id: 2,
+                title: "Data Science Fundamentals",
+                eventTitle: "AI & ML Summit",
+                issuedDate: "Nov 10, 2024",
+                status: "verified"
+            },
+            {
+                id: 3,
+                title: "Leadership Excellence",
+                eventTitle: "Student Leadership Conference",
+                issuedDate: "Oct 28, 2024",
+                status: "verified"
+            }
+        ];
+
+        let currentScreen = 'home';
+
+        // Screen navigation
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(screen => {
+                screen.classList.remove('active');
+            });
+            
+            document.getElementById(screenId).classList.add('active');
+            
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            const activeNav = document.querySelector(`[onclick="showScreen('${screenId}')"]`);
+            if (activeNav && activeNav.classList.contains('nav-item')) {
+                activeNav.classList.add('active');
+            }
+            
+            currentScreen = screenId;
+            loadScreenContent(screenId);
+        }
+
+        function loadScreenContent(screenId) {
+            switch(screenId) {
+                case 'home':
+                    loadUpcomingEvents();
+                    break;
+                case 'events':
+                    loadAllEvents();
+                    break;
+                case 'tickets':
+                    loadMyTickets();
+                    break;
+                case 'certificates':
+                    loadMyCertificates();
+                    break;
+                case 'saved':
+                    loadSavedEvents();
+                    break;
+                case 'gallery':
+                    loadMediaGallery();
+                    break;
+                case 'feedback':
+                    loadFeedbackForms();
+                    break;
+            }
+        }
+
+        function loadUpcomingEvents() {
+            const container = document.getElementById('upcomingEvents');
+            container.innerHTML = '';
+            
+            sampleEvents.slice(0, 2).forEach(event => {
+                const eventCard = createEventCard(event, false);
+                container.appendChild(eventCard);
+            });
+        }
+
+        function loadAllEvents() {
+            const container = document.getElementById('allEvents');
+            container.innerHTML = '';
+            
+            sampleEvents.forEach(event => {
+                const eventCard = createEventCard(event, false);
+                container.appendChild(eventCard);
+            });
+        }
+
+        function loadMyTickets() {
+            const container = document.getElementById('ticketsList');
+            container.innerHTML = '';
+            
+            if (myTickets.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">
+                            <i class="fas fa-ticket-alt"></i>
+                        </div>
+                        <div class="empty-title">No Tickets Yet</div>
+                        <div class="empty-desc">Register for events to see your tickets here</div>
+                        <button class="btn-primary" onclick="showScreen('events')">Browse Events</button>
+                    </div>
+                `;
+                return;
+            }
+            
+            myTickets.forEach(ticket => {
+                const ticketCard = createTicketCard(ticket);
+                container.appendChild(ticketCard);
+            });
+        }
+
+        function loadMyCertificates() {
+            const container = document.getElementById('certificatesList');
+            container.innerHTML = '';
+            
+            if (myCertificates.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">
+                            <i class="fas fa-certificate"></i>
+                        </div>
+                        <div class="empty-title">No Certificates Yet</div>
+                        <div class="empty-desc">Complete events to earn certificates</div>
+                        <button class="btn-primary" onclick="showScreen('events')">Find Events</button>
+                    </div>
+                `;
+                return;
+            }
+            
+            myCertificates.forEach(cert => {
+                const certCard = createCertificateCard(cert);
+                container.appendChild(certCard);
+            });
+        }
+
+        function createEventCard(event, isTicket = false) {
+            const card = document.createElement('div');
+            card.className = 'event-card';
+            card.onclick = () => viewEventDetails(event.id);
+            
+            card.innerHTML = `
+                <div class="event-header">
+                    <div>
+                        <div class="event-category">${event.category}</div>
+                        <div class="event-title">${event.title}</div>
+                        <div class="event-desc">${event.description}</div>
+                    </div>
+                    <div class="status-badge status-${event.status}">${event.status.charAt(0).toUpperCase() + event.status.slice(1)}</div>
+                </div>
+                <div class="event-meta">
+                    <div class="meta-item">
+                        <i class="fas fa-calendar"></i>
+                        <span>${event.date}</span>
+                    </div>
+                    <div class="meta-item">
+                        <i class="fas fa-clock"></i>
+                        <span>${event.time}</span>
+                    </div>
+                    <div class="meta-item">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <span>${event.venue}</span>
+                    </div>
+                </div>
+                <div class="event-actions">
+                    ${!isTicket ? `
+                    <button class="btn-sm btn-primary-sm" onclick="event.stopPropagation(); registerEvent(${event.id})">
+                        Register
+                    </button>
+                    <button class="btn-sm btn-outline-sm" onclick="event.stopPropagation(); shareEvent(${event.id})">
+                        <i class="fas fa-share-alt"></i>
+                    </button>` : `
+                    <button class="btn-sm btn-primary-sm" onclick="event.stopPropagation(); showQRCode(${event.id})">
+                        <i class="fas fa-qrcode"></i> QR Code
+                    </button>`}
+                </div>
+            `;
+            
+            return card;
+        }
+
+        function createTicketCard(ticket) {
+            const card = document.createElement('div');
+            card.className = 'ticket-card';
+            
+            card.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div style="flex: 1;">
+                        <div class="event-title">${ticket.eventTitle}</div>
+                        <div class="event-meta" style="margin-bottom: 0.5rem;">
+                            <div class="meta-item">
+                                <i class="fas fa-calendar"></i>
+                                <span>${ticket.date}</span>
+                            </div>
+                            <div class="meta-item">
+                                <i class="fas fa-clock"></i>
+                                <span>${ticket.time}</span>
+                            </div>
+                        </div>
+                        <div class="meta-item">
+                            <i class="fas fa-map-marker-alt"></i>
+                            <span>${ticket.venue}</span>
+                        </div>
+                        <div style="margin-top: 0.5rem;">
+                            <span class="status-badge status-registered">Confirmed</span>
+                        </div>
+                    </div>
+                    <div class="qr-code">
+                        <i class="fas fa-qrcode"></i>
+                    </div>
+                </div>
+                <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px dashed var(--gray-300);">
+                    <div style="display: flex; justify-content: between; gap: 0.5rem;">
+                        <button class="btn-sm btn-primary-sm" onclick="showQRCode('${ticket.qrCode}')">
+                            <i class="fas fa-expand"></i> View QR
+                        </button>
+                        <button class="btn-sm btn-outline-sm" onclick="downloadTicket('${ticket.qrCode}')">
+                            <i class="fas fa-download"></i> Download
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            return card;
+        }
+
+        function createCertificateCard(cert) {
+            const card = document.createElement('div');
+            card.className = 'certificate-card';
+            
+            card.innerHTML = `
+                <div class="certificate-header">
+                    <div>
+                        <div class="certificate-icon">
+                            <i class="fas fa-certificate"></i>
+                        </div>
+                        <div class="event-title">${cert.title}</div>
+                        <div class="event-desc">${cert.eventTitle}</div>
+                        <div class="meta-item">
+                            <i class="fas fa-calendar"></i>
+                            <span>Issued: ${cert.issuedDate}</span>
+                        </div>
+                    </div>
+                    <div class="status-badge status-approved">Verified</div>
+                </div>
+                <div class="event-actions">
+                    <button class="btn-sm btn-primary-sm" onclick="downloadCertificate('${cert.title}')">
+                        <i class="fas fa-download"></i> Download
+                    </button>
+                    <button class="btn-sm btn-outline-sm" onclick="verifyCertificate('${cert.title}')">
+                        <i class="fas fa-check-circle"></i> Verify
+                    </button>
+                </div>
+            `;
+            
+            return card;
+        }
+
+        // Event handlers
+        function viewEventDetails(eventId) {
+            window.location.href = 'mobile-event-complete.html';
+        }
+
+        function registerEvent(eventId) {
+            const event = sampleEvents.find(e => e.id === eventId);
+            if (confirm(`Register for "${event.title}"?`)) {
+                alert('Registration successful! Check your tickets.');
+            }
+        }
+
+        function shareEvent(eventId) {
+            if (navigator.share) {
+                navigator.share({
+                    title: 'FusionFiesta Event',
+                    text: 'Check out this amazing event!',
+                    url: window.location.href
+                });
+            } else {
+                alert('Event link copied to clipboard!');
+            }
+        }
+
+        function showQRCode(qrCode) {
+            alert(`Showing QR code: ${qrCode}`);
+        }
+
+        function downloadTicket(qrCode) {
+            alert(`Downloading ticket: ${qrCode}`);
+        }
+
+        function downloadCertificate(title) {
+            alert(`Downloading certificate: ${title}`);
+        }
+
+        function verifyCertificate(title) {
+            alert(`Certificate "${title}" is verified and authentic.`);
+        }
+
+        function showProfileMenu() {
+            showScreen('profile');
+        }
+
+        // New functions for enhanced features
+        function loadSavedEvents() {
+            const container = document.getElementById('savedEventsList');
+            container.innerHTML = '';
+            
+            const savedEvents = sampleEvents.filter(event => event.saved);
+            
+            if (savedEvents.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">
+                            <i class="fas fa-heart"></i>
+                        </div>
+                        <div class="empty-title">No Saved Events</div>
+                        <div class="empty-desc">Save events you're interested in to find them easily later</div>
+                        <button class="btn-primary" onclick="showScreen('events')">Browse Events</button>
+                    </div>
+                `;
+                return;
+            }
+            
+            savedEvents.forEach(event => {
+                const eventCard = createEventCard(event, false);
+                container.appendChild(eventCard);
+            });
+        }
+
+        function loadMediaGallery() {
+            const container = document.getElementById('mediaGallery');
+            container.innerHTML = '';
+            
+            const sampleMedia = [
+                { id: 1, event: 'Tech Conference 2024', url: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=300&h=300&fit=crop', type: 'image' },
+                { id: 2, event: 'Cultural Festival', url: 'https://images.unsplash.com/photo-1511578314322-379afb476865?w=300&h=300&fit=crop', type: 'image' },
+                { id: 3, event: 'AI Workshop', url: 'https://images.unsplash.com/photo-1505373877841-8d25f7d46678?w=300&h=300&fit=crop', type: 'image' },
+                { id: 4, event: 'Career Fair', url: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=300&h=300&fit=crop', type: 'image' }
+            ];
+            
+            sampleMedia.forEach(media => {
+                const mediaItem = document.createElement('div');
+                mediaItem.className = 'media-item';
+                mediaItem.onclick = () => openMediaViewer(media.id);
+                
+                mediaItem.innerHTML = `
+                    <img src="${media.url}" alt="${media.event}">
+                    <div class="media-overlay">
+                        <i class="fas fa-expand"></i>
+                    </div>
+                `;
+                
+                container.appendChild(mediaItem);
+            });
+        }
+
+        function loadFeedbackForms() {
+            const container = document.getElementById('feedbackList');
+            container.innerHTML = '';
+            
+            const completedEvents = sampleEvents.filter(event => event.status === 'done');
+            
+            if (completedEvents.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">
+                            <i class="fas fa-comment-alt"></i>
+                        </div>
+                        <div class="empty-title">No Feedback Available</div>
+                        <div class="empty-desc">Complete events to provide feedback and ratings</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            // For demo, show some sample feedback forms
+            const sampleFeedback = [
+                { title: "Web Development Workshop", eventDate: "Nov 15, 2024" },
+                { title: "Data Science Bootcamp", eventDate: "Nov 10, 2024" }
+            ];
+            
+            sampleFeedback.forEach(feedback => {
+                const feedbackCard = createFeedbackCard(feedback);
+                container.appendChild(feedbackCard);
+            });
+        }
+
+        function createFeedbackCard(feedback) {
+            const card = document.createElement('div');
+            card.className = 'feedback-card';
+            
+            card.innerHTML = `
+                <div class="feedback-title">${feedback.title}</div>
+                <div style="color: var(--gray-600); margin-bottom: 1rem;">Event Date: ${feedback.eventDate}</div>
+                
+                <div style="margin-bottom: 1rem;">
+                    <label style="font-weight: 600; margin-bottom: 0.5rem; display: block;">Rate this event:</label>
+                    <div class="rating-stars">
+                        <i class="fas fa-star star" onclick="setRating(this, 1)"></i>
+                        <i class="fas fa-star star" onclick="setRating(this, 2)"></i>
+                        <i class="fas fa-star star" onclick="setRating(this, 3)"></i>
+                        <i class="fas fa-star star" onclick="setRating(this, 4)"></i>
+                        <i class="fas fa-star star" onclick="setRating(this, 5)"></i>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 1rem;">
+                    <label style="font-weight: 600; margin-bottom: 0.5rem; display: block;">Your feedback:</label>
+                    <textarea class="feedback-textarea" placeholder="Share your thoughts about this event..."></textarea>
+                </div>
+                
+                <button class="btn-primary" onclick="submitFeedback('${feedback.title}')">
+                    Submit Feedback
+                </button>
+            `;
+            
+            return card;
+        }
+
+        function setRating(starElement, rating) {
+            const stars = starElement.parentElement.querySelectorAll('.star');
+            stars.forEach((star, index) => {
+                if (index < rating) {
+                    star.classList.add('active');
+                } else {
+                    star.classList.remove('active');
+                }
+            });
+        }
+
+        function submitFeedback(eventTitle) {
+            alert(`Feedback submitted for "${eventTitle}"! Thank you for your input.`);
+        }
+
+        function searchEvents() {
+            const query = document.getElementById('eventSearch').value.toLowerCase();
+            const filteredEvents = sampleEvents.filter(event => 
+                event.title.toLowerCase().includes(query) ||
+                event.description.toLowerCase().includes(query) ||
+                event.category.toLowerCase().includes(query)
+            );
+            
+            const container = document.getElementById('allEvents');
+            container.innerHTML = '';
+            
+            if (filteredEvents.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">
+                            <i class="fas fa-search"></i>
+                        </div>
+                        <div class="empty-title">No Results Found</div>
+                        <div class="empty-desc">Try different keywords or browse all events</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            filteredEvents.forEach(event => {
+                const eventCard = createEventCard(event, false);
+                container.appendChild(eventCard);
+            });
+        }
+
+        function filterEvents(category) {
+            // Update active filter tab
+            document.querySelectorAll('.filter-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            let filteredEvents = sampleEvents;
+            if (category !== 'all') {
+                filteredEvents = sampleEvents.filter(event => 
+                    event.category.toLowerCase() === category
+                );
+            }
+            
+            const container = document.getElementById('allEvents');
+            container.innerHTML = '';
+            
+            filteredEvents.forEach(event => {
+                const eventCard = createEventCard(event, false);
+                container.appendChild(eventCard);
+            });
+        }
+
+        function sortEvents(sortBy) {
+            let sortedEvents = [...sampleEvents];
+            
+            switch(sortBy) {
+                case 'latest':
+                    sortedEvents.sort((a, b) => new Date(b.date) - new Date(a.date));
+                    break;
+                case 'popular':
+                    sortedEvents.sort((a, b) => b.registered - a.registered);
+                    break;
+                case 'date':
+                    sortedEvents.sort((a, b) => new Date(a.date) - new Date(b.date));
+                    break;
+                case 'title':
+                    sortedEvents.sort((a, b) => a.title.localeCompare(b.title));
+                    break;
+            }
+            
+            const container = document.getElementById('allEvents');
+            container.innerHTML = '';
+            
+            sortedEvents.forEach(event => {
+                const eventCard = createEventCard(event, false);
+                container.appendChild(eventCard);
+            });
+        }
+
+        function showFilters() {
+            alert('Advanced filters coming soon!');
+        }
+
+        function openMediaViewer(mediaId) {
+            alert(`Opening media viewer for item ${mediaId}`);
+        }
+
+        function toggleSaveEvent(eventId) {
+            const event = sampleEvents.find(e => e.id === eventId);
+            if (event) {
+                event.saved = !event.saved;
+                const action = event.saved ? 'saved' : 'removed from saved';
+                alert(`Event ${action}!`);
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            loadScreenContent('home');
+        });
+    </script>
+</body>
+</html>

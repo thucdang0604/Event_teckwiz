@@ -107,32 +107,72 @@ class ProfileScreen extends StatelessWidget {
 
                 // User Information
                 Card(
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   child: Padding(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Thông tin cá nhân',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textPrimary,
+                        const Padding(
+                          padding: EdgeInsets.all(12),
+                          child: Text(
+                            'Thông tin cá nhân',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textPrimary,
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 16),
-
-                        _buildInfoRow('Email', user.email),
-                        if (user.phoneNumber != null)
-                          _buildInfoRow('Số điện thoại', user.phoneNumber!),
-                        if (user.studentId != null)
-                          _buildInfoRow('Mã sinh viên', user.studentId!),
-                        if (user.department != null)
-                          _buildInfoRow('Khoa/Bộ môn', user.department!),
-                        _buildInfoRow('Ngày tạo', _formatDate(user.createdAt)),
-                        _buildInfoRow(
-                          'Cập nhật lần cuối',
-                          _formatDate(user.updatedAt),
+                        const Divider(height: 1, thickness: 0.6),
+                        _buildInfoTile(
+                          icon: Icons.person_outline,
+                          label: 'Họ và tên',
+                          value: user.fullName,
+                        ),
+                        const Divider(height: 1, thickness: 0.6),
+                        _buildInfoTile(
+                          icon: Icons.email_outlined,
+                          label: 'Email',
+                          value: user.email,
+                        ),
+                        const Divider(height: 1, thickness: 0.6),
+                        _buildInfoTile(
+                          icon: Icons.phone_outlined,
+                          label: 'Số điện thoại',
+                          value: user.phoneNumber ?? 'Chưa cập nhật',
+                        ),
+                        if (user.isStudent) ...[
+                          const Divider(height: 1, thickness: 0.6),
+                          _buildInfoTile(
+                            icon: Icons.badge_outlined,
+                            label: 'Mã sinh viên',
+                            value: user.studentId ?? 'Chưa cập nhật',
+                          ),
+                        ],
+                        const Divider(height: 1, thickness: 0.6),
+                        _buildInfoTile(
+                          icon: Icons.verified_user_outlined,
+                          label: 'Vai trò',
+                          value: _getRoleText(user.role),
+                        ),
+                        const Divider(height: 1, thickness: 0.6),
+                        _buildInfoTile(
+                          icon: Icons.event_note_outlined,
+                          label: 'Ngày tạo',
+                          value: _formatDate(user.createdAt),
+                        ),
+                        const Divider(height: 1, thickness: 0.6),
+                        _buildInfoTile(
+                          icon: Icons.update,
+                          label: 'Cập nhật lần cuối',
+                          value: _formatDate(user.updatedAt),
                         ),
                       ],
                     ),
@@ -239,29 +279,53 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoRow(String label, String value) {
+  // Removed legacy row-based info builder in favor of tile-based UI
+
+  Widget _buildInfoTile({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 120,
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: AppColors.primary),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
             child: Text(
               label,
               style: const TextStyle(
-                fontSize: 14,
+                fontSize: 13,
                 color: AppColors.textSecondary,
                 fontWeight: FontWeight.w500,
               ),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(
-                fontSize: 14,
-                color: AppColors.textPrimary,
+          const SizedBox(width: 10),
+          Flexible(
+            flex: 2,
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.right,
+                style: const TextStyle(
+                  fontSize: 15,
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ),
