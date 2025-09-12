@@ -80,9 +80,9 @@ class _EventAttendanceScreenState extends State<EventAttendanceScreen>
     try {
       await _registrationService.markAttendance(r.id);
       _load();
-      _toast('Đã check-in cho ${r.userName}');
+      _toast('Successfully checked in ${r.userName}');
     } catch (e) {
-      _toast('Lỗi check-in: $e', isError: true);
+      _toast('Check-in error: $e', isError: true);
     }
   }
 
@@ -90,9 +90,9 @@ class _EventAttendanceScreenState extends State<EventAttendanceScreen>
     try {
       await _registrationService.markCheckout(r.id);
       _load();
-      _toast('Đã check-out cho ${r.userName}');
+      _toast('Successfully checked out ${r.userName}');
     } catch (e) {
-      _toast('Lỗi check-out: $e', isError: true);
+      _toast('Check-out error: $e', isError: true);
     }
   }
 
@@ -111,7 +111,7 @@ class _EventAttendanceScreenState extends State<EventAttendanceScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Quản lý điểm danh - ${widget.eventTitle}'),
+        title: Text('Attendance Management - ${widget.eventTitle}'),
         actions: [
           IconButton(
             onPressed: () async {
@@ -124,16 +124,20 @@ class _EventAttendanceScreenState extends State<EventAttendanceScreen>
               if (refreshed == true) _load();
             },
             icon: const Icon(Icons.qr_code_scanner),
-            tooltip: 'Quét QR',
+            tooltip: 'Scan QR',
           ),
-          IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
+          IconButton(
+            onPressed: _load,
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Refresh',
+          ),
         ],
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
-            Tab(text: 'Chưa điểm danh'),
-            Tab(text: 'Đã check-in'),
-            Tab(text: 'Đã check-out'),
+            Tab(text: 'Not Attended'),
+            Tab(text: 'Checked In'),
+            Tab(text: 'Checked Out'),
           ],
         ),
       ),
@@ -141,20 +145,52 @@ class _EventAttendanceScreenState extends State<EventAttendanceScreen>
           ? const Center(child: CircularProgressIndicator())
           : _errorMessage != null
           ? Center(
-              child: Text(
-                'Lỗi: $_errorMessage',
-                style: const TextStyle(color: AppColors.error),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.error_outline,
+                    size: 64,
+                    color: AppColors.error,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Error: $_errorMessage',
+                    style: const TextStyle(
+                      color: AppColors.error,
+                      fontSize: 16,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(onPressed: _load, child: const Text('Retry')),
+                ],
               ),
             )
           : Column(
               children: [
-                Padding(
-                  padding: const EdgeInsets.all(12),
+                Container(
+                  margin: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
                   child: TextField(
                     decoration: const InputDecoration(
-                      hintText: 'Tìm theo tên hoặc email...',
-                      prefixIcon: Icon(Icons.search),
-                      border: OutlineInputBorder(),
+                      hintText: 'Search by name or email...',
+                      prefixIcon: Icon(Icons.search, color: Color(0xFF10b981)),
+                      border: OutlineInputBorder(borderSide: BorderSide.none),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
                     ),
                     onChanged: (v) => setState(() => _search = v),
                   ),
@@ -180,55 +216,201 @@ class _EventAttendanceScreenState extends State<EventAttendanceScreen>
     bool showCheckOut = false,
   }) {
     if (items.isEmpty) {
-      return const Center(
-        child: Text(
-          'Không có dữ liệu',
-          style: TextStyle(color: AppColors.textSecondary),
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.people_outline,
+              size: 64,
+              color: AppColors.textSecondary,
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'No data available',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'No participants found in this category',
+              style: TextStyle(
+                color: AppColors.textSecondary.withOpacity(0.7),
+                fontSize: 14,
+              ),
+            ),
+          ],
         ),
       );
     }
     return ListView.builder(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       itemCount: items.length,
       itemBuilder: (context, index) {
         final r = items[index];
-        return Card(
-          child: ListTile(
-            leading: CircleAvatar(
-              child: Text(
-                r.userName.isNotEmpty ? r.userName[0].toUpperCase() : '?',
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
               ),
-            ),
-            title: Text(r.userName),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
               children: [
-                Text(r.userEmail),
-                if (r.attendedAt != null) Text('Check-in: ${r.attendedAt}'),
-                if (r.checkedOutAt != null)
-                  Text('Check-out: ${r.checkedOutAt}'),
-              ],
-            ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (showCheckIn)
-                  IconButton(
-                    onPressed: () => _checkIn(r),
-                    icon: const Icon(Icons.login, color: AppColors.success),
-                    tooltip: 'Check-in',
+                Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF10b981), Color(0xFF34d399)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(25),
                   ),
-                if (showCheckOut)
-                  IconButton(
-                    onPressed: () => _checkOut(r),
-                    icon: const Icon(Icons.logout, color: AppColors.warning),
-                    tooltip: 'Check-out',
+                  child: Center(
+                    child: Text(
+                      r.userName.isNotEmpty ? r.userName[0].toUpperCase() : '?',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        r.userName,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        r.userEmail,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      if (r.attendedAt != null) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.login,
+                              size: 14,
+                              color: Color(0xFF10b981),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Checked in: ${_formatDateTime(r.attendedAt!.toString())}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF10b981),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      if (r.checkedOutAt != null) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.logout,
+                              size: 14,
+                              color: Color(0xFFf59e0b),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Checked out: ${_formatDateTime(r.checkedOutAt!.toString())}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFFf59e0b),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                if (showCheckIn || showCheckOut) ...[
+                  const SizedBox(width: 8),
+                  Column(
+                    children: [
+                      if (showCheckIn)
+                        Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF10b981).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: IconButton(
+                            onPressed: () => _checkIn(r),
+                            icon: const Icon(
+                              Icons.login,
+                              color: Color(0xFF10b981),
+                              size: 20,
+                            ),
+                            tooltip: 'Check In',
+                          ),
+                        ),
+                      if (showCheckOut) ...[
+                        const SizedBox(height: 8),
+                        Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFf59e0b).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: IconButton(
+                            onPressed: () => _checkOut(r),
+                            icon: const Icon(
+                              Icons.logout,
+                              color: Color(0xFFf59e0b),
+                              size: 20,
+                            ),
+                            tooltip: 'Check Out',
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
         );
       },
     );
+  }
+
+  String _formatDateTime(String dateTimeString) {
+    try {
+      final dateTime = DateTime.parse(dateTimeString);
+      return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+    } catch (e) {
+      return dateTimeString;
+    }
   }
 }

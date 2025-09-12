@@ -78,7 +78,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Lỗi chọn hình ảnh: $e'),
+          content: Text('Error selecting images: $e'),
           backgroundColor: AppColors.error,
         ),
       );
@@ -98,7 +98,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Lỗi chọn video: $e'),
+          content: Text('Error selecting video: $e'),
           backgroundColor: AppColors.error,
         ),
       );
@@ -203,7 +203,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         if (success && mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Tạo sự kiện thành công! Sự kiện đang chờ duyệt.'),
+              content: Text(
+                'Event created successfully! Your event is pending approval.',
+              ),
               backgroundColor: AppColors.success,
             ),
           );
@@ -212,7 +214,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                eventProvider.errorMessage ?? 'Tạo sự kiện thất bại',
+                eventProvider.errorMessage ?? 'Failed to create event',
               ),
               backgroundColor: AppColors.error,
             ),
@@ -222,7 +224,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Lỗi upload media: $e'),
+              content: Text('Error uploading media: $e'),
               backgroundColor: AppColors.error,
             ),
           );
@@ -235,12 +237,12 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   Widget build(BuildContext context) {
     return Consumer2<AuthProvider, AdminProvider>(
       builder: (context, authProvider, adminProvider, _) {
-        // Kiểm tra quyền tạo sự kiện
+        // Check event creation permissions
         if (authProvider.currentUser?.role != 'organizer' &&
             authProvider.currentUser?.role != 'admin') {
           return Scaffold(
             appBar: AppBar(
-              title: const Text('Tạo sự kiện mới'),
+              title: const Text('Create New Event'),
               leading: IconButton(
                 icon: const Icon(Icons.arrow_back),
                 onPressed: () => safePop(context),
@@ -253,7 +255,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                   Icon(Icons.block, size: 64, color: AppColors.error),
                   SizedBox(height: 16),
                   Text(
-                    'Bạn không có quyền tạo sự kiện',
+                    'You don\'t have permission to create events',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -262,7 +264,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                   ),
                   SizedBox(height: 8),
                   Text(
-                    'Chỉ có staff mới có thể tạo sự kiện',
+                    'Only staff members can create events',
                     style: TextStyle(
                       fontSize: 14,
                       color: AppColors.textSecondary,
@@ -276,7 +278,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
         return Scaffold(
           appBar: AppBar(
-            title: const Text('Tạo sự kiện mới'),
+            title: const Text('Create New Event'),
             leading: IconButton(
               icon: const Icon(Icons.arrow_back),
               onPressed: () => safePop(context),
@@ -285,7 +287,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
               TextButton(
                 onPressed: _createEvent,
                 child: const Text(
-                  'Lưu',
+                  'Save',
                   style: TextStyle(
                     color: AppColors.white,
                     fontWeight: FontWeight.w600,
@@ -309,7 +311,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                       children: [
                         // Basic Information
                         const Text(
-                          'Thông tin cơ bản',
+                          'Basic Information',
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -321,11 +323,11 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
                         CustomTextField(
                           controller: _titleController,
-                          label: 'Tên sự kiện *',
-                          hint: 'Nhập tên sự kiện',
+                          label: 'Event Title *',
+                          hint: 'Enter event title',
                           validator: (value) {
                             if (value == null || value.isEmpty) {
-                              return 'Vui lòng nhập tên sự kiện';
+                              return 'Please enter event title';
                             }
                             return null;
                           },
@@ -335,12 +337,12 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
                         CustomTextField(
                           controller: _descriptionController,
-                          label: 'Mô tả *',
-                          hint: 'Mô tả chi tiết về sự kiện',
+                          label: 'Description *',
+                          hint: 'Enter detailed event description',
                           maxLines: 4,
                           validator: (value) {
                             if (value == null || value.isEmpty) {
-                              return 'Vui lòng nhập mô tả sự kiện';
+                              return 'Please enter event description';
                             }
                             return null;
                           },
@@ -350,7 +352,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
                         // Category
                         const Text(
-                          'Danh mục *',
+                          'Category *',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -389,7 +391,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                         const SizedBox(height: 16),
 
                         const Text(
-                          'Địa điểm *',
+                          'Location *',
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -420,7 +422,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                           },
                           validator: (val) {
                             if (val == null || val.isEmpty) {
-                              return 'Vui lòng chọn địa điểm';
+                              return 'Please select a location';
                             }
                             return null;
                           },
@@ -430,7 +432,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
                         // Date and Time
                         const Text(
-                          'Thời gian',
+                          'Date & Time',
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -465,7 +467,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     const Text(
-                                      'Ngày bắt đầu',
+                                      'Start Date',
                                       style: TextStyle(
                                         fontSize: 14,
                                         color: AppColors.textSecondary,
@@ -514,7 +516,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     const Text(
-                                      'Ngày kết thúc',
+                                      'End Date',
                                       style: TextStyle(
                                         fontSize: 14,
                                         color: AppColors.textSecondary,
@@ -564,7 +566,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     const Text(
-                                      'Hạn đăng ký',
+                                      'Registration Deadline',
                                       style: TextStyle(
                                         fontSize: 14,
                                         color: AppColors.textSecondary,
@@ -590,7 +592,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
                         // Participants and Pricing
                         const Text(
-                          'Tham gia và giá',
+                          'Participants & Pricing',
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -602,16 +604,16 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
                         CustomTextField(
                           controller: _maxParticipantsController,
-                          label: 'Số lượng tham gia tối đa *',
-                          hint: 'Nhập số lượng',
+                          label: 'Maximum Participants *',
+                          hint: 'Enter maximum number of participants',
                           keyboardType: TextInputType.number,
                           validator: (value) {
                             if (value == null || value.isEmpty) {
-                              return 'Vui lòng nhập số lượng tham gia';
+                              return 'Please enter maximum participants';
                             }
                             if (int.tryParse(value) == null ||
                                 int.parse(value) <= 0) {
-                              return 'Số lượng phải là số dương';
+                              return 'Number must be positive';
                             }
                             return null;
                           },
@@ -623,7 +625,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                         Row(
                           children: [
                             const Text(
-                              'Sự kiện miễn phí',
+                              'Free Event',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
@@ -647,19 +649,19 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                           const SizedBox(height: 16),
                           CustomTextField(
                             controller: _priceController,
-                            label: 'Giá vé (VNĐ)',
-                            hint: 'Nhập giá vé',
+                            label: 'Ticket Price (VND)',
+                            hint: 'Enter ticket price',
                             keyboardType: TextInputType.number,
                             prefixIcon: Icons.attach_money,
                             validator: (value) {
                               if (!_isFree &&
                                   (value == null || value.isEmpty)) {
-                                return 'Vui lòng nhập giá vé';
+                                return 'Please enter ticket price';
                               }
                               if (!_isFree &&
                                   (double.tryParse(value!) == null ||
                                       double.parse(value) < 0)) {
-                                return 'Giá vé phải là số dương';
+                                return 'Price must be positive';
                               }
                               return null;
                             },
@@ -670,7 +672,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
                         // Additional Information
                         const Text(
-                          'Thông tin bổ sung',
+                          'Additional Information',
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -682,8 +684,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
                         CustomTextField(
                           controller: _requirementsController,
-                          label: 'Yêu cầu tham gia',
-                          hint: 'Nhập các yêu cầu (không bắt buộc)',
+                          label: 'Participation Requirements',
+                          hint: 'Enter participation requirements (optional)',
                           maxLines: 3,
                         ),
 
@@ -691,8 +693,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
                         CustomTextField(
                           controller: _contactInfoController,
-                          label: 'Thông tin liên hệ',
-                          hint: 'Nhập thông tin liên hệ (không bắt buộc)',
+                          label: 'Contact Information',
+                          hint: 'Enter contact information (optional)',
                           maxLines: 2,
                         ),
 
@@ -700,7 +702,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
                         // Media Upload Section
                         const Text(
-                          'Hình ảnh & Video',
+                          'Images & Videos',
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -722,7 +724,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                       MainAxisAlignment.spaceBetween,
                                   children: [
                                     const Text(
-                                      'Hình ảnh sự kiện',
+                                      'Event Images',
                                       style: TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w600,
@@ -734,7 +736,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                       icon: const Icon(
                                         Icons.add_photo_alternate,
                                       ),
-                                      label: const Text('Chọn hình'),
+                                      label: const Text('Select Images'),
                                     ),
                                   ],
                                 ),
@@ -814,7 +816,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                           ),
                                           SizedBox(height: 8),
                                           Text(
-                                            'Chưa có hình ảnh',
+                                            'No images selected',
                                             style: TextStyle(
                                               color: AppColors.grey,
                                               fontSize: 12,
@@ -843,7 +845,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                       MainAxisAlignment.spaceBetween,
                                   children: [
                                     const Text(
-                                      'Video sự kiện',
+                                      'Event Videos',
                                       style: TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w600,
@@ -853,7 +855,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                     TextButton.icon(
                                       onPressed: _pickVideo,
                                       icon: const Icon(Icons.videocam),
-                                      label: const Text('Chọn video'),
+                                      label: const Text('Select Video'),
                                     ),
                                   ],
                                 ),
@@ -932,7 +934,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                           ),
                                           SizedBox(height: 4),
                                           Text(
-                                            'Chưa có video',
+                                            'No video selected',
                                             style: TextStyle(
                                               color: AppColors.grey,
                                               fontSize: 12,
@@ -953,7 +955,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                         Consumer<EventProvider>(
                           builder: (context, eventProvider, _) {
                             return CustomButton(
-                              text: 'Tạo sự kiện',
+                              text: 'Create Event',
                               onPressed: eventProvider.isLoading
                                   ? null
                                   : _createEvent,

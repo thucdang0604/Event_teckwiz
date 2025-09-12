@@ -67,7 +67,7 @@ class _EventChatScreenState extends State<EventChatScreen> {
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Lỗi gửi tin nhắn: ${e.toString()}'),
+          content: Text('Failed to send message: ${e.toString()}'),
           backgroundColor: AppColors.error,
         ),
       );
@@ -109,7 +109,7 @@ class _EventChatScreenState extends State<EventChatScreen> {
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Lỗi gửi hình ảnh: ${e.toString()}'),
+          content: Text('Failed to send image: ${e.toString()}'),
           backgroundColor: AppColors.error,
         ),
       );
@@ -120,9 +120,11 @@ class _EventChatScreenState extends State<EventChatScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Chat sự kiện'),
+        title: const Text('Event Chat'),
         backgroundColor: AppColors.primary,
         foregroundColor: AppColors.white,
+        elevation: 0,
+        centerTitle: true,
       ),
       body: Column(
         children: [
@@ -141,17 +143,80 @@ class _EventChatScreenState extends State<EventChatScreen> {
                 }
 
                 if (snapshot.hasError) {
-                  return Center(child: Text('Lỗi: ${snapshot.error}'));
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.error_outline,
+                            size: 64,
+                            color: AppColors.error.withOpacity(0.6),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Error loading messages',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '${snapshot.error}',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
                 }
 
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Center(
-                    child: Text(
-                      'Chưa có tin nhắn nào\nHãy bắt đầu cuộc trò chuyện!',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 16,
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(50),
+                            ),
+                            child: Icon(
+                              Icons.chat_bubble_outline,
+                              size: 48,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          const Text(
+                            'No messages yet',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Start the conversation by sending a message!',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 14,
+                              height: 1.5,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   );
@@ -176,13 +241,18 @@ class _EventChatScreenState extends State<EventChatScreen> {
 
           // Message Input
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.only(
+              left: 16,
+              right: 16,
+              top: 16,
+              bottom: MediaQuery.of(context).padding.bottom + 16,
+            ),
             decoration: BoxDecoration(
               color: AppColors.white,
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.1),
-                  blurRadius: 4,
+                  blurRadius: 10,
                   offset: const Offset(0, -2),
                 ),
               ],
@@ -200,19 +270,34 @@ class _EventChatScreenState extends State<EventChatScreen> {
                   child: TextField(
                     controller: _messageController,
                     decoration: InputDecoration(
-                      hintText: 'Nhập tin nhắn...',
+                      hintText: 'Type a message...',
+                      hintStyle: TextStyle(
+                        color: AppColors.textSecondary.withOpacity(0.6),
+                        fontSize: 14,
+                      ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(24),
-                        borderSide: const BorderSide(color: AppColors.grey),
+                        borderSide: BorderSide(
+                          color: AppColors.grey.withOpacity(0.3),
+                          width: 1,
+                        ),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(24),
-                        borderSide: const BorderSide(color: AppColors.grey),
+                        borderSide: BorderSide(
+                          color: AppColors.grey.withOpacity(0.3),
+                          width: 1,
+                        ),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(24),
-                        borderSide: const BorderSide(color: AppColors.primary),
+                        borderSide: const BorderSide(
+                          color: AppColors.primary,
+                          width: 2,
+                        ),
                       ),
+                      filled: true,
+                      fillColor: AppColors.grey.withOpacity(0.1),
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 16,
                         vertical: 12,
@@ -227,10 +312,33 @@ class _EventChatScreenState extends State<EventChatScreen> {
                 const SizedBox(width: 8),
 
                 // Send Button
-                FloatingActionButton.small(
-                  onPressed: _sendMessage,
-                  backgroundColor: AppColors.primary,
-                  child: const Icon(Icons.send, color: AppColors.white),
+                Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(24),
+                      onTap: _sendMessage,
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        child: const Icon(
+                          Icons.send_rounded,
+                          color: AppColors.white,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -253,19 +361,31 @@ class _EventChatScreenState extends State<EventChatScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (!isMe) ...[
-            CircleAvatar(
-              radius: 16,
-              backgroundColor: AppColors.primary,
-              child: Text(
-                message.userName.substring(0, 1).toUpperCase(),
-                style: const TextStyle(
-                  color: AppColors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
+            Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withOpacity(0.2),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: CircleAvatar(
+                radius: 18,
+                backgroundColor: AppColors.primary,
+                child: Text(
+                  message.userName.substring(0, 1).toUpperCase(),
+                  style: const TextStyle(
+                    color: AppColors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 12),
           ],
 
           Flexible(
@@ -287,12 +407,15 @@ class _EventChatScreenState extends State<EventChatScreen> {
                 const SizedBox(height: 4),
 
                 Container(
+                  constraints: BoxConstraints(
+                    maxWidth: MediaQuery.of(context).size.width * 0.75,
+                  ),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
                     vertical: 12,
                   ),
                   decoration: BoxDecoration(
-                    color: isMe ? AppColors.primary : AppColors.greyLight,
+                    color: isMe ? AppColors.primary : Colors.grey[100],
                     borderRadius: BorderRadius.circular(20).copyWith(
                       bottomLeft: isMe
                           ? const Radius.circular(20)
@@ -301,6 +424,13 @@ class _EventChatScreenState extends State<EventChatScreen> {
                           ? const Radius.circular(4)
                           : const Radius.circular(20),
                     ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 4,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -336,11 +466,14 @@ class _EventChatScreenState extends State<EventChatScreen> {
                         ),
 
                       if (message.isEdited)
-                        const Text(
-                          ' (đã chỉnh sửa)',
+                        Text(
+                          ' (edited)',
                           style: TextStyle(
                             fontSize: 10,
                             fontStyle: FontStyle.italic,
+                            color: isMe
+                                ? AppColors.white.withOpacity(0.8)
+                                : AppColors.textSecondary,
                           ),
                         ),
                     ],

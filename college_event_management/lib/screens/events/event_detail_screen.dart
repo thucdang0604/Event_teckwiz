@@ -26,7 +26,8 @@ class EventDetailScreen extends StatefulWidget {
   State<EventDetailScreen> createState() => _EventDetailScreenState();
 }
 
-class _EventDetailScreenState extends State<EventDetailScreen> {
+class _EventDetailScreenState extends State<EventDetailScreen>
+    with WidgetsBindingObserver {
   EventModel? _event;
   bool _isLoading = true;
   String? _errorMessage;
@@ -38,7 +39,22 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadEvent();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _event != null) {
+      // Refresh participant count when app resumes (e.g., returning from registration)
+      _loadParticipantCount();
+    }
   }
 
   Future<void> _loadEvent() async {
@@ -52,6 +68,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       });
       await _loadMyRegistrationIfNeeded();
       await _loadOrganizerSummaryIfNeeded();
+      await _loadParticipantCount();
     } catch (e) {
       setState(() {
         _errorMessage = e.toString();
@@ -97,6 +114,26 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     } catch (_) {}
   }
 
+  Future<void> _loadParticipantCount() async {
+    if (_event == null) return;
+    try {
+      final regs = await _registrationService.getEventRegistrations(_event!.id);
+
+      int approved = 0;
+      for (final r in regs) {
+        if (r.isApproved) approved++;
+      }
+
+      if (mounted) {
+        setState(() {
+          _approvedCount = approved;
+        });
+      }
+    } catch (e) {
+      // Silently handle errors
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -105,7 +142,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
     if (_errorMessage != null || _event == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Lỗi')),
+        appBar: AppBar(title: const Text('Error')),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -113,7 +150,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
               const Icon(Icons.error_outline, size: 64, color: AppColors.error),
               const SizedBox(height: 16),
               Text(
-                _errorMessage ?? 'Không tìm thấy sự kiện',
+                _errorMessage ?? 'Event not found',
                 style: const TextStyle(
                   fontSize: 16,
                   color: AppColors.textSecondary,
@@ -123,7 +160,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () => context.pop(),
-                child: const Text('Quay lại'),
+                child: const Text('Go Back'),
               ),
             ],
           ),
@@ -265,7 +302,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                   // Event details
                   _buildDetailRow(
                     Icons.calendar_today,
-                    'Ngày bắt đầu',
+                    'Start Date',
                     DateFormat(
                       AppConstants.dateTimeFormat,
                     ).format(_event!.startDate),
@@ -273,7 +310,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
                   _buildDetailRow(
                     Icons.calendar_today,
-                    'Ngày kết thúc',
+                    'End Date',
                     DateFormat(
                       AppConstants.dateTimeFormat,
                     ).format(_event!.endDate),
@@ -281,72 +318,142 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
                   _buildDetailRow(
                     Icons.location_on,
-                    'Địa điểm',
+                    'Location',
                     _event!.location,
                   ),
 
                   _buildDetailRow(
                     Icons.person,
-                    'Người tổ chức',
+                    'Organizer',
                     _event!.organizerName,
                   ),
 
                   _buildDetailRow(
                     Icons.people,
-                    'Số lượng tham gia',
-                    '${_event!.currentParticipants}/${_event!.maxParticipants}',
+                    'Participants',
+                    '${_approvedCount}/${_event!.maxParticipants}',
                   ),
 
                   if (!_event!.isFree)
                     _buildDetailRow(
                       Icons.attach_money,
-                      'Phí tham gia',
+                      'Participation Fee',
                       '${NumberFormat.currency(locale: 'vi_VN', symbol: '₫').format(_event!.price)}',
                     ),
 
                   const SizedBox(height: 24),
 
                   // Description
-                  const Text(
-                    'Mô tả sự kiện',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textPrimary,
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
-                  ),
-
-                  const SizedBox(height: 8),
-
-                  Text(
-                    _event!.description,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      color: AppColors.textSecondary,
-                      height: 1.5,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(
+                                Icons.description,
+                                color: AppColors.primary,
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            const Text(
+                              'Event Description',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          _event!.description,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            color: AppColors.textSecondary,
+                            height: 1.6,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
 
                   if (_event!.requirements != null) ...[
                     const SizedBox(height: 24),
 
-                    const Text(
-                      'Yêu cầu tham gia',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 10,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
-                    ),
-
-                    const SizedBox(height: 8),
-
-                    Text(
-                      _event!.requirements!,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        color: AppColors.textSecondary,
-                        height: 1.5,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: const Color(
+                                    0xFFF59E0B,
+                                  ).withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(
+                                  Icons.assignment,
+                                  color: Color(0xFFF59E0B),
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              const Text(
+                                'Participation Requirements',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            _event!.requirements!,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              color: AppColors.textSecondary,
+                              height: 1.6,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -354,23 +461,59 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                   if (_event!.contactInfo != null) ...[
                     const SizedBox(height: 24),
 
-                    const Text(
-                      'Thông tin liên hệ',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 10,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
-                    ),
-
-                    const SizedBox(height: 8),
-
-                    Text(
-                      _event!.contactInfo!,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        color: AppColors.textSecondary,
-                        height: 1.5,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: const Color(
+                                    0xFF10B981,
+                                  ).withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(
+                                  Icons.contact_phone,
+                                  color: Color(0xFF10B981),
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              const Text(
+                                'Contact Information',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            _event!.contactInfo!,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              color: AppColors.textSecondary,
+                              height: 1.6,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -389,7 +532,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text(
-                              'Đăng ký của sinh viên',
+                              'Student Registrations',
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
@@ -397,45 +540,20 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                               ),
                             ),
                             const SizedBox(height: 12),
-                            SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: Row(
-                                children: [
-                                  _buildChip(
-                                    'Chờ duyệt',
-                                    _pendingCount,
-                                    AppColors.warning,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  _buildChip(
-                                    'Đã duyệt',
-                                    _approvedCount,
-                                    AppColors.success,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  ElevatedButton.icon(
-                                    onPressed: () async {
-                                      await Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) =>
-                                              EventRegistrationsScreen(
-                                                eventId: _event!.id,
-                                                eventTitle: _event!.title,
-                                              ),
-                                        ),
-                                      );
-                                      _loadOrganizerSummaryIfNeeded();
-                                    },
-                                    icon: const Icon(Icons.list),
-                                    label: const Text('Xem danh sách'),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppColors.primary,
-                                      foregroundColor: AppColors.white,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                            Row(
+                              children: [
+                                _buildChip(
+                                  'Pending',
+                                  _pendingCount,
+                                  AppColors.warning,
+                                ),
+                                const SizedBox(width: 12),
+                                _buildChip(
+                                  'Approved',
+                                  _approvedCount,
+                                  AppColors.success,
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -458,70 +576,37 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
         canRegister: canRegister,
         hasActiveRegistration: hasActiveRegistration,
       ),
-      persistentFooterButtons: [
-        // QR Scanner Button
-        ElevatedButton.icon(
-          onPressed: _openEventVideo,
-          icon: const Icon(Icons.play_circle_fill),
-          label: const Text('Xem video'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: AppColors.white,
-          ),
-        ),
-
-        // Chat Button
-        ElevatedButton.icon(
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => EventChatScreen(eventId: _event!.id),
-              ),
-            );
-          },
-          icon: const Icon(Icons.chat),
-          label: const Text('Chat'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.accent,
-            foregroundColor: AppColors.white,
-          ),
-        ),
-
-        // Manage Attendance Button (for organizers)
-        if (_event!.organizerId ==
-            Provider.of<AuthProvider>(context, listen: false).currentUser?.id)
-          ElevatedButton.icon(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => EventAttendanceScreen(
-                    eventId: _event!.id,
-                    eventTitle: _event!.title,
-                  ),
-                ),
-              );
-            },
-            icon: const Icon(Icons.people),
-            label: const Text('Quản lý'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.warning,
-              foregroundColor: AppColors.white,
-            ),
-          ),
-      ],
+      bottomNavigationBar: _buildBottomBar(),
     );
   }
 
   Widget _buildDetailRow(IconData icon, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 20, color: AppColors.primary),
-          const SizedBox(width: 12),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, size: 20, color: AppColors.primary),
+          ),
+          const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -529,23 +614,181 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 Text(
                   label,
                   style: const TextStyle(
-                    fontSize: 14,
+                    fontSize: 12,
                     color: AppColors.textSecondary,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.5,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 4),
                 Text(
                   value,
                   style: const TextStyle(
                     fontSize: 16,
                     color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildBottomBar() {
+    final currentUser = Provider.of<AuthProvider>(
+      context,
+      listen: false,
+    ).currentUser;
+    final isEventHost = _event!.organizerId == currentUser?.id;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              // Watch Video Button
+              Expanded(
+                child: _buildActionButton(
+                  icon: Icons.play_circle_fill,
+                  label: 'Watch\nVideo',
+                  color: AppColors.primary,
+                  onPressed: _openEventVideo,
+                ),
+              ),
+              const SizedBox(width: 8),
+
+              // Chat Button
+              Expanded(
+                child: _buildActionButton(
+                  icon: Icons.chat,
+                  label: 'Chat',
+                  color: const Color(0xFF10B981),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            EventChatScreen(eventId: _event!.id),
+                      ),
+                    );
+                  },
+                ),
+              ),
+
+              if (isEventHost) ...[
+                const SizedBox(width: 8),
+
+                // View List Button
+                Expanded(
+                  child: _buildActionButton(
+                    icon: Icons.list,
+                    label: 'View\nList',
+                    color: const Color(0xFF8B5CF6),
+                    onPressed: () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => EventRegistrationsScreen(
+                            eventId: _event!.id,
+                            eventTitle: _event!.title,
+                          ),
+                        ),
+                      );
+                      _loadOrganizerSummaryIfNeeded();
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+
+                // Manage Button
+                Expanded(
+                  child: _buildActionButton(
+                    icon: Icons.qr_code_scanner,
+                    label: 'Manage',
+                    color: const Color(0xFFF59E0B),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => EventAttendanceScreen(
+                            eventId: _event!.id,
+                            eventTitle: _event!.title,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onPressed,
+  }) {
+    return Container(
+      height: 56,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, color: Colors.white, size: 20),
+                const SizedBox(height: 4),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    height: 1.2,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -593,19 +836,19 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   String _getStatusText(String status) {
     switch (status) {
       case AppConstants.eventPublished:
-        return 'Đã xuất bản';
+        return 'Published';
       case 'pending':
-        return 'Chờ duyệt';
+        return 'Pending';
       case 'rejected':
-        return 'Từ chối';
+        return 'Rejected';
       case AppConstants.eventDraft:
-        return 'Bản nháp';
+        return 'Draft';
       case AppConstants.eventCancelled:
-        return 'Đã hủy';
+        return 'Cancelled';
       case AppConstants.eventCompleted:
-        return 'Đã hoàn thành';
+        return 'Completed';
       default:
-        return 'Không xác định';
+        return 'Unknown';
     }
   }
 
@@ -651,7 +894,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
             context: context,
             builder: (context) {
               return AlertDialog(
-                title: const Text('Mã QR Check-in'),
+                title: const Text('Check-in QR Code'),
                 content: SizedBox(
                   width: 240,
                   height: 240,
@@ -661,13 +904,13 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                             data: _myRegistration!.qrCode!,
                             version: qr.QrVersions.auto,
                           )
-                        : const Text('Không có mã QR'),
+                        : const Text('No QR Code'),
                   ),
                 ),
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.pop(context),
-                    child: const Text('Đóng'),
+                    child: const Text('Close'),
                   ),
                 ],
               );
@@ -677,7 +920,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
         backgroundColor: AppColors.success,
         icon: const Icon(Icons.qr_code, color: AppColors.white),
         label: const Text(
-          'Xem mã QR',
+          'View QR Code',
           style: TextStyle(color: AppColors.white),
         ),
       );
@@ -703,7 +946,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           color: AppColors.white,
         ),
         label: Text(
-          hasActiveRegistration ? 'Đang chờ duyệt' : 'Đăng ký tham gia',
+          hasActiveRegistration ? 'Pending Approval' : 'Register Now',
           style: const TextStyle(color: AppColors.white),
         ),
       );
@@ -715,7 +958,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     if (_event == null || _event!.videoUrls.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Sự kiện chưa có video'),
+          content: Text('Event has no video'),
           backgroundColor: AppColors.warning,
         ),
       );
@@ -726,7 +969,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     if (!await canLaunchUrl(uri)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Không mở được video'),
+          content: Text('Cannot open video'),
           backgroundColor: AppColors.error,
         ),
       );

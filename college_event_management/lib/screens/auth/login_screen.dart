@@ -19,6 +19,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _isLoading = false;
+  bool _rememberMe = false;
 
   @override
   void dispose() {
@@ -46,26 +47,26 @@ class _LoginScreenState extends State<LoginScreen> {
           });
 
           if (success && authProvider.isAuthenticated) {
-            // Xóa form
             _emailController.clear();
             _passwordController.clear();
 
-            // Hiển thị thông báo thành công
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Đăng nhập thành công!'),
+                content: Text('Signed in successfully'),
                 backgroundColor: AppColors.success,
               ),
             );
 
-            // Chuyển trang
-            context.go('/home');
+            final user = authProvider.currentUser;
+            if (user != null && user.isStudent) {
+              context.go('/student');
+            } else {
+              context.go('/home');
+            }
           } else {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(
-                  authProvider.errorMessage ?? 'Đăng nhập thất bại',
-                ),
+                content: Text(authProvider.errorMessage ?? 'Sign in failed'),
                 backgroundColor: AppColors.error,
               ),
             );
@@ -79,7 +80,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Lỗi đăng nhập: ${e.toString()}'),
+              content: Text('Sign in error: ${e.toString()}'),
               backgroundColor: AppColors.error,
             ),
           );
@@ -92,315 +93,513 @@ class _LoginScreenState extends State<LoginScreen> {
     context.go('/register');
   }
 
-  void _loginDemo() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      bool success = await authProvider.signInAnonymously();
-
-      if (mounted) {
-        final user = authProvider.currentUser;
-        if (user != null && user.isStudent) {
-          context.go('/student');
-        } else {
-          context.go('/home');
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Login failed: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-
-        if (success && authProvider.isAuthenticated) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Đăng nhập demo thành công!'),
-              backgroundColor: AppColors.success,
-            ),
-          );
-          context.go('/home');
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                authProvider.errorMessage ?? 'Đăng nhập demo thất bại',
-              ),
-              backgroundColor: AppColors.error,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Lỗi đăng nhập demo: ${e.toString()}'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
-    }
-  }
-
-  void _createTestAdmin() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      bool success = await authProvider.register(
-        email: 'admin@test.com',
-        password: '123456',
-        fullName: 'Admin Test',
-        role: 'admin',
-      );
-
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-
-        if (success && authProvider.isAuthenticated) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Tạo tài khoản admin thành công!'),
-              backgroundColor: AppColors.success,
-            ),
-          );
-          context.go('/home');
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                authProvider.errorMessage ?? 'Tạo tài khoản admin thất bại',
-              ),
-              backgroundColor: AppColors.error,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Lỗi tạo tài khoản admin: ${e.toString()}'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
-    }
-  }
+  // demo and test admin helpers removed per UI cleanup
 
   @override
   Widget build(BuildContext context) {
+    final gradient = const LinearGradient(
+      colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
+
     return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.primary,
-        foregroundColor: AppColors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.white),
-          onPressed: () => context.go('/home'),
-        ),
-      ),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          return SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: constraints.maxHeight - 48, // 48 = padding
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const SizedBox(height: 60),
-
-                    // Logo and Title
-                    Column(
-                      children: [
-                        Container(
-                          width: 80,
-                          height: 80,
-                          decoration: BoxDecoration(
-                            color: AppColors.primary,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: const Icon(
-                            Icons.event_note,
-                            color: AppColors.white,
-                            size: 40,
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        const Text(
-                          'Chào mừng trở lại!',
-                          style: TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textPrimary,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Đăng nhập để tiếp tục',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: AppColors.textSecondary,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 48),
-
-                    // Login Form
-                    Form(
-                      key: _formKey,
-                      child: Column(
-                        children: [
-                          CustomTextField(
-                            controller: _emailController,
-                            label: 'Email',
-                            hint: 'Nhập email của bạn',
-                            keyboardType: TextInputType.emailAddress,
-                            prefixIcon: Icons.email_outlined,
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Vui lòng nhập email';
-                              }
-                              if (!value.contains('@')) {
-                                return 'Email không hợp lệ';
-                              }
-                              return null;
-                            },
-                          ),
-
-                          const SizedBox(height: 16),
-
-                          CustomTextField(
-                            controller: _passwordController,
-                            label: 'Mật khẩu',
-                            hint: 'Nhập mật khẩu của bạn',
-                            obscureText: _obscurePassword,
-                            prefixIcon: Icons.lock_outline,
-                            suffixIcon: IconButton(
-                              onPressed: () {
-                                setState(() {
-                                  _obscurePassword = !_obscurePassword;
-                                });
-                              },
-                              icon: Icon(
-                                _obscurePassword
-                                    ? Icons.visibility
-                                    : Icons.visibility_off,
+      backgroundColor: Colors.transparent,
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: Container(
+          decoration: BoxDecoration(gradient: gradient),
+          child: SafeArea(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+                final bool isCompact = constraints.maxHeight < 700;
+                return Center(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: constraints.maxWidth),
+                    child: Padding(
+                      padding: EdgeInsets.zero,
+                      child: Container(
+                        decoration: const BoxDecoration(color: AppColors.white),
+                        child: SingleChildScrollView(
+                          padding: EdgeInsets.only(bottom: bottomInset + 16),
+                          physics: const BouncingScrollPhysics(),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              // Header
+                              Container(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: isCompact ? 12 : 20,
+                                ),
+                                decoration: BoxDecoration(
+                                  gradient: gradient,
+                                  borderRadius: BorderRadius.zero,
+                                ),
+                                child: Column(
+                                  children: [
+                                    const _HeaderBackButton(),
+                                    const SizedBox(height: 6),
+                                    _AppLogo(size: isCompact ? 48 : 60),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      'FusionFiesta',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: isCompact ? 20 : 22,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'University Event Management System',
+                                      style: TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: isCompact ? 11 : 12,
+                                        fontWeight: FontWeight.w400,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Vui lòng nhập mật khẩu';
-                              }
-                              if (value.length < 6) {
-                                return 'Mật khẩu phải có ít nhất 6 ký tự';
-                              }
-                              return null;
-                            },
-                          ),
 
-                          const SizedBox(height: 24),
+                              // Tabs
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  20,
+                                  12,
+                                  20,
+                                  0,
+                                ),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF3F4F6),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  padding: const EdgeInsets.all(4),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: _SegmentButton(
+                                          label: 'Sign In',
+                                          selected: true,
+                                          onTap: () {},
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: _SegmentButton(
+                                          label: 'Sign Up',
+                                          selected: false,
+                                          onTap: _goToRegister,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
 
-                          CustomButton(
-                            text: 'Đăng nhập',
-                            onPressed: _isLoading ? null : _login,
-                            isLoading: _isLoading,
+                              // Form
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  20,
+                                  12,
+                                  20,
+                                  16,
+                                ),
+                                child: Form(
+                                  key: _formKey,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      CustomTextField(
+                                        controller: _emailController,
+                                        label: 'Email',
+                                        hint: 'Enter your email',
+                                        keyboardType:
+                                            TextInputType.emailAddress,
+                                        prefixIcon: Icons.email_outlined,
+                                        validator: (value) {
+                                          if (value == null || value.isEmpty) {
+                                            return 'Please enter email';
+                                          }
+                                          if (!value.contains('@')) {
+                                            return 'Invalid email address';
+                                          }
+                                          return null;
+                                        },
+                                      ),
+                                      const SizedBox(height: 12),
+                                      CustomTextField(
+                                        controller: _passwordController,
+                                        label: 'Password',
+                                        hint: 'Enter your password',
+                                        obscureText: _obscurePassword,
+                                        prefixIcon: Icons.lock_outline,
+                                        suffixIcon: IconButton(
+                                          onPressed: () {
+                                            setState(() {
+                                              _obscurePassword =
+                                                  !_obscurePassword;
+                                            });
+                                          },
+                                          icon: Icon(
+                                            _obscurePassword
+                                                ? Icons.visibility
+                                                : Icons.visibility_off,
+                                          ),
+                                        ),
+                                        validator: (value) {
+                                          if (value == null || value.isEmpty) {
+                                            return 'Please enter password';
+                                          }
+                                          if (value.length < 6) {
+                                            return 'Password must be at least 6 characters';
+                                          }
+                                          return null;
+                                        },
+                                      ),
+
+                                      const SizedBox(height: 12),
+                                      Row(
+                                        children: [
+                                          Checkbox(
+                                            value: _rememberMe,
+                                            onChanged: (v) {
+                                              setState(
+                                                () => _rememberMe = v ?? false,
+                                              );
+                                            },
+                                            materialTapTargetSize:
+                                                MaterialTapTargetSize
+                                                    .shrinkWrap,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          const Expanded(
+                                            child: Text(
+                                              'Remember me for 30 days',
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                color: Color(0xFF6B7280),
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Flexible(
+                                            fit: FlexFit.loose,
+                                            child: TextButton(
+                                              onPressed: _isLoading
+                                                  ? null
+                                                  : () async {
+                                                      if (_emailController
+                                                          .text
+                                                          .isEmpty) {
+                                                        ScaffoldMessenger.of(
+                                                          context,
+                                                        ).showSnackBar(
+                                                          const SnackBar(
+                                                            content: Text(
+                                                              'Enter email to reset password',
+                                                            ),
+                                                          ),
+                                                        );
+                                                        return;
+                                                      }
+                                                      final provider =
+                                                          Provider.of<
+                                                            AuthProvider
+                                                          >(
+                                                            context,
+                                                            listen: false,
+                                                          );
+                                                      await provider
+                                                          .resetPassword(
+                                                            _emailController
+                                                                .text
+                                                                .trim(),
+                                                          );
+                                                      if (!mounted) return;
+                                                      ScaffoldMessenger.of(
+                                                        context,
+                                                      ).showSnackBar(
+                                                        const SnackBar(
+                                                          content: Text(
+                                                            'Password reset link sent',
+                                                          ),
+                                                        ),
+                                                      );
+                                                    },
+                                              child: const Text(
+                                                'Forgot password?',
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+
+                                      const SizedBox(height: 8),
+                                      CustomButton(
+                                        text: 'Sign In',
+                                        onPressed: _isLoading ? null : _login,
+                                        isLoading: _isLoading,
+                                      ),
+
+                                      const SizedBox(height: 12),
+                                      Row(
+                                        children: const [
+                                          Expanded(child: Divider()),
+                                          Padding(
+                                            padding: EdgeInsets.symmetric(
+                                              horizontal: 12,
+                                            ),
+                                            child: Text(
+                                              'or continue with',
+                                              style: TextStyle(
+                                                color: Color(0xFF9CA3AF),
+                                              ),
+                                            ),
+                                          ),
+                                          Expanded(child: Divider()),
+                                        ],
+                                      ),
+
+                                      const SizedBox(height: 12),
+                                      OutlinedButton.icon(
+                                        onPressed: _isLoading
+                                            ? null
+                                            : () {
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  const SnackBar(
+                                                    content: Text(
+                                                      'Google Sign-In not configured',
+                                                    ),
+                                                  ),
+                                                );
+                                              },
+                                        style: OutlinedButton.styleFrom(
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 14,
+                                          ),
+                                          side: const BorderSide(
+                                            color: Color(0xFFE5E7EB),
+                                            width: 2,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                          ),
+                                          foregroundColor: const Color(
+                                            0xFF374151,
+                                          ),
+                                          backgroundColor: AppColors.white,
+                                        ),
+                                        icon: const Icon(
+                                          Icons.g_mobiledata,
+                                          size: 28,
+                                        ),
+                                        label: const Text(
+                                          'Sign in with Google',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+
+                                      const SizedBox(height: 12),
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          _CircleIconButton(
+                                            icon: Icons.fingerprint,
+                                            onTap: () {
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text(
+                                                    'Biometric auth not configured',
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                          const SizedBox(width: 12),
+                                          _CircleIconButton(
+                                            icon: Icons.face,
+                                            onTap: () {
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text(
+                                                    'Face ID not configured',
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                        ],
+                                      ),
+
+                                      const SizedBox(height: 16),
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          const Text(
+                                            "Don't have an account? ",
+                                            style: TextStyle(
+                                              color: Color(0xFF6B7280),
+                                            ),
+                                          ),
+                                          GestureDetector(
+                                            onTap: _goToRegister,
+                                            child: const Text(
+                                              'Sign Up',
+                                              style: TextStyle(
+                                                color: Color(0xFF6366F1),
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+
+                                      const SizedBox(height: 6),
+
+                                      // removed demo/admin test shortcuts
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
                     ),
-
-                    const SizedBox(height: 24),
-
-                    // Register Link
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text(
-                          'Chưa có tài khoản? ',
-                          style: TextStyle(color: AppColors.textSecondary),
-                        ),
-                        GestureDetector(
-                          onTap: _goToRegister,
-                          child: const Text(
-                            'Đăng ký ngay',
-                            style: TextStyle(
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 32),
-
-                    // Demo Buttons
-                    Column(
-                      children: [
-                        TextButton(
-                          onPressed: _isLoading ? null : _loginDemo,
-                          child: const Text(
-                            'Tiếp tục với tài khoản demo',
-                            style: TextStyle(
-                              color: AppColors.primary,
-                              fontSize: 16,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        TextButton(
-                          onPressed: _isLoading ? null : _createTestAdmin,
-                          child: const Text(
-                            'Tạo tài khoản admin test',
-                            style: TextStyle(
-                              color: AppColors.secondary,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+                  ),
+                );
+              },
             ),
-          );
-        },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HeaderBackButton extends StatelessWidget {
+  const _HeaderBackButton();
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: InkWell(
+        onTap: () => context.go('/home'),
+        child: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: const Icon(Icons.arrow_back, color: Colors.white),
+        ),
+      ),
+    );
+  }
+}
+
+class _AppLogo extends StatelessWidget {
+  final double size;
+  const _AppLogo({this.size = 60});
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.25),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: const Center(
+        child: Icon(Icons.calendar_month, color: Colors.white, size: 28),
+      ),
+    );
+  }
+}
+
+class _SegmentButton extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  const _SegmentButton({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: selected ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: const Color(0x1A000000),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? const Color(0xFF6366F1) : const Color(0xFF6B7280),
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CircleIconButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  const _CircleIconButton({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      customBorder: const CircleBorder(),
+      child: Container(
+        width: 50,
+        height: 50,
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          shape: BoxShape.circle,
+          border: Border.all(color: const Color(0xFFE5E7EB), width: 2),
+        ),
+        child: Icon(icon, color: const Color(0xFF6B7280)),
       ),
     );
   }
