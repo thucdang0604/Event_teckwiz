@@ -140,10 +140,14 @@ class EventService {
           .collection(AppConstants.eventsCollection)
           .where('organizerId', isEqualTo: organizerId)
           .where('isActive', isEqualTo: true)
-          .orderBy('createdAt', descending: true)
           .get();
 
-      return snapshot.docs.map((doc) => EventModel.fromFirestore(doc)).toList();
+      List<EventModel> events = snapshot.docs
+          .map((doc) => EventModel.fromFirestore(doc))
+          .toList();
+
+      events.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return events;
     } catch (e) {
       throw Exception('Lỗi lấy sự kiện theo người tổ chức: ${e.toString()}');
     }
@@ -169,12 +173,20 @@ class EventService {
           .collection(AppConstants.eventsCollection)
           .where('isActive', isEqualTo: true)
           .where('status', isEqualTo: AppConstants.eventPublished)
-          .where('startDate', isGreaterThan: now)
-          .orderBy('startDate')
-          .limit(limit)
           .get();
 
-      return snapshot.docs.map((doc) => EventModel.fromFirestore(doc)).toList();
+      List<EventModel> events = snapshot.docs
+          .map((doc) => EventModel.fromFirestore(doc))
+          .where((event) => event.startDate.isAfter(now))
+          .toList();
+
+      events.sort((a, b) => a.startDate.compareTo(b.startDate));
+
+      if (events.length > limit) {
+        events = events.take(limit).toList();
+      }
+
+      return events;
     } catch (e) {
       throw Exception('Lỗi lấy sự kiện sắp diễn ra: ${e.toString()}');
     }
@@ -246,6 +258,25 @@ class EventService {
                     event.status == AppConstants.eventPublished ||
                     event.organizerId == organizerId,
               )
+              .toList();
+
+          // Sắp xếp theo createdAt
+          events.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+          return events;
+        });
+  }
+
+  // Stream để lấy chỉ sự kiện của organizer (cho My Events tab)
+  Stream<List<EventModel>> getMyEventsStream(String organizerId) {
+    return _firestore
+        .collection(AppConstants.eventsCollection)
+        .where('organizerId', isEqualTo: organizerId)
+        .where('isActive', isEqualTo: true)
+        .snapshots()
+        .map((snapshot) {
+          List<EventModel> events = snapshot.docs
+              .map((doc) => EventModel.fromFirestore(doc))
               .toList();
 
           // Sắp xếp theo createdAt

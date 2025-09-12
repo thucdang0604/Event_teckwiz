@@ -1,0 +1,2020 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Staff Dashboard - FusionFiesta</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary: #8b5cf6;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --info: #3b82f6;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --shadow: 0 4px 20px rgba(0,0,0,0.08);
+            --shadow-lg: 0 8px 30px rgba(0,0,0,0.12);
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, var(--success) 0%, #34d399 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            color: var(--gray-800);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+        
+        /* App Container */
+        .app-container {
+            width: 100%;
+            max-width: 400px;
+            min-height: 100vh;
+            background: var(--gray-50);
+            border-radius: 24px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+            overflow: hidden;
+            position: relative;
+            animation: slideUp 0.6s ease;
+            padding-bottom: 80px;
+        }
+        
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Header */
+        .app-header {
+            background: white;
+            padding: 1rem;
+            box-shadow: var(--shadow);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        
+        .user-avatar {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--success), #34d399);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+        
+        .user-details h6 {
+            font-weight: 600;
+            margin-bottom: 0.125rem;
+            color: var(--gray-800);
+        }
+        
+        .user-role {
+            font-size: 0.8rem;
+            color: var(--success);
+            font-weight: 600;
+        }
+        
+        .header-actions {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+        
+        .header-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: var(--gray-100);
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--gray-600);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        
+        .header-btn:hover {
+            background: var(--gray-200);
+            transform: scale(1.05);
+        }
+        
+        .notification-badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: var(--danger);
+            color: white;
+            border-radius: 10px;
+            padding: 0.125rem 0.375rem;
+            font-size: 0.65rem;
+            font-weight: 700;
+            min-width: 18px;
+            text-align: center;
+            line-height: 1.2;
+        }
+        
+        /* Main Content */
+        .main-content {
+            padding: 1rem;
+        }
+        
+        .screen {
+            display: none;
+            animation: slideIn 0.3s ease;
+        }
+        
+        .screen.active {
+            display: block;
+        }
+        
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        
+        /* Welcome Section */
+        .welcome-section {
+            background: linear-gradient(135deg, var(--success), #34d399);
+            color: white;
+            padding: 1.5rem;
+            border-radius: 16px;
+            margin-bottom: 1.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .welcome-section::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -20%;
+            width: 200px;
+            height: 200px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 50%;
+        }
+        
+        .welcome-content {
+            position: relative;
+            z-index: 1;
+        }
+        
+        .welcome-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        
+        .welcome-subtitle {
+            opacity: 0.9;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+        }
+        
+        .quick-stats {
+            display: flex;
+            gap: 1.5rem;
+        }
+        
+        .stat-item {
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+        
+        .stat-label {
+            font-size: 0.75rem;
+            opacity: 0.8;
+        }
+        
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.25rem;
+            box-shadow: var(--shadow);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 60px;
+            height: 60px;
+            opacity: 0.1;
+            border-radius: 50%;
+            transform: translate(20px, -20px);
+        }
+        
+        .stat-card.primary::before { background: var(--primary); }
+        .stat-card.success::before { background: var(--success); }
+        .stat-card.warning::before { background: var(--warning); }
+        .stat-card.info::before { background: var(--info); }
+        .stat-card.danger::before { background: var(--danger); }
+        
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+        
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            margin-bottom: 0.75rem;
+        }
+        
+        .stat-icon.primary { background: rgba(99, 102, 241, 0.1); color: var(--primary); }
+        .stat-icon.success { background: rgba(16, 185, 129, 0.1); color: var(--success); }
+        .stat-icon.warning { background: rgba(245, 158, 11, 0.1); color: var(--warning); }
+        .stat-icon.info { background: rgba(59, 130, 246, 0.1); color: var(--info); }
+        .stat-icon.danger { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
+        
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+            color: var(--gray-800);
+        }
+        
+        .stat-title {
+            font-size: 0.85rem;
+            color: var(--gray-600);
+            font-weight: 500;
+        }
+        
+        /* Section Headers */
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--gray-800);
+        }
+        
+        .see-all-btn {
+            color: var(--primary);
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        
+        /* Quick Actions */
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .action-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.25rem;
+            box-shadow: var(--shadow);
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            color: inherit;
+        }
+        
+        .action-card:hover {
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-lg);
+            color: inherit;
+            text-decoration: none;
+        }
+        
+        .action-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin: 0 auto 0.75rem;
+        }
+        
+        .action-title {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+            color: var(--gray-800);
+        }
+        
+        .action-desc {
+            font-size: 0.8rem;
+            color: var(--gray-600);
+        }
+        
+        /* Event Cards */
+        .event-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .event-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1rem;
+            box-shadow: var(--shadow);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .event-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+        
+        .event-card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: var(--success);
+        }
+        
+        .event-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 0.75rem;
+        }
+        
+        .event-category {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        .event-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--gray-800);
+            margin-bottom: 0.25rem;
+        }
+        
+        .event-desc {
+            font-size: 0.85rem;
+            color: var(--gray-600);
+            line-height: 1.4;
+            margin-bottom: 0.75rem;
+        }
+        
+        .event-meta {
+            display: flex;
+            gap: 1rem;
+            font-size: 0.8rem;
+            color: var(--gray-500);
+            margin-bottom: 0.75rem;
+        }
+        
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        
+        .event-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .btn-sm {
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary-sm {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .btn-success-sm {
+            background: var(--success);
+            color: white;
+        }
+        
+        .btn-warning-sm {
+            background: var(--warning);
+            color: white;
+        }
+        
+        .btn-outline-sm {
+            background: transparent;
+            color: var(--primary);
+            border: 2px solid var(--primary);
+        }
+        
+        .btn-sm:hover {
+            transform: translateY(-1px);
+        }
+        
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        .status-draft { background: rgba(107, 114, 128, 0.1); color: var(--gray-600); }
+        .status-pending { background: rgba(245, 158, 11, 0.1); color: var(--warning); }
+        .status-approved { background: rgba(16, 185, 129, 0.1); color: var(--success); }
+        .status-live { background: rgba(59, 130, 246, 0.1); color: var(--info); }
+        .status-done { background: rgba(139, 92, 246, 0.1); color: var(--secondary); }
+        .status-cancelled { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
+        
+        /* Floating Action Button */
+        .fab {
+            position: fixed;
+            bottom: 100px;
+            right: 1rem;
+            width: 56px;
+            height: 56px;
+            background: linear-gradient(135deg, var(--success), #34d399);
+            border: none;
+            border-radius: 50%;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            box-shadow: 0 4px 16px rgba(16, 185, 129, 0.4);
+            transition: all 0.3s ease;
+            z-index: 50;
+        }
+        
+        .fab:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5);
+        }
+        
+        /* QR Scanner */
+        .qr-scanner {
+            background: var(--gray-100);
+            border: 2px dashed var(--gray-300);
+            border-radius: 12px;
+            height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            margin: 1rem 0;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .qr-scanner:hover {
+            border-color: var(--success);
+            background: rgba(16, 185, 129, 0.05);
+        }
+        
+        .qr-scanner.active {
+            border-color: var(--success);
+            background: rgba(16, 185, 129, 0.1);
+        }
+        
+        /* Registration List */
+        .registration-item {
+            background: white;
+            border-radius: 12px;
+            padding: 1rem;
+            box-shadow: var(--shadow);
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .registration-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .registration-avatar {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 700;
+            font-size: 1rem;
+        }
+        
+        .registration-details h6 {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+            color: var(--gray-800);
+        }
+        
+        .registration-details p {
+            font-size: 0.8rem;
+            color: var(--gray-600);
+            margin: 0;
+        }
+        
+        .registration-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        /* Bottom Navigation */
+        .bottom-nav {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            border-top: 1px solid var(--gray-200);
+            padding: 0.5rem 0;
+            z-index: 1000;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
+            border-bottom-left-radius: 24px;
+            border-bottom-right-radius: 24px;
+        }
+        
+        .nav-container {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            width: 100%;
+            padding: 0 1rem;
+        }
+        
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 0.5rem;
+            text-decoration: none;
+            color: var(--gray-500);
+            transition: all 0.3s ease;
+            border-radius: 12px;
+            min-width: 60px;
+            position: relative;
+        }
+        
+        .nav-item.active {
+            color: var(--success);
+            background: rgba(16, 185, 129, 0.1);
+        }
+        
+        .nav-item i {
+            font-size: 1.3rem;
+            margin-bottom: 0.25rem;
+        }
+        
+        .nav-item span {
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+        
+        .nav-badge {
+            position: absolute;
+            top: 0.25rem;
+            right: 1rem;
+            background: var(--danger);
+            color: white;
+            border-radius: 10px;
+            padding: 0.125rem 0.375rem;
+            font-size: 0.6rem;
+            font-weight: 700;
+            min-width: 16px;
+            text-align: center;
+        }
+        
+        /* Empty States */
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: var(--gray-500);
+        }
+        
+        .empty-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+        
+        .empty-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--gray-700);
+        }
+        
+        .empty-desc {
+            font-size: 0.9rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, var(--success), #34d399);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+        
+        /* Create Event Form */
+        .create-form {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+            margin-bottom: 1rem;
+        }
+        
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: var(--gray-700);
+            font-size: 0.9rem;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid var(--gray-200);
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: var(--success);
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+        }
+        
+        /* Responsive */
+        @media (max-width: 480px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .quick-actions {
+                grid-template-columns: 1fr;
+            }
+            
+            .quick-stats {
+                flex-direction: column;
+                gap: 1rem;
+            }
+        }
+
+        /* QR Scanner Styles */
+        .scanner-container {
+            margin: 2rem 0;
+        }
+        
+        .qr-scanner {
+            background: white;
+            border: 3px dashed var(--gray-300);
+            border-radius: 16px;
+            padding: 3rem 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .qr-scanner:hover {
+            border-color: var(--success);
+            background: rgba(16, 185, 129, 0.05);
+        }
+        
+        .qr-scanner.active {
+            border-color: var(--success);
+            background: rgba(16, 185, 129, 0.1);
+            border-style: solid;
+        }
+        
+        .qr-scanner h6 {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--gray-700);
+        }
+        
+        /* Manual Check-in */
+        .manual-checkin {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+        }
+        
+        /* Recent Check-ins */
+        .recent-checkins {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+        }
+        
+        .checkin-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.75rem;
+            border-radius: 8px;
+            background: var(--gray-50);
+            margin-bottom: 0.5rem;
+        }
+        
+        .checkin-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .checkin-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--success);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        
+        .checkin-info {
+            flex: 1;
+        }
+        
+        .checkin-name {
+            font-weight: 600;
+            color: var(--gray-800);
+            font-size: 0.9rem;
+        }
+        
+        .checkin-time {
+            font-size: 0.8rem;
+            color: var(--gray-500);
+        }
+        
+        .checkin-status {
+            background: var(--success);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <div class="app-header">
+            <div class="header-content">
+                <div class="user-info">
+                    <div class="user-avatar">SJ</div>
+                    <div class="user-details">
+                        <h6>Hello, Sarah Johnson</h6>
+                        <div class="user-role">Event Organizer</div>
+                    </div>
+                </div>
+                <div class="header-actions">
+                    <button class="header-btn" onclick="showScreen('scanner')">
+                        <i class="fas fa-qrcode"></i>
+                    </button>
+                    <button class="header-btn" onclick="showScreen('notifications')">
+                        <i class="fas fa-bell"></i>
+                        <div class="notification-badge" id="notificationCount">5</div>
+                    </button>
+                    <button class="header-btn" onclick="showProfileMenu()">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Home Screen -->
+            <div id="home" class="screen active">
+                <!-- Welcome Section -->
+                <div class="welcome-section">
+                    <div class="welcome-content">
+                        <div class="welcome-title">Welcome back, Sarah!</div>
+                        <div class="welcome-subtitle">Manage your events and track performance</div>
+                        <div class="quick-stats">
+                            <div class="stat-item">
+                                <div class="stat-number">15</div>
+                                <div class="stat-label">My Events</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-number">1.2K</div>
+                                <div class="stat-label">Participants</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-number">4.8</div>
+                                <div class="stat-label">Rating</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stats Grid -->
+                <div class="stats-grid">
+                    <div class="stat-card primary">
+                        <div class="stat-icon primary">
+                            <i class="fas fa-calendar-plus"></i>
+                        </div>
+                        <div class="stat-value">15</div>
+                        <div class="stat-title">Total Events</div>
+                    </div>
+                    <div class="stat-card success">
+                        <div class="stat-icon success">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="stat-value">1,234</div>
+                        <div class="stat-title">Total Participants</div>
+                    </div>
+                    <div class="stat-card warning">
+                        <div class="stat-icon warning">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <div class="stat-value">3</div>
+                        <div class="stat-title">Pending Approval</div>
+                    </div>
+                    <div class="stat-card info">
+                        <div class="stat-icon info">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <div class="stat-value">89%</div>
+                        <div class="stat-title">Attendance Rate</div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="section-header">
+                    <h3 class="section-title">Quick Actions</h3>
+                </div>
+                <div class="quick-actions">
+                    <a href="#" class="action-card" onclick="showScreen('create')">
+                        <div class="action-icon success">
+                            <i class="fas fa-plus"></i>
+                        </div>
+                        <div class="action-title">Create Event</div>
+                        <div class="action-desc">Organize new event</div>
+                    </a>
+                    <a href="#" class="action-card" onclick="showScreen('checkin')">
+                        <div class="action-icon primary">
+                            <i class="fas fa-qrcode"></i>
+                        </div>
+                        <div class="action-title">QR Check-in</div>
+                        <div class="action-desc">Scan participant tickets</div>
+                    </a>
+                    <a href="#" class="action-card" onclick="showScreen('media')">
+                        <div class="action-icon info">
+                            <i class="fas fa-images"></i>
+                        </div>
+                        <div class="action-title">Upload Media</div>
+                        <div class="action-desc">Post event photos</div>
+                    </a>
+                    <a href="#" class="action-card" onclick="showScreen('certificates')">
+                        <div class="action-icon warning">
+                            <i class="fas fa-certificate"></i>
+                        </div>
+                        <div class="action-title">Certificates</div>
+                        <div class="action-desc">Generate & manage</div>
+                    </a>
+                    <a href="#" class="action-card" onclick="showScreen('registrations')">
+                        <div class="action-icon secondary" style="background: rgba(139, 92, 246, 0.1); color: var(--secondary);">
+                            <i class="fas fa-user-check"></i>
+                        </div>
+                        <div class="action-title">Participants</div>
+                        <div class="action-desc">Manage registrations</div>
+                    </a>
+                    <a href="#" class="action-card" onclick="showScreen('analytics')">
+                        <div class="action-icon danger" style="background: rgba(239, 68, 68, 0.1); color: var(--danger);">
+                            <i class="fas fa-chart-bar"></i>
+                        </div>
+                        <div class="action-title">Reports</div>
+                        <div class="action-desc">Analytics & export</div>
+                    </a>
+                </div>
+
+                <!-- My Events -->
+                <div class="section-header">
+                    <h3 class="section-title">My Events</h3>
+                    <a href="#" class="see-all-btn" onclick="showScreen('events')">
+                        See All <i class="fas fa-chevron-right"></i>
+                    </a>
+                </div>
+                <div class="event-list" id="myEvents">
+                    <!-- Events will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Events Screen -->
+            <div id="events" class="screen">
+                <div class="section-header">
+                    <h3 class="section-title">My Events</h3>
+                    <button class="btn-primary" onclick="showScreen('create')">
+                        <i class="fas fa-plus me-2"></i>Create New
+                    </button>
+                </div>
+                <div class="event-list" id="allMyEvents">
+                    <!-- Events will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Check-in Scanner Screen -->
+            <div id="checkin" class="screen">
+                <div class="section-header">
+                    <h3 class="section-title">Event Check-in</h3>
+                </div>
+                
+                <!-- Event Selector -->
+                <div class="event-selector" style="margin-bottom: 2rem;">
+                    <label class="form-label">Select Event for Check-in</label>
+                    <select class="form-control" id="checkinEventSelect" onchange="selectEventForCheckin()">
+                        <option value="">Choose an active event</option>
+                        <option value="1">AI & Machine Learning Workshop</option>
+                        <option value="2">Cultural Festival 2024</option>
+                        <option value="3">Career Fair Spring</option>
+                    </select>
+                </div>
+
+                <!-- QR Scanner -->
+                <div class="scanner-container">
+                    <div class="qr-scanner" onclick="startScanning()">
+                        <i class="fas fa-qrcode" style="font-size: 4rem; color: var(--gray-400); margin-bottom: 1rem;"></i>
+                        <h6>Tap to Start QR Scanner</h6>
+                        <p style="color: var(--gray-500); text-align: center;">Point camera at participant's QR ticket</p>
+                    </div>
+                </div>
+
+                <!-- Manual Check-in -->
+                <div class="manual-checkin" style="margin-top: 2rem;">
+                    <h6 style="margin-bottom: 1rem;">Manual Check-in</h6>
+                    <div class="form-group">
+                        <input type="text" class="form-control" placeholder="Enter Student ID" id="manualStudentId">
+                        <button class="btn-success" onclick="manualCheckin()" style="margin-top: 0.5rem; width: 100%;">
+                            <i class="fas fa-user-check"></i> Check-in Student
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Recent Check-ins -->
+                <div class="recent-checkins" style="margin-top: 2rem;">
+                    <h6 style="margin-bottom: 1rem;">Recent Check-ins</h6>
+                    <div id="recentCheckins">
+                        <!-- Recent check-ins will appear here -->
+                    </div>
+                </div>
+
+                <!-- Check-in Stats -->
+                <div class="checkin-stats" style="margin-top: 2rem;">
+                    <div class="stats-grid" style="grid-template-columns: repeat(2, 1fr);">
+                        <div class="stat-card">
+                            <div class="stat-value" id="checkedInCount">0</div>
+                            <div class="stat-label">Checked In</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="registeredCount">0</div>
+                            <div class="stat-label">Registered</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Create Event Screen -->
+            <div id="create" class="screen">
+                <div class="section-header">
+                    <h3 class="section-title">Create New Event</h3>
+                </div>
+                <div class="create-form">
+                    <form onsubmit="createEvent(event)">
+                        <div class="form-group">
+                            <label class="form-label">Event Title</label>
+                            <input type="text" class="form-control" placeholder="Enter event title" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Category</label>
+                            <select class="form-control" required>
+                                <option value="">Select Category</option>
+                                <option value="technology">Technology</option>
+                                <option value="culture">Culture</option>
+                                <option value="sports">Sports</option>
+                                <option value="career">Career</option>
+                                <option value="academic">Academic</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-control" rows="4" placeholder="Describe your event" required></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Date & Time</label>
+                            <input type="datetime-local" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Venue</label>
+                            <input type="text" class="form-control" placeholder="Event location" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Max Participants</label>
+                            <input type="number" class="form-control" placeholder="100" required>
+                        </div>
+                        <button type="submit" class="btn-primary" style="width: 100%;">
+                            Create Event
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Media Upload Screen -->
+            <div id="media" class="screen">
+                <div class="section-header">
+                    <h3 class="section-title">Upload Event Media</h3>
+                </div>
+                
+                <!-- Event Selector -->
+                <div class="form-group" style="margin-bottom: 2rem;">
+                    <label class="form-label">Select Event</label>
+                    <select class="form-control" id="mediaEventSelect">
+                        <option value="">Choose an event</option>
+                        <option value="1">AI & Machine Learning Workshop</option>
+                        <option value="2">Cultural Festival 2024</option>
+                        <option value="3">Career Fair Spring</option>
+                    </select>
+                </div>
+
+                <!-- Media Upload Area -->
+                <div class="media-upload-area" onclick="triggerFileUpload()" ondrop="handleDrop(event)" ondragover="handleDragOver(event)">
+                    <div class="upload-icon">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                    </div>
+                    <h6>Upload Photos & Videos</h6>
+                    <p style="color: var(--gray-500);">Drag & drop files here or click to browse</p>
+                    <p style="color: var(--gray-400); font-size: 0.8rem;">Supports: JPG, PNG, MP4 (Max: 10MB images, 100MB videos)</p>
+                </div>
+                
+                <input type="file" id="mediaFileInput" multiple accept="image/*,video/*" style="display: none;" onchange="handleFileSelect(event)">
+                
+                <!-- Media Preview -->
+                <div class="media-preview" id="mediaPreview">
+                    <!-- Preview items will appear here -->
+                </div>
+                
+                <!-- Upload Button -->
+                <button class="btn-success" onclick="uploadMedia()" style="width: 100%; margin-top: 1rem;" id="uploadBtn" disabled>
+                    <i class="fas fa-upload"></i> Upload Media
+                </button>
+            </div>
+
+            <!-- Certificate Management Screen -->
+            <div id="certificates" class="screen">
+                <div class="section-header">
+                    <h3 class="section-title">Certificate Management</h3>
+                </div>
+                
+                <!-- Event Selector -->
+                <div class="form-group" style="margin-bottom: 2rem;">
+                    <label class="form-label">Select Event</label>
+                    <select class="form-control" id="certEventSelect">
+                        <option value="">Choose an event</option>
+                        <option value="1">AI & Machine Learning Workshop</option>
+                        <option value="2">Cultural Festival 2024</option>
+                        <option value="3">Career Fair Spring</option>
+                    </select>
+                </div>
+
+                <!-- Certificate Template Section -->
+                <div class="certificate-section">
+                    <h6 style="margin-bottom: 1rem;">Certificate Template</h6>
+                    <div class="certificate-template">
+                        <div class="template-preview">
+                            <i class="fas fa-certificate" style="font-size: 2rem; color: var(--warning);"></i>
+                            <p style="margin-top: 0.5rem; font-size: 0.8rem;">Upload Template</p>
+                        </div>
+                        <button class="btn-primary" onclick="uploadTemplate()" style="margin-top: 1rem;">
+                            <i class="fas fa-upload"></i> Upload PDF Template
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Auto-Generate Certificates -->
+                <div class="certificate-section">
+                    <h6 style="margin-bottom: 1rem;">Generate Certificates</h6>
+                    <div class="form-group">
+                        <label class="form-label">Certificate Title</label>
+                        <input type="text" class="form-control" placeholder="Certificate of Completion" id="certTitle">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Issued By</label>
+                        <input type="text" class="form-control" placeholder="University Name" id="certIssuer">
+                    </div>
+                    <button class="btn-success" onclick="generateCertificates()" style="width: 100%;">
+                        <i class="fas fa-magic"></i> Generate for All Participants
+                    </button>
+                </div>
+
+                <!-- Certificate List -->
+                <div class="certificate-section">
+                    <h6 style="margin-bottom: 1rem;">Issued Certificates</h6>
+                    <div id="certificateList">
+                        <p style="color: var(--gray-500); text-align: center;">No certificates issued yet</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- QR Scanner Screen -->
+            <div id="scanner" class="screen">
+                <div class="section-header">
+                    <h3 class="section-title">QR Code Scanner</h3>
+                </div>
+                <div class="qr-scanner" onclick="startScanning()">
+                    <i class="fas fa-qrcode" style="font-size: 3rem; color: var(--gray-400); margin-bottom: 1rem;"></i>
+                    <h6>Tap to Start Scanning</h6>
+                    <p style="color: var(--gray-500); text-align: center;">Point camera at participant's QR code</p>
+                </div>
+                
+                <div class="section-header" style="margin-top: 2rem;">
+                    <h3 class="section-title">Recent Check-ins</h3>
+                </div>
+                <div id="recentCheckins">
+                    <!-- Recent check-ins will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Registrations Screen -->
+            <div id="registrations" class="screen">
+                <div class="section-header">
+                    <h3 class="section-title">Event Registrations</h3>
+                </div>
+                <div id="registrationsList">
+                    <!-- Registrations will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Analytics Screen -->
+            <div id="analytics" class="screen">
+                <div class="section-header">
+                    <h3 class="section-title">Analytics Dashboard</h3>
+                </div>
+                <div class="stats-grid">
+                    <div class="stat-card success">
+                        <div class="stat-icon success">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <div class="stat-value">89%</div>
+                        <div class="stat-title">Attendance Rate</div>
+                    </div>
+                    <div class="stat-card info">
+                        <div class="stat-icon info">
+                            <i class="fas fa-star"></i>
+                        </div>
+                        <div class="stat-value">4.8</div>
+                        <div class="stat-title">Average Rating</div>
+                    </div>
+                    <div class="stat-card warning">
+                        <div class="stat-icon warning">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="stat-value">1,234</div>
+                        <div class="stat-title">Total Participants</div>
+                    </div>
+                    <div class="stat-card primary">
+                        <div class="stat-icon primary">
+                            <i class="fas fa-calendar-check"></i>
+                        </div>
+                        <div class="stat-value">15</div>
+                        <div class="stat-title">Events Completed</div>
+                    </div>
+                </div>
+                
+                <div class="empty-state">
+                    <div class="empty-icon">
+                        <i class="fas fa-chart-bar"></i>
+                    </div>
+                    <div class="empty-title">Detailed Analytics</div>
+                    <div class="empty-desc">Advanced analytics and reporting features coming soon</div>
+                </div>
+            </div>
+
+            <!-- Profile Screen -->
+            <div id="profile" class="screen">
+                <div class="section-header">
+                    <h3 class="section-title">Profile Settings</h3>
+                </div>
+                
+                <div class="action-card" style="margin-bottom: 1rem;">
+                    <div class="user-avatar" style="margin: 0 auto 1rem;">SJ</div>
+                    <div class="action-title">Sarah Johnson</div>
+                    <div class="action-desc">sarah.johnson@university.edu</div>
+                    <div class="action-desc">Event Organizer</div>
+                    <div class="action-desc">Computer Science Department</div>
+                </div>
+                
+                <div class="quick-actions">
+                    <a href="#" class="action-card">
+                        <div class="action-icon primary">
+                            <i class="fas fa-user-edit"></i>
+                        </div>
+                        <div class="action-title">Edit Profile</div>
+                        <div class="action-desc">Update your info</div>
+                    </a>
+                    <a href="#" class="action-card">
+                        <div class="action-icon success">
+                            <i class="fas fa-cog"></i>
+                        </div>
+                        <div class="action-title">Settings</div>
+                        <div class="action-desc">App preferences</div>
+                    </a>
+                    <a href="#" class="action-card">
+                        <div class="action-icon warning">
+                            <i class="fas fa-bell"></i>
+                        </div>
+                        <div class="action-title">Notifications</div>
+                        <div class="action-desc">Manage alerts</div>
+                    </a>
+                    <a href="mobile-auth-complete.html" class="action-card">
+                        <div class="action-icon danger" style="background: rgba(239, 68, 68, 0.1); color: var(--danger);">
+                            <i class="fas fa-sign-out-alt"></i>
+                        </div>
+                        <div class="action-title">Logout</div>
+                        <div class="action-desc">Sign out safely</div>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Floating Action Button -->
+        <button class="fab" onclick="showScreen('create')" id="fabButton">
+            <i class="fas fa-plus"></i>
+        </button>
+
+        <!-- Bottom Navigation -->
+        <div class="bottom-nav">
+            <div class="nav-container">
+                <a href="#" class="nav-item active" onclick="showScreen('home')">
+                    <i class="fas fa-home"></i>
+                    <span>Home</span>
+                </a>
+                <a href="#" class="nav-item" onclick="showScreen('events')">
+                    <i class="fas fa-calendar"></i>
+                    <span>Events</span>
+                </a>
+                <a href="#" class="nav-item" onclick="showScreen('checkin')">
+                    <i class="fas fa-qrcode"></i>
+                    <span>Check-in</span>
+                </a>
+                <a href="#" class="nav-item" onclick="showScreen('registrations')">
+                    <i class="fas fa-users"></i>
+                    <span>Participants</span>
+                    <div class="nav-badge">12</div>
+                </a>
+                <a href="#" class="nav-item" onclick="showScreen('analytics')">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Reports</span>
+                </a>
+                <a href="#" class="nav-item" onclick="showScreen('profile')">
+                    <i class="fas fa-user"></i>
+                    <span>Profile</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Sample data
+        const myEvents = [
+            {
+                id: 1,
+                title: "Tech Conference 2024",
+                description: "Annual technology conference featuring latest innovations",
+                category: "Technology",
+                date: "Dec 15, 2024",
+                time: "9:00 AM",
+                venue: "Auditorium A",
+                status: "approved",
+                registrations: 150,
+                capacity: 200
+            },
+            {
+                id: 2,
+                title: "AI Workshop",
+                description: "Hands-on machine learning workshop",
+                category: "Technology",
+                date: "Dec 20, 2024",
+                time: "2:00 PM",
+                venue: "Lab 101",
+                status: "pending",
+                registrations: 45,
+                capacity: 50
+            },
+            {
+                id: 3,
+                title: "Student Hackathon",
+                description: "24-hour coding competition",
+                category: "Technology",
+                date: "Dec 25, 2024",
+                time: "6:00 PM",
+                venue: "Innovation Hub",
+                status: "draft",
+                registrations: 0,
+                capacity: 100
+            }
+        ];
+
+        const registrations = [
+            {
+                id: 1,
+                name: "John Smith",
+                email: "john.smith@email.com",
+                event: "Tech Conference 2024",
+                registeredAt: "Dec 10, 2024",
+                status: "confirmed",
+                checkedIn: false
+            },
+            {
+                id: 2,
+                name: "Emily Davis",
+                email: "emily.davis@email.com",
+                event: "Tech Conference 2024",
+                registeredAt: "Dec 9, 2024",
+                status: "confirmed",
+                checkedIn: true
+            },
+            {
+                id: 3,
+                name: "Michael Johnson",
+                email: "michael.j@email.com",
+                event: "AI Workshop",
+                registeredAt: "Dec 8, 2024",
+                status: "pending",
+                checkedIn: false
+            }
+        ];
+
+        const recentCheckins = [
+            {
+                name: "Emily Davis",
+                event: "Tech Conference 2024",
+                time: "9:15 AM",
+                status: "checked-in"
+            },
+            {
+                name: "David Wilson",
+                event: "Tech Conference 2024",
+                time: "9:12 AM",
+                status: "checked-in"
+            }
+        ];
+
+        let currentScreen = 'home';
+
+        // Screen navigation
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(screen => {
+                screen.classList.remove('active');
+            });
+            
+            document.getElementById(screenId).classList.add('active');
+            
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            const activeNav = document.querySelector(`[onclick="showScreen('${screenId}')"]`);
+            if (activeNav && activeNav.classList.contains('nav-item')) {
+                activeNav.classList.add('active');
+            }
+            
+            currentScreen = screenId;
+            loadScreenContent(screenId);
+        }
+
+        function loadScreenContent(screenId) {
+            switch(screenId) {
+                case 'home':
+                    loadMyEvents();
+                    break;
+                case 'events':
+                    loadAllMyEvents();
+                    break;
+                case 'checkin':
+                    loadCheckinScreen();
+                    break;
+                case 'registrations':
+                    loadRegistrations();
+                    break;
+                case 'analytics':
+                    loadAnalytics();
+                    break;
+            }
+        }
+
+        function loadMyEvents() {
+            const container = document.getElementById('myEvents');
+            container.innerHTML = '';
+            
+            myEvents.slice(0, 2).forEach(event => {
+                const eventCard = createEventCard(event, true);
+                container.appendChild(eventCard);
+            });
+        }
+
+        function loadAllMyEvents() {
+            const container = document.getElementById('allMyEvents');
+            container.innerHTML = '';
+            
+            myEvents.forEach(event => {
+                const eventCard = createEventCard(event, true);
+                container.appendChild(eventCard);
+            });
+        }
+
+        function loadRegistrations() {
+            const container = document.getElementById('registrationsList');
+            container.innerHTML = '';
+            
+            registrations.forEach(registration => {
+                const regItem = createRegistrationItem(registration);
+                container.appendChild(regItem);
+            });
+        }
+
+        function loadRecentCheckins() {
+            const container = document.getElementById('recentCheckins');
+            container.innerHTML = '';
+            
+            recentCheckins.forEach(checkin => {
+                const checkinItem = createCheckinItem(checkin);
+                container.appendChild(checkinItem);
+            });
+        }
+
+        function createEventCard(event, isOrganizer = false) {
+            const card = document.createElement('div');
+            card.className = 'event-card';
+            card.onclick = () => manageEvent(event.id);
+            
+            card.innerHTML = `
+                <div class="event-header">
+                    <div>
+                        <div class="event-category">${event.category}</div>
+                        <div class="event-title">${event.title}</div>
+                        <div class="event-desc">${event.description}</div>
+                    </div>
+                    <div class="status-badge status-${event.status}">${event.status.charAt(0).toUpperCase() + event.status.slice(1)}</div>
+                </div>
+                <div class="event-meta">
+                    <div class="meta-item">
+                        <i class="fas fa-calendar"></i>
+                        <span>${event.date}</span>
+                    </div>
+                    <div class="meta-item">
+                        <i class="fas fa-clock"></i>
+                        <span>${event.time}</span>
+                    </div>
+                    <div class="meta-item">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <span>${event.venue}</span>
+                    </div>
+                    <div class="meta-item">
+                        <i class="fas fa-users"></i>
+                        <span>${event.registrations}/${event.capacity}</span>
+                    </div>
+                </div>
+                <div class="event-actions">
+                    ${event.status === 'draft' ? `
+                    <button class="btn-sm btn-success-sm" onclick="event.stopPropagation(); submitForApproval(${event.id})">
+                        Submit
+                    </button>
+                    <button class="btn-sm btn-outline-sm" onclick="event.stopPropagation(); editEvent(${event.id})">
+                        <i class="fas fa-edit"></i> Edit
+                    </button>` : `
+                    <button class="btn-sm btn-primary-sm" onclick="event.stopPropagation(); viewRegistrations(${event.id})">
+                        <i class="fas fa-users"></i> Participants
+                    </button>
+                    <button class="btn-sm btn-outline-sm" onclick="event.stopPropagation(); shareEvent(${event.id})">
+                        <i class="fas fa-share-alt"></i>
+                    </button>`}
+                </div>
+            `;
+            
+            return card;
+        }
+
+        function createRegistrationItem(registration) {
+            const item = document.createElement('div');
+            item.className = 'registration-item';
+            
+            item.innerHTML = `
+                <div class="registration-info">
+                    <div class="registration-avatar">${registration.name.charAt(0)}</div>
+                    <div class="registration-details">
+                        <h6>${registration.name}</h6>
+                        <p>${registration.email}</p>
+                        <p>${registration.event} • ${registration.registeredAt}</p>
+                    </div>
+                </div>
+                <div class="registration-actions">
+                    ${registration.status === 'pending' ? `
+                    <button class="btn-sm btn-success-sm" onclick="approveRegistration(${registration.id})">
+                        <i class="fas fa-check"></i>
+                    </button>
+                    <button class="btn-sm btn-outline-sm" onclick="rejectRegistration(${registration.id})" style="color: var(--danger); border-color: var(--danger);">
+                        <i class="fas fa-times"></i>
+                    </button>` : `
+                    <div class="status-badge ${registration.checkedIn ? 'status-approved' : 'status-pending'}">
+                        ${registration.checkedIn ? 'Checked In' : 'Confirmed'}
+                    </div>`}
+                </div>
+            `;
+            
+            return item;
+        }
+
+        function createCheckinItem(checkin) {
+            const item = document.createElement('div');
+            item.className = 'registration-item';
+            
+            item.innerHTML = `
+                <div class="registration-info">
+                    <div class="registration-avatar">${checkin.name.charAt(0)}</div>
+                    <div class="registration-details">
+                        <h6>${checkin.name}</h6>
+                        <p>${checkin.event}</p>
+                        <p>Checked in at ${checkin.time}</p>
+                    </div>
+                </div>
+                <div class="status-badge status-approved">
+                    <i class="fas fa-check"></i> Checked In
+                </div>
+            `;
+            
+            return item;
+        }
+
+        // Event handlers
+        function createEvent(event) {
+            event.preventDefault();
+            alert('Event created successfully!');
+            showScreen('events');
+        }
+
+        function manageEvent(eventId) {
+            alert(`Managing event ${eventId}`);
+        }
+
+        function submitForApproval(eventId) {
+            alert(`Event ${eventId} submitted for approval!`);
+            loadAllMyEvents();
+        }
+
+        function editEvent(eventId) {
+            alert(`Editing event ${eventId}`);
+        }
+
+        function viewRegistrations(eventId) {
+            showScreen('registrations');
+        }
+
+        function shareEvent(eventId) {
+            if (navigator.share) {
+                navigator.share({
+                    title: 'FusionFiesta Event',
+                    text: 'Check out this event!',
+                    url: window.location.href
+                });
+            } else {
+                alert('Event link copied to clipboard!');
+            }
+        }
+
+        function approveRegistration(regId) {
+            alert(`Registration ${regId} approved!`);
+            loadRegistrations();
+        }
+
+        function rejectRegistration(regId) {
+            if (confirm('Reject this registration?')) {
+                alert(`Registration ${regId} rejected!`);
+                loadRegistrations();
+            }
+        }
+
+        function startScanning() {
+            const scanner = document.querySelector('.qr-scanner');
+            scanner.classList.add('active');
+            scanner.innerHTML = `
+                <i class="fas fa-camera" style="font-size: 3rem; color: var(--success); margin-bottom: 1rem;"></i>
+                <h6>Scanning Active</h6>
+                <p style="color: var(--success); text-align: center;">Point camera at QR code</p>
+                <button class="btn-primary" onclick="stopScanning()" style="margin-top: 1rem;">Stop Scanner</button>
+            `;
+        }
+
+        function stopScanning() {
+            const scanner = document.querySelector('.qr-scanner');
+            scanner.classList.remove('active');
+            scanner.innerHTML = `
+                <i class="fas fa-qrcode" style="font-size: 3rem; color: var(--gray-400); margin-bottom: 1rem;"></i>
+                <h6>Tap to Start Scanning</h6>
+                <p style="color: var(--gray-500); text-align: center;">Point camera at participant's QR code</p>
+            `;
+        }
+
+        function showProfileMenu() {
+            showScreen('profile');
+        }
+
+        // New Check-in Functions
+        function loadCheckinScreen() {
+            loadRecentCheckins();
+            updateCheckinStats();
+        }
+
+        function selectEventForCheckin() {
+            const select = document.getElementById('checkinEventSelect');
+            const eventId = select.value;
+            if (eventId) {
+                updateCheckinStats(eventId);
+                loadRecentCheckins(eventId);
+            }
+        }
+
+        function loadRecentCheckins(eventId = null) {
+            const container = document.getElementById('recentCheckins');
+            container.innerHTML = '';
+            
+            // Sample recent check-ins
+            const sampleCheckins = [
+                { name: 'John Smith', studentId: '2024001', time: '2 mins ago', avatar: 'JS' },
+                { name: 'Mary Johnson', studentId: '2024002', time: '5 mins ago', avatar: 'MJ' },
+                { name: 'David Lee', studentId: '2024003', time: '8 mins ago', avatar: 'DL' },
+                { name: 'Sarah Wilson', studentId: '2024004', time: '12 mins ago', avatar: 'SW' }
+            ];
+            
+            if (sampleCheckins.length === 0) {
+                container.innerHTML = '<p style="color: var(--gray-500); text-align: center;">No recent check-ins</p>';
+                return;
+            }
+            
+            sampleCheckins.forEach(checkin => {
+                const checkinItem = document.createElement('div');
+                checkinItem.className = 'checkin-item';
+                checkinItem.innerHTML = `
+                    <div class="checkin-avatar">${checkin.avatar}</div>
+                    <div class="checkin-info">
+                        <div class="checkin-name">${checkin.name}</div>
+                        <div class="checkin-time">${checkin.time} • ${checkin.studentId}</div>
+                    </div>
+                    <div class="checkin-status">Checked In</div>
+                `;
+                container.appendChild(checkinItem);
+            });
+        }
+
+        function updateCheckinStats(eventId = null) {
+            const checkedInElement = document.getElementById('checkedInCount');
+            const registeredElement = document.getElementById('registeredCount');
+            
+            if (eventId) {
+                // Sample stats for selected event
+                checkedInElement.textContent = '24';
+                registeredElement.textContent = '45';
+            } else {
+                checkedInElement.textContent = '0';
+                registeredElement.textContent = '0';
+            }
+        }
+
+        function manualCheckin() {
+            const studentId = document.getElementById('manualStudentId').value.trim();
+            const eventSelect = document.getElementById('checkinEventSelect');
+            
+            if (!eventSelect.value) {
+                alert('Please select an event first');
+                return;
+            }
+            
+            if (!studentId) {
+                alert('Please enter Student ID');
+                return;
+            }
+            
+            // Simulate check-in process
+            setTimeout(() => {
+                alert(`Student ${studentId} checked in successfully!`);
+                document.getElementById('manualStudentId').value = '';
+                loadRecentCheckins(eventSelect.value);
+                updateCheckinStats(eventSelect.value);
+            }, 500);
+        }
+
+        function loadAnalytics() {
+            // This function would load analytics data
+            console.log('Loading analytics...');
+        }
+
+        // Enhanced QR Scanner functions
+        function startScanning() {
+            const eventSelect = document.getElementById('checkinEventSelect');
+            if (!eventSelect.value) {
+                alert('Please select an event first');
+                return;
+            }
+            
+            const scanner = document.querySelector('.qr-scanner');
+            scanner.classList.add('active');
+            scanner.innerHTML = `
+                <i class="fas fa-camera" style="font-size: 3rem; color: var(--success); margin-bottom: 1rem;"></i>
+                <h6>Scanner Active</h6>
+                <p style="color: var(--success); text-align: center;">Point camera at QR ticket</p>
+                <button class="btn-primary" onclick="stopScanning()" style="margin-top: 1rem;">Stop Scanner</button>
+            `;
+            
+            // Simulate QR scan after 3 seconds
+            setTimeout(() => {
+                simulateQRScan();
+            }, 3000);
+        }
+
+        function stopScanning() {
+            const scanner = document.querySelector('.qr-scanner');
+            scanner.classList.remove('active');
+            scanner.innerHTML = `
+                <i class="fas fa-qrcode" style="font-size: 4rem; color: var(--gray-400); margin-bottom: 1rem;"></i>
+                <h6>Tap to Start QR Scanner</h6>
+                <p style="color: var(--gray-500); text-align: center;">Point camera at participant's QR ticket</p>
+            `;
+        }
+
+        function simulateQRScan() {
+            const eventSelect = document.getElementById('checkinEventSelect');
+            const sampleStudents = ['John Smith', 'Mary Johnson', 'David Lee', 'Sarah Wilson'];
+            const randomStudent = sampleStudents[Math.floor(Math.random() * sampleStudents.length)];
+            
+            alert(`QR Code Scanned! ${randomStudent} checked in successfully.`);
+            stopScanning();
+            loadRecentCheckins(eventSelect.value);
+            updateCheckinStats(eventSelect.value);
+        }
+
+        // Media Upload Functions
+        function triggerFileUpload() {
+            document.getElementById('mediaFileInput').click();
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.currentTarget.classList.add('dragover');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            handleFiles(files);
+        }
+
+        function handleFileSelect(e) {
+            const files = e.target.files;
+            handleFiles(files);
+        }
+
+        function handleFiles(files) {
+            const preview = document.getElementById('mediaPreview');
+            const uploadBtn = document.getElementById('uploadBtn');
+            
+            Array.from(files).forEach(file => {
+                if (file.type.startsWith('image/') || file.type.startsWith('video/')) {
+                    const previewItem = document.createElement('div');
+                    previewItem.className = 'preview-item';
+                    
+                    if (file.type.startsWith('image/')) {
+                        const img = document.createElement('img');
+                        img.src = URL.createObjectURL(file);
+                        previewItem.appendChild(img);
+                    } else {
+                        const video = document.createElement('video');
+                        video.src = URL.createObjectURL(file);
+                        video.style.width = '100%';
+                        video.style.height = '100%';
+                        video.style.objectFit = 'cover';
+                        previewItem.appendChild(video);
+                    }
+                    
+                    const removeBtn = document.createElement('button');
+                    removeBtn.className = 'preview-remove';
+                    removeBtn.innerHTML = '<i class="fas fa-times"></i>';
+                    removeBtn.onclick = () => previewItem.remove();
+                    previewItem.appendChild(removeBtn);
+                    
+                    preview.appendChild(previewItem);
+                }
+            });
+            
+            if (preview.children.length > 0) {
+                uploadBtn.disabled = false;
+            }
+        }
+
+        function uploadMedia() {
+            const eventSelect = document.getElementById('mediaEventSelect');
+            if (!eventSelect.value) {
+                alert('Please select an event first');
+                return;
+            }
+            
+            const preview = document.getElementById('mediaPreview');
+            const fileCount = preview.children.length;
+            
+            if (fileCount === 0) {
+                alert('Please select files to upload');
+                return;
+            }
+            
+            // Simulate upload process
+            alert(`Uploading ${fileCount} files for ${eventSelect.options[eventSelect.selectedIndex].text}...`);
+            
+            setTimeout(() => {
+                alert('Media uploaded successfully!');
+                preview.innerHTML = '';
+                document.getElementById('uploadBtn').disabled = true;
+                document.getElementById('mediaFileInput').value = '';
+            }, 2000);
+        }
+
+        // Certificate Management Functions
+        function uploadTemplate() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.pdf';
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    alert(`Template "${file.name}" uploaded successfully!`);
+                    const preview = document.querySelector('.template-preview');
+                    preview.innerHTML = `
+                        <i class="fas fa-file-pdf" style="font-size: 2rem; color: var(--danger);"></i>
+                        <p style="margin-top: 0.5rem; font-size: 0.8rem;">${file.name}</p>
+                    `;
+                }
+            };
+            input.click();
+        }
+
+        function generateCertificates() {
+            const eventSelect = document.getElementById('certEventSelect');
+            const title = document.getElementById('certTitle').value;
+            const issuer = document.getElementById('certIssuer').value;
+            
+            if (!eventSelect.value) {
+                alert('Please select an event first');
+                return;
+            }
+            
+            if (!title || !issuer) {
+                alert('Please fill in certificate title and issuer');
+                return;
+            }
+            
+            // Simulate certificate generation
+            alert('Generating certificates for all participants...');
+            
+            setTimeout(() => {
+                const certificateList = document.getElementById('certificateList');
+                certificateList.innerHTML = `
+                    <div class="certificate-item" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: var(--gray-50); border-radius: 8px; margin-bottom: 0.5rem;">
+                        <div>
+                            <div style="font-weight: 600;">${title}</div>
+                            <div style="font-size: 0.8rem; color: var(--gray-500);">24 certificates generated</div>
+                        </div>
+                        <button class="btn-primary" onclick="downloadCertificates()">
+                            <i class="fas fa-download"></i> Download All
+                        </button>
+                    </div>
+                `;
+                
+                // Clear form
+                document.getElementById('certTitle').value = '';
+                document.getElementById('certIssuer').value = '';
+                
+                alert('Certificates generated successfully! Participants will be notified via email.');
+            }, 3000);
+        }
+
+        function downloadCertificates() {
+            alert('Downloading certificate ZIP file...');
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            loadScreenContent('home');
+        });
+    </script>
+</body>
+</html>

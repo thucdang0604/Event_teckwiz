@@ -21,7 +21,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _fullNameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _studentIdController = TextEditingController();
-  final _departmentController = TextEditingController();
 
   String _selectedRole = 'student';
   bool _obscurePassword = true;
@@ -35,7 +34,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _fullNameController.dispose();
     _phoneController.dispose();
     _studentIdController.dispose();
-    _departmentController.dispose();
     super.dispose();
   }
 
@@ -50,39 +48,38 @@ class _RegisterScreenState extends State<RegisterScreen> {
         phoneNumber: _phoneController.text.trim().isNotEmpty
             ? _phoneController.text.trim()
             : null,
-        studentId: _studentIdController.text.trim().isNotEmpty
+        studentId:
+            _selectedRole == 'student' &&
+                _studentIdController.text.trim().isNotEmpty
             ? _studentIdController.text.trim()
             : null,
-        department: _departmentController.text.trim().isNotEmpty
-            ? _departmentController.text.trim()
-            : null,
+        department: null,
         role: _selectedRole,
       );
 
       if (success && mounted) {
-        // Xóa form
+        // Clear form
         _emailController.clear();
         _passwordController.clear();
         _confirmPasswordController.clear();
         _fullNameController.clear();
         _phoneController.clear();
         _studentIdController.clear();
-        _departmentController.clear();
 
-        // Hiển thị thông báo thành công
+        // Success message
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Đăng ký thành công!'),
+            content: Text('Sign up successfully!'),
             backgroundColor: AppColors.success,
           ),
         );
 
-        // Chuyển trang
+        // Navigate
         context.go('/home');
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(authProvider.errorMessage ?? 'Đăng ký thất bại'),
+            content: Text(authProvider.errorMessage ?? 'Sign up failed'),
             backgroundColor: AppColors.error,
           ),
         );
@@ -92,267 +89,411 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final gradient = const LinearGradient(
+      colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
+
     return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.primary,
-        foregroundColor: AppColors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.white),
-          onPressed: () => context.go('/login'),
-        ),
-      ),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          return SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: constraints.maxHeight - 48,
-                ),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // Title
-                      const Text(
-                        'Tạo tài khoản mới',
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Điền thông tin để đăng ký',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-
-                      const SizedBox(height: 32),
-
-                      // Full Name
-                      CustomTextField(
-                        controller: _fullNameController,
-                        label: 'Họ và tên *',
-                        hint: 'Nhập họ và tên của bạn',
-                        prefixIcon: Icons.person_outlined,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Vui lòng nhập họ và tên';
-                          }
-                          return null;
-                        },
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      // Email
-                      CustomTextField(
-                        controller: _emailController,
-                        label: 'Email *',
-                        hint: 'Nhập email của bạn',
-                        keyboardType: TextInputType.emailAddress,
-                        prefixIcon: Icons.email_outlined,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Vui lòng nhập email';
-                          }
-                          if (!value.contains('@')) {
-                            return 'Email không hợp lệ';
-                          }
-                          return null;
-                        },
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      // Phone Number
-                      CustomTextField(
-                        controller: _phoneController,
-                        label: 'Số điện thoại',
-                        hint: 'Nhập số điện thoại (không bắt buộc)',
-                        keyboardType: TextInputType.phone,
-                        prefixIcon: Icons.phone_outlined,
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      // Student ID
-                      CustomTextField(
-                        controller: _studentIdController,
-                        label: 'Mã sinh viên',
-                        hint: 'Nhập mã sinh viên (không bắt buộc)',
-                        prefixIcon: Icons.badge_outlined,
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      // Department
-                      CustomTextField(
-                        controller: _departmentController,
-                        label: 'Khoa/Bộ môn',
-                        hint: 'Nhập khoa/bộ môn (không bắt buộc)',
-                        prefixIcon: Icons.school_outlined,
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      // Role Selection
-                      const Text(
-                        'Vai trò *',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        decoration: BoxDecoration(
-                          color: AppColors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.grey),
-                        ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: _selectedRole,
-                            isExpanded: true,
-                            items: const [
-                              DropdownMenuItem(
-                                value: 'student',
-                                child: Text('Sinh viên'),
+      backgroundColor: Colors.transparent,
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: Container(
+          decoration: BoxDecoration(gradient: gradient),
+          child: SafeArea(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+                final bool isCompact = constraints.maxHeight < 700;
+                return Center(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: constraints.maxWidth),
+                    child: Padding(
+                      padding: EdgeInsets.zero,
+                      child: Container(
+                        decoration: const BoxDecoration(color: AppColors.white),
+                        child: SingleChildScrollView(
+                          padding: EdgeInsets.only(bottom: bottomInset + 16),
+                          physics: const BouncingScrollPhysics(),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              // Header
+                              Container(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: isCompact ? 12 : 20,
+                                ),
+                                decoration: BoxDecoration(
+                                  gradient: gradient,
+                                  borderRadius: BorderRadius.zero,
+                                ),
+                                child: Column(
+                                  children: [
+                                    const _HeaderBackButton(to: '/login'),
+                                    const SizedBox(height: 6),
+                                    _AppLogo(size: isCompact ? 48 : 60),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      'FusionFiesta',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: isCompact ? 20 : 22,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Create your account',
+                                      style: TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: isCompact ? 11 : 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                              DropdownMenuItem(
-                                value: 'organizer',
-                                child: Text('Người tổ chức'),
+
+                              // Tabs
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  20,
+                                  12,
+                                  20,
+                                  0,
+                                ),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF3F4F6),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  padding: const EdgeInsets.all(4),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: _SegmentButton(
+                                          label: 'Sign In',
+                                          selected: false,
+                                          onTap: () => context.go('/login'),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: _SegmentButton(
+                                          label: 'Sign Up',
+                                          selected: true,
+                                          onTap: () {},
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+
+                              // Form
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  20,
+                                  12,
+                                  20,
+                                  16,
+                                ),
+                                child: Form(
+                                  key: _formKey,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      CustomTextField(
+                                        controller: _fullNameController,
+                                        label: 'Full name *',
+                                        hint: 'Enter your full name',
+                                        prefixIcon: Icons.person_outlined,
+                                        validator: (value) {
+                                          if (value == null || value.isEmpty) {
+                                            return 'Please enter your name';
+                                          }
+                                          return null;
+                                        },
+                                      ),
+                                      const SizedBox(height: 12),
+                                      CustomTextField(
+                                        controller: _emailController,
+                                        label: 'Email *',
+                                        hint: 'Enter your email',
+                                        keyboardType:
+                                            TextInputType.emailAddress,
+                                        prefixIcon: Icons.email_outlined,
+                                        validator: (value) {
+                                          if (value == null || value.isEmpty) {
+                                            return 'Please enter email';
+                                          }
+                                          if (!value.contains('@')) {
+                                            return 'Invalid email address';
+                                          }
+                                          return null;
+                                        },
+                                      ),
+                                      const SizedBox(height: 12),
+                                      CustomTextField(
+                                        controller: _phoneController,
+                                        label: 'Phone number',
+                                        hint: 'Enter phone (optional)',
+                                        keyboardType: TextInputType.phone,
+                                        prefixIcon: Icons.phone_outlined,
+                                      ),
+                                      const SizedBox(height: 12),
+                                      if (_selectedRole == 'student')
+                                        CustomTextField(
+                                          controller: _studentIdController,
+                                          label: 'Student ID',
+                                          hint: 'Enter student ID (optional)',
+                                          prefixIcon: Icons.badge_outlined,
+                                        ),
+                                      const SizedBox(height: 12),
+                                      const Text(
+                                        'Role *',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.textPrimary,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.white,
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                          border: Border.all(
+                                            color: AppColors.grey,
+                                          ),
+                                        ),
+                                        child: DropdownButtonHideUnderline(
+                                          child: DropdownButton<String>(
+                                            value: _selectedRole,
+                                            isExpanded: true,
+                                            items: const [
+                                              DropdownMenuItem(
+                                                value: 'student',
+                                                child: Text('Student'),
+                                              ),
+                                              DropdownMenuItem(
+                                                value: 'organizer',
+                                                child: Text('Organizer'),
+                                              ),
+                                            ],
+                                            onChanged: (value) {
+                                              setState(() {
+                                                _selectedRole = value!;
+                                              });
+                                            },
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      CustomTextField(
+                                        controller: _passwordController,
+                                        label: 'Password *',
+                                        hint: 'Enter your password',
+                                        obscureText: _obscurePassword,
+                                        prefixIcon: Icons.lock_outlined,
+                                        suffixIcon: IconButton(
+                                          icon: Icon(
+                                            _obscurePassword
+                                                ? Icons.visibility
+                                                : Icons.visibility_off,
+                                          ),
+                                          onPressed: () {
+                                            setState(() {
+                                              _obscurePassword =
+                                                  !_obscurePassword;
+                                            });
+                                          },
+                                        ),
+                                        validator: (value) {
+                                          if (value == null || value.isEmpty) {
+                                            return 'Please enter password';
+                                          }
+                                          if (value.length < 6) {
+                                            return 'Password must be at least 6 characters';
+                                          }
+                                          return null;
+                                        },
+                                      ),
+                                      const SizedBox(height: 12),
+                                      CustomTextField(
+                                        controller: _confirmPasswordController,
+                                        label: 'Confirm password *',
+                                        hint: 'Re-enter your password',
+                                        obscureText: _obscureConfirmPassword,
+                                        prefixIcon: Icons.lock_outlined,
+                                        suffixIcon: IconButton(
+                                          icon: Icon(
+                                            _obscureConfirmPassword
+                                                ? Icons.visibility
+                                                : Icons.visibility_off,
+                                          ),
+                                          onPressed: () {
+                                            setState(() {
+                                              _obscureConfirmPassword =
+                                                  !_obscureConfirmPassword;
+                                            });
+                                          },
+                                        ),
+                                        validator: (value) {
+                                          if (value == null || value.isEmpty) {
+                                            return 'Please confirm password';
+                                          }
+                                          if (value !=
+                                              _passwordController.text) {
+                                            return 'Passwords do not match';
+                                          }
+                                          return null;
+                                        },
+                                      ),
+
+                                      const SizedBox(height: 20),
+                                      Consumer<AuthProvider>(
+                                        builder: (context, authProvider, _) {
+                                          return CustomButton(
+                                            text: 'Sign Up',
+                                            onPressed: authProvider.isLoading
+                                                ? null
+                                                : _register,
+                                            isLoading: authProvider.isLoading,
+                                          );
+                                        },
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          const Text(
+                                            'Already have an account? ',
+                                            style: TextStyle(
+                                              color: AppColors.textSecondary,
+                                            ),
+                                          ),
+                                          TextButton(
+                                            onPressed: () =>
+                                                context.go('/login'),
+                                            child: const Text(
+                                              'Sign in',
+                                              style: TextStyle(
+                                                color: AppColors.primary,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
                             ],
-                            onChanged: (value) {
-                              setState(() {
-                                _selectedRole = value!;
-                              });
-                            },
                           ),
                         ),
                       ),
-
-                      const SizedBox(height: 16),
-
-                      // Password
-                      CustomTextField(
-                        controller: _passwordController,
-                        label: 'Mật khẩu *',
-                        hint: 'Nhập mật khẩu của bạn',
-                        obscureText: _obscurePassword,
-                        prefixIcon: Icons.lock_outlined,
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscurePassword
-                                ? Icons.visibility
-                                : Icons.visibility_off,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _obscurePassword = !_obscurePassword;
-                            });
-                          },
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Vui lòng nhập mật khẩu';
-                          }
-                          if (value.length < 6) {
-                            return 'Mật khẩu phải có ít nhất 6 ký tự';
-                          }
-                          return null;
-                        },
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      // Confirm Password
-                      CustomTextField(
-                        controller: _confirmPasswordController,
-                        label: 'Xác nhận mật khẩu *',
-                        hint: 'Nhập lại mật khẩu',
-                        obscureText: _obscureConfirmPassword,
-                        prefixIcon: Icons.lock_outlined,
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscureConfirmPassword
-                                ? Icons.visibility
-                                : Icons.visibility_off,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _obscureConfirmPassword =
-                                  !_obscureConfirmPassword;
-                            });
-                          },
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Vui lòng xác nhận mật khẩu';
-                          }
-                          if (value != _passwordController.text) {
-                            return 'Mật khẩu xác nhận không khớp';
-                          }
-                          return null;
-                        },
-                      ),
-
-                      const SizedBox(height: 32),
-
-                      // Register Button
-                      Consumer<AuthProvider>(
-                        builder: (context, authProvider, _) {
-                          return CustomButton(
-                            text: 'Đăng ký',
-                            onPressed: authProvider.isLoading
-                                ? null
-                                : _register,
-                            isLoading: authProvider.isLoading,
-                          );
-                        },
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // Login Link
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Text(
-                            'Đã có tài khoản? ',
-                            style: TextStyle(color: AppColors.textSecondary),
-                          ),
-                          TextButton(
-                            onPressed: () => context.go('/login'),
-                            child: const Text(
-                              'Đăng nhập ngay',
-                              style: TextStyle(
-                                color: AppColors.primary,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-              ),
+                );
+              },
             ),
-          );
-        },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HeaderBackButton extends StatelessWidget {
+  final String to;
+  const _HeaderBackButton({this.to = '/home'});
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: InkWell(
+        onTap: () => context.go(to),
+        child: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: const Icon(Icons.arrow_back, color: Colors.white),
+        ),
+      ),
+    );
+  }
+}
+
+class _AppLogo extends StatelessWidget {
+  final double size;
+  const _AppLogo({this.size = 60});
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.25),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: const Center(
+        child: Icon(Icons.person_add_alt_1, color: Colors.white, size: 28),
+      ),
+    );
+  }
+}
+
+class _SegmentButton extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  const _SegmentButton({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: selected ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: const Color(0x1A000000),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? const Color(0xFF6366F1) : const Color(0xFF6B7280),
+            fontWeight: FontWeight.w700,
+          ),
+        ),
       ),
     );
   }

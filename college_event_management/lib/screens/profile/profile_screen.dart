@@ -17,13 +17,13 @@ class ProfileScreen extends StatelessWidget {
 
         if (user == null) {
           return const Scaffold(
-            body: Center(child: Text('Không có thông tin người dùng')),
+            body: Center(child: Text('No user information available')),
           );
         }
 
         return Scaffold(
           appBar: AppBar(
-            title: const Text('Hồ sơ'),
+            title: const Text('Profile'),
             leading: IconButton(
               icon: const Icon(Icons.arrow_back),
               onPressed: () => context.go('/home'),
@@ -46,55 +46,90 @@ class ProfileScreen extends StatelessWidget {
             child: Column(
               children: [
                 // Profile Header
-                Card(
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF10b981), Color(0xFF34d399)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF10b981).withOpacity(0.3),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
                   child: Padding(
-                    padding: const EdgeInsets.all(24),
+                    padding: const EdgeInsets.all(32),
                     child: Column(
                       children: [
-                        CircleAvatar(
-                          radius: 60,
-                          backgroundColor: AppColors.primary,
-                          child: Text(
-                            user.fullName.substring(0, 1).toUpperCase(),
-                            style: const TextStyle(
-                              fontSize: 48,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.white,
+                        Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 4),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: CircleAvatar(
+                            radius: 50,
+                            backgroundColor: Colors.white,
+                            child: Text(
+                              user.fullName.substring(0, 1).toUpperCase(),
+                              style: const TextStyle(
+                                fontSize: 36,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF10b981),
+                              ),
                             ),
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 20),
                         Text(
                           user.fullName,
                           style: const TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
-                            color: AppColors.textPrimary,
+                            color: Colors.white,
                           ),
+                          textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 8),
                         Text(
                           user.email,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 16,
-                            color: AppColors.textSecondary,
+                            color: Colors.white.withOpacity(0.9),
                           ),
+                          textAlign: TextAlign.center,
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 16),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
+                            horizontal: 20,
+                            vertical: 10,
                           ),
                           decoration: BoxDecoration(
-                            color: _getRoleColor(user.role).withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(20),
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(25),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.3),
+                              width: 1,
+                            ),
                           ),
                           child: Text(
                             _getRoleText(user.role),
-                            style: TextStyle(
-                              color: _getRoleColor(user.role),
+                            style: const TextStyle(
+                              color: Colors.white,
                               fontWeight: FontWeight.w600,
+                              fontSize: 14,
                             ),
                           ),
                         ),
@@ -105,74 +140,128 @@ class ProfileScreen extends StatelessWidget {
 
                 const SizedBox(height: 24),
 
-                // User Information
-                Card(
-                  elevation: 2,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                // Phone Number Section
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.08),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
+                    padding: const EdgeInsets.all(20),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Padding(
-                          padding: EdgeInsets.all(12),
-                          child: Text(
-                            'Thông tin cá nhân',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.textPrimary,
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF10b981).withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(
+                                Icons.phone,
+                                color: Color(0xFF10b981),
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            const Text(
+                              'Phone Number',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFf8fafc),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: const Color(0xFFe2e8f0),
+                              width: 1,
                             ),
                           ),
-                        ),
-                        const Divider(height: 1, thickness: 0.6),
-                        _buildInfoTile(
-                          icon: Icons.person_outline,
-                          label: 'Họ và tên',
-                          value: user.fullName,
-                        ),
-                        const Divider(height: 1, thickness: 0.6),
-                        _buildInfoTile(
-                          icon: Icons.email_outlined,
-                          label: 'Email',
-                          value: user.email,
-                        ),
-                        const Divider(height: 1, thickness: 0.6),
-                        _buildInfoTile(
-                          icon: Icons.phone_outlined,
-                          label: 'Số điện thoại',
-                          value: user.phoneNumber ?? 'Chưa cập nhật',
-                        ),
-                        if (user.isStudent) ...[
-                          const Divider(height: 1, thickness: 0.6),
-                          _buildInfoTile(
-                            icon: Icons.badge_outlined,
-                            label: 'Mã sinh viên',
-                            value: user.studentId ?? 'Chưa cập nhật',
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: const Color(
+                                    0xFF10b981,
+                                  ).withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Icon(
+                                  Icons.phone_outlined,
+                                  color: Color(0xFF10b981),
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Current Phone Number',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: AppColors.textSecondary,
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      user.phoneNumber ?? 'Not updated',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        color: AppColors.textPrimary,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              ElevatedButton.icon(
+                                onPressed: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          const EditProfileScreen(),
+                                    ),
+                                  );
+                                },
+                                icon: const Icon(Icons.edit, size: 16),
+                                label: const Text('Edit'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF10b981),
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 8,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
-                        const Divider(height: 1, thickness: 0.6),
-                        _buildInfoTile(
-                          icon: Icons.verified_user_outlined,
-                          label: 'Vai trò',
-                          value: _getRoleText(user.role),
-                        ),
-                        const Divider(height: 1, thickness: 0.6),
-                        _buildInfoTile(
-                          icon: Icons.event_note_outlined,
-                          label: 'Ngày tạo',
-                          value: _formatDate(user.createdAt),
-                        ),
-                        const Divider(height: 1, thickness: 0.6),
-                        _buildInfoTile(
-                          icon: Icons.update,
-                          label: 'Cập nhật lần cuối',
-                          value: _formatDate(user.updatedAt),
                         ),
                       ],
                     ),
@@ -182,32 +271,23 @@ class ProfileScreen extends StatelessWidget {
                 const SizedBox(height: 24),
 
                 // Action Buttons
-                Card(
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.08),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
                   child: Column(
                     children: [
-                      ListTile(
-                        leading: const Icon(
-                          Icons.edit,
-                          color: AppColors.primary,
-                        ),
-                        title: const Text('Chỉnh sửa hồ sơ'),
-                        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) => const EditProfileScreen(),
-                            ),
-                          );
-                        },
-                      ),
-                      const Divider(height: 1),
-                      ListTile(
-                        leading: const Icon(
-                          Icons.settings,
-                          color: AppColors.primary,
-                        ),
-                        title: const Text('Cài đặt'),
-                        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                      _buildActionTile(
+                        icon: Icons.settings,
+                        title: 'Settings',
                         onTap: () {
                           Navigator.of(context).push(
                             MaterialPageRoute(
@@ -216,33 +296,24 @@ class ProfileScreen extends StatelessWidget {
                           );
                         },
                       ),
-                      const Divider(height: 1),
-                      ListTile(
-                        leading: const Icon(
-                          Icons.help,
-                          color: AppColors.primary,
-                        ),
-                        title: const Text('Trợ giúp'),
-                        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                      _buildActionTile(
+                        icon: Icons.help,
+                        title: 'Help & Support',
                         onTap: () {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Tính năng đang phát triển'),
+                              content: Text('Feature under development'),
                             ),
                           );
                         },
                       ),
-                      const Divider(height: 1),
-                      ListTile(
-                        leading: const Icon(
-                          Icons.info,
-                          color: AppColors.primary,
-                        ),
-                        title: const Text('Về ứng dụng'),
-                        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                      _buildActionTile(
+                        icon: Icons.info,
+                        title: 'About App',
                         onTap: () {
                           _showAboutDialog(context);
                         },
+                        isLast: true,
                       ),
                     ],
                   ),
@@ -261,11 +332,15 @@ class ProfileScreen extends StatelessWidget {
                       }
                     },
                     icon: const Icon(Icons.logout),
-                    label: const Text('Đăng xuất'),
+                    label: const Text('Sign Out'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.error,
-                      foregroundColor: AppColors.white,
+                      backgroundColor: const Color(0xFFef4444),
+                      foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 2,
                     ),
                   ),
                 ),
@@ -281,104 +356,91 @@ class ProfileScreen extends StatelessWidget {
 
   // Removed legacy row-based info builder in favor of tile-based UI
 
-  Widget _buildInfoTile({
+  Widget _buildActionTile({
     required IconData icon,
-    required String label,
-    required String value,
+    required String title,
+    required VoidCallback onTap,
+    bool isLast = false,
   }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, color: AppColors.primary),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          decoration: BoxDecoration(
+            border: isLast
+                ? null
+                : Border(
+                    bottom: BorderSide(
+                      color: const Color(0xFFe2e8f0),
+                      width: 1,
+                    ),
+                  ),
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontSize: 13,
-                color: AppColors.textSecondary,
-                fontWeight: FontWeight.w500,
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF10b981).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: const Color(0xFF10b981), size: 20),
               ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Flexible(
-            flex: 2,
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: Text(
-                value,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.right,
-                style: const TextStyle(
-                  fontSize: 15,
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w600,
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
-            ),
+              const Icon(
+                Icons.arrow_forward_ios,
+                size: 16,
+                color: AppColors.textSecondary,
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
-  }
-
-  String _formatDate(DateTime date) {
-    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
-  }
-
-  Color _getRoleColor(String role) {
-    switch (role) {
-      case 'admin':
-        return AppColors.error;
-      case 'organizer':
-        return AppColors.warning;
-      case 'student':
-        return AppColors.success;
-      default:
-        return AppColors.grey;
-    }
   }
 
   String _getRoleText(String role) {
     switch (role) {
       case 'admin':
-        return 'Quản trị viên';
+        return 'Administrator';
       case 'organizer':
-        return 'Người tổ chức';
+        return 'Event Organizer';
       case 'student':
-        return 'Sinh viên';
+        return 'Student';
       default:
-        return 'Người dùng';
+        return 'User';
     }
   }
 
   void _showAboutDialog(BuildContext context) {
     showAboutDialog(
       context: context,
-      applicationName: 'Quản Lý Sự Kiện',
+      applicationName: 'Event Management',
       applicationVersion: '1.0.0',
       applicationIcon: const Icon(
         Icons.event,
         size: 48,
-        color: AppColors.primary,
+        color: Color(0xFF10b981),
       ),
       children: [
-        const Text('Ứng dụng quản lý sự kiện trường đại học'),
+        const Text('University Event Management Application'),
         const SizedBox(height: 16),
-        const Text('Phát triển bởi: Flutter + Firebase'),
-        const Text('Phiên bản: 1.0.0'),
+        const Text('Developed with: Flutter + Firebase'),
+        const Text('Version: 1.0.0'),
       ],
     );
   }

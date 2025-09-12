@@ -111,12 +111,13 @@ class RegistrationService {
       QuerySnapshot snapshot = await _firestore
           .collection(AppConstants.registrationsCollection)
           .where('userId', isEqualTo: userId)
-          .orderBy('registeredAt', descending: true)
           .get();
 
-      return snapshot.docs
+      final registrations = snapshot.docs
           .map((doc) => RegistrationModel.fromFirestore(doc))
           .toList();
+      registrations.sort((a, b) => b.registeredAt.compareTo(a.registeredAt));
+      return registrations;
     } catch (e) {
       throw Exception('Lỗi lấy danh sách đăng ký: ${e.toString()}');
     }
@@ -127,13 +128,16 @@ class RegistrationService {
     return _firestore
         .collection(AppConstants.registrationsCollection)
         .where('userId', isEqualTo: userId)
-        .orderBy('registeredAt', descending: true)
         .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
+        .map((snapshot) {
+          final registrations = snapshot.docs
               .map((d) => RegistrationModel.fromFirestore(d))
-              .toList(),
-        );
+              .toList();
+          registrations.sort(
+            (a, b) => b.registeredAt.compareTo(a.registeredAt),
+          );
+          return registrations;
+        });
   }
 
   // Lấy danh sách đăng ký của một sự kiện
