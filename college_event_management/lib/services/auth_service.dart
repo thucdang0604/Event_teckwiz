@@ -34,6 +34,9 @@ class AuthService {
           role: role,
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
+          approvalStatus: role == AppConstants.adminRole
+              ? AppConstants.userApproved
+              : AppConstants.userPending,
         );
 
         await _firestore
@@ -61,7 +64,25 @@ class AuthService {
       );
 
       if (userCredential.user != null) {
-        return await getUserById(userCredential.user!.uid);
+        UserModel? user = await getUserById(userCredential.user!.uid);
+        if (user != null) {
+          // Kiểm tra tài khoản bị block
+          if (user.isBlocked) {
+            await _auth.signOut();
+            throw Exception('BLOCKED_USER');
+          }
+          // Admin luôn được phép đăng nhập, bỏ qua kiểm tra approval
+          if (user.role != AppConstants.adminRole) {
+            // Kiểm tra tài khoản chưa được duyệt (chỉ áp dụng cho non-admin)
+            if (user.approvalStatus != AppConstants.userApproved) {
+              await _auth.signOut();
+              throw Exception(
+                'Tài khoản của bạn chưa được duyệt. Vui lòng liên hệ admin để được kích hoạt tài khoản.',
+              );
+            }
+          }
+        }
+        return user;
       }
       return null;
     } catch (e) {
@@ -150,4 +171,145 @@ class AuthService {
 
   // Stream để theo dõi trạng thái đăng nhập
   Stream<User?> get authStateChanges => _auth.authStateChanges();
+
+  // Admin duyệt tài khoản
+  Future<void> approveUser(String userId) async {
+    try {
+      await _firestore
+          .collection(AppConstants.usersCollection)
+          .doc(userId)
+          .update({
+            'approvalStatus': AppConstants.userApproved,
+            'updatedAt': Timestamp.fromDate(DateTime.now()),
+          });
+    } catch (e) {
+      throw Exception('Lỗi duyệt tài khoản: ${e.toString()}');
+    }
+  }
+
+  // Admin từ chối tài khoản
+  Future<void> rejectUser(String userId) async {
+    try {
+      await _firestore
+          .collection(AppConstants.usersCollection)
+          .doc(userId)
+          .update({
+            'approvalStatus': AppConstants.userRejected,
+            'updatedAt': Timestamp.fromDate(DateTime.now()),
+          });
+    } catch (e) {
+      throw Exception('Lỗi từ chối tài khoản: ${e.toString()}');
+    }
+  }
+
+  // Admin block tài khoản
+  Future<void> blockUser(String userId) async {
+    try {
+      await _firestore
+          .collection(AppConstants.usersCollection)
+          .doc(userId)
+          .update({
+            'isBlocked': true,
+            'updatedAt': Timestamp.fromDate(DateTime.now()),
+          });
+    } catch (e) {
+      throw Exception('Lỗi block tài khoản: ${e.toString()}');
+    }
+  }
+
+  // Admin unblock tài khoản
+  Future<void> unblockUser(String userId) async {
+    try {
+      await _firestore
+          .collection(AppConstants.usersCollection)
+          .doc(userId)
+          .update({
+            'isBlocked': false,
+            'updatedAt': Timestamp.fromDate(DateTime.now()),
+          });
+    } catch (e) {
+      throw Exception('Lỗi unblock tài khoản: ${e.toString()}');
+    }
+  }
+
+  // Cập nhật active status
+  Future<void> updateUserActiveStatus(String userId, bool isActive) async {
+    try {
+      await _firestore
+          .collection(AppConstants.usersCollection)
+          .doc(userId)
+          .update({
+            'isActive': isActive,
+            'updatedAt': Timestamp.fromDate(DateTime.now()),
+          });
+    } catch (e) {
+      throw Exception('Lỗi cập nhật trạng thái hoạt động: ${e.toString()}');
+    }
+  }
+
+  // Lấy danh sách tài khoản chờ duyệt
+  Future<List<UserModel>> getPendingUsers() async {
+    try {
+      QuerySnapshot snapshot = await _firestore
+          .collection(AppConstants.usersCollection)
+          .where('approvalStatus', isEqualTo: AppConstants.userPending)
+          .orderBy('createdAt', descending: true)
+          .get();
+
+      return snapshot.docs.map((doc) => UserModel.fromFirestore(doc)).toList();
+    } catch (e) {
+      throw Exception('Lỗi lấy danh sách tài khoản chờ duyệt: ${e.toString()}');
+    }
+  }
+
+  // Lấy tất cả tài khoản
+  Future<List<UserModel>> getAllUsers() async {
+    try {
+      QuerySnapshot snapshot = await _firestore
+          .collection(AppConstants.usersCollection)
+          .orderBy('createdAt', descending: true)
+          .get();
+
+      return snapshot.docs.map((doc) => UserModel.fromFirestore(doc)).toList();
+    } catch (e) {
+      throw Exception('Lỗi lấy danh sách tài khoản: ${e.toString()}');
+    }
+  }
+
+  // Cập nhật tài khoản admin cũ (migration)
+  Future<void> updateLegacyAdminUsers() async {
+    try {
+      QuerySnapshot snapshot = await _firestore
+          .collection(AppConstants.usersCollection)
+          .where('role', isEqualTo: AppConstants.adminRole)
+          .get();
+
+      for (var doc in snapshot.docs) {
+        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+
+        // Kiểm tra nếu admin chưa có approvalStatus hoặc isBlocked
+        if (!data.containsKey('approvalStatus') ||
+            !data.containsKey('isBlocked')) {
+          Map<String, dynamic> updateData = {
+            'updatedAt': Timestamp.fromDate(DateTime.now()),
+          };
+
+          if (!data.containsKey('approvalStatus')) {
+            updateData['approvalStatus'] = AppConstants.userApproved;
+          }
+
+          if (!data.containsKey('isBlocked')) {
+            updateData['isBlocked'] = false;
+          }
+
+          await _firestore
+              .collection(AppConstants.usersCollection)
+              .doc(doc.id)
+              .update(updateData);
+        }
+      }
+    } catch (e) {
+      throw Exception('Lỗi cập nhật admin cũ: ${e.toString()}');
+    }
+  }
 }

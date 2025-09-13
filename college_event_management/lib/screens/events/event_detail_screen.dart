@@ -12,6 +12,7 @@ import '../events/event_registrations_screen.dart';
 import '../events/event_attendance_screen.dart';
 import '../chat/event_chat_screen.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/admin_provider.dart';
 import '../../services/registration_service.dart';
 import '../../models/registration_model.dart';
 import 'package:qr_flutter/qr_flutter.dart' as qr;
@@ -193,7 +194,14 @@ class _EventDetailScreenState extends State<EventDetailScreen>
             pinned: true,
             leading: IconButton(
               icon: const Icon(Icons.arrow_back, color: AppColors.white),
-              onPressed: () => safePop(context, fallbackRoute: '/home'),
+              onPressed: () {
+                final role = Provider.of<AuthProvider>(
+                  context,
+                  listen: false,
+                ).currentUser?.role;
+                final fallback = role == 'admin' ? '/admin/approvals' : '/home';
+                safePop(context, fallbackRoute: fallback);
+              },
             ),
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
@@ -342,6 +350,114 @@ class _EventDetailScreenState extends State<EventDetailScreen>
                     ),
 
                   const SizedBox(height: 24),
+
+                  // Admin approval section
+                  if (isAdmin && _event!.status == 'pending') ...[
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 10,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: AppColors.warning.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(
+                                  Icons.admin_panel_settings,
+                                  color: AppColors.warning,
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              const Text(
+                                'Admin Approval',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          const Text(
+                            'This event is pending approval. Review the details and make a decision.',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: AppColors.textSecondary,
+                              height: 1.6,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: () => _showRejectDialog(),
+                                  icon: const Icon(
+                                    Icons.close,
+                                    color: AppColors.white,
+                                  ),
+                                  label: const Text(
+                                    'Reject',
+                                    style: TextStyle(color: AppColors.white),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.error,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: () => _approveEvent(),
+                                  icon: const Icon(
+                                    Icons.check,
+                                    color: AppColors.white,
+                                  ),
+                                  label: const Text(
+                                    'Approve',
+                                    style: TextStyle(color: AppColors.white),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.success,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
 
                   // Description
                   Container(
@@ -749,7 +865,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
     required VoidCallback onPressed,
   }) {
     return Container(
-      height: 56,
+      height: 72,
       decoration: BoxDecoration(
         color: color,
         borderRadius: BorderRadius.circular(12),
@@ -976,5 +1092,118 @@ class _EventDetailScreenState extends State<EventDetailScreen>
       return;
     }
     await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  Future<void> _approveEvent() async {
+    if (_event == null) return;
+
+    try {
+      final adminProvider = Provider.of<AdminProvider>(context, listen: false);
+      await adminProvider.approveEvent(_event!.id);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Event approved successfully'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+
+        await _loadEvent();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error approving event: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
+  void _showRejectDialog() {
+    final TextEditingController reasonController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Reject Event'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Please provide a reason for rejecting this event:'),
+              const SizedBox(height: 16),
+              TextField(
+                controller: reasonController,
+                decoration: const InputDecoration(
+                  hintText: 'Enter rejection reason...',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 3,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (reasonController.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please enter a rejection reason'),
+                      backgroundColor: AppColors.warning,
+                    ),
+                  );
+                  return;
+                }
+                _rejectEvent(reasonController.text.trim());
+                Navigator.of(context).pop();
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+              child: const Text(
+                'Reject',
+                style: TextStyle(color: AppColors.white),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _rejectEvent(String reason) async {
+    if (_event == null) return;
+
+    try {
+      final adminProvider = Provider.of<AdminProvider>(context, listen: false);
+      await adminProvider.rejectEvent(_event!.id, reason);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Event rejected successfully'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+
+        await _loadEvent();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error rejecting event: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
   }
 }

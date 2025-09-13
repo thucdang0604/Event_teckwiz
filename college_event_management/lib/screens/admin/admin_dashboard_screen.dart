@@ -4,11 +4,6 @@ import 'package:provider/provider.dart';
 import '../../providers/admin_provider.dart';
 import '../../constants/app_colors.dart';
 import '../../providers/auth_provider.dart';
-import 'user_management_screen.dart';
-import 'event_approval_screen.dart';
-import 'location_management_screen.dart';
-import 'event_statistics_screen.dart';
-import 'location_calendar_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -18,11 +13,15 @@ class AdminDashboardScreen extends StatefulWidget {
 }
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
+  int _currentIndex = 0;
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AdminProvider>().loadDashboardStats();
+      // Also preload data used for overview badges
+      context.read<AdminProvider>().loadPendingEvents();
+      context.read<AdminProvider>().loadLocations();
     });
   }
 
@@ -39,7 +38,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         ),
         actions: [
           IconButton(
-            tooltip: 'Đăng xuất',
+            tooltip: 'Logout',
             icon: const Icon(Icons.logout),
             onPressed: () async {
               try {
@@ -50,7 +49,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Đăng xuất thất bại: $e'),
+                    content: Text('Logout failed: $e'),
                     backgroundColor: AppColors.error,
                   ),
                 );
@@ -68,221 +67,265 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           final stats = adminProvider.dashboardStats;
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.fromLTRB(16.0, 20.0, 16.0, 100.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildStatsCards(stats),
-                const SizedBox(height: 24),
-                _buildQuickActions(),
-                const SizedBox(height: 24),
+                _buildOverviewAndActions(stats),
+                const SizedBox(height: 28),
                 _buildRecentActivity(),
               ],
             ),
           );
         },
       ),
-    );
-  }
-
-  Widget _buildStatsCards(Map<String, dynamic> stats) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Thống kê tổng quan',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 16),
-        GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: 2,
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
-          childAspectRatio: 1.5,
-          children: [
-            _buildStatCard(
-              'Tổng người dùng',
-              '${stats['totalUsers'] ?? 0}',
-              Icons.people,
-              Colors.blue,
-            ),
-            _buildStatCard(
-              'Người dùng hoạt động',
-              '${stats['activeUsers'] ?? 0}',
-              Icons.person,
-              Colors.green,
-            ),
-            _buildStatCard(
-              'Tổng sự kiện',
-              '${stats['totalEvents'] ?? 0}',
-              Icons.event,
-              Colors.orange,
-            ),
-            _buildStatCard(
-              'Sự kiện đã duyệt',
-              '${stats['publishedEvents'] ?? 0}',
-              Icons.check_circle,
-              Colors.purple,
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatCard(
-    String title,
-    String value,
-    IconData icon,
-    Color color,
-  ) {
-    return Card(
-      elevation: 4,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: LayoutBuilder(
-          builder: (context, c) {
-            return Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, size: 28, color: color),
-                const SizedBox(height: 6),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    value,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    title,
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
+      bottomNavigationBar: BottomNavigationBar(
+        type: BottomNavigationBarType.fixed,
+        currentIndex: _currentIndex,
+        selectedItemColor: AppColors.primary,
+        unselectedItemColor: Colors.grey,
+        onTap: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+          switch (index) {
+            case 0:
+              context.go('/admin-dashboard');
+              break;
+            case 1:
+              context.go('/admin/approvals');
+              break;
+            case 2:
+              context.go('/admin/users');
+              break;
+            case 3:
+              context.go('/admin/locations');
+              break;
+            case 4:
+              context.go('/admin/statistics');
+              break;
+          }
+        },
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.dashboard_outlined),
+            label: 'Dashboard',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.event_available_outlined),
+            label: 'Approval',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.people_outline),
+            label: 'Users',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.location_on_outlined),
+            label: 'Locations',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.analytics_outlined),
+            label: 'Statistics',
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildQuickActions() {
+  Widget _buildOverviewAndActions(Map<String, dynamic> stats) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Thao tác nhanh',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          'Overview',
+          style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         GridView.count(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           crossAxisCount: 2,
           crossAxisSpacing: 16,
           mainAxisSpacing: 16,
-          childAspectRatio: 2.8,
+          childAspectRatio: 2.1,
           children: [
             _buildActionCard(
-              'Quản lý người dùng',
+              'User Management',
               Icons.people_outline,
               Colors.blue,
-              () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const UserManagementScreen(),
-                ),
-              ),
+              () => context.go('/admin/users'),
+              subtitle: '${stats['totalUsers'] ?? 0} users',
             ),
             _buildActionCard(
-              'Duyệt sự kiện',
+              'Event Approval',
               Icons.event_available,
               Colors.orange,
-              () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const EventApprovalScreen(),
-                ),
-              ),
+              () => context.go('/admin/approvals'),
+              subtitle:
+                  '${context.read<AdminProvider>().pendingEvents.length} pending',
             ),
             _buildActionCard(
-              'Quản lý vị trí',
+              'Locations',
               Icons.location_on,
               Colors.green,
-              () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const LocationManagementScreen(),
-                ),
-              ),
+              () => context.go('/admin/locations'),
+              subtitle:
+                  '${context.read<AdminProvider>().locations.length} locations',
             ),
             _buildActionCard(
-              'Thống kê sự kiện',
+              'Statistics',
               Icons.analytics,
               Colors.purple,
-              () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const EventStatisticsScreen(),
-                ),
-              ),
-            ),
-            _buildActionCard(
-              'Lịch sự kiện theo vị trí',
-              Icons.calendar_today,
-              Colors.teal,
-              () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const LocationCalendarScreen(),
-                ),
-              ),
+              () => context.go('/admin/statistics'),
+              subtitle: '${stats['publishedEvents'] ?? 0} approved',
             ),
           ],
         ),
       ],
     );
   }
+
+  // old _buildStatsCards removed after merge
+
+  // Keep stat card for potential reuse later
+  Widget _buildStatCard(
+    String title,
+    String value,
+    IconData icon,
+    Color color, [
+    VoidCallback? onTap,
+  ]) {
+    final card = Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: color, size: 22),
+          ),
+          const Spacer(),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF111827),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF6B7280),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (onTap != null) {
+      return InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: card,
+      );
+    }
+    return card;
+  }
+
+  // old _buildQuickActions removed after merge
 
   Widget _buildActionCard(
     String title,
     IconData icon,
     Color color,
-    VoidCallback onTap,
-  ) {
-    return Card(
-      elevation: 2,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Row(
-            children: [
-              Icon(icon, color: color, size: 24),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
+    VoidCallback onTap, {
+    String? subtitle,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(12),
               ),
-              const Icon(Icons.arrow_forward_ios, size: 16),
-            ],
-          ),
+              child: Icon(icon, color: color, size: 18),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF111827),
+                    ),
+                  ),
+                  if (subtitle != null)
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF6B7280),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(
+              Icons.arrow_forward_ios,
+              size: 14,
+              color: Color(0xFF9CA3AF),
+            ),
+          ],
         ),
       ),
     );
@@ -293,32 +336,43 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Hoạt động gần đây',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          'Recent Activity',
+          style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
         ),
-        const SizedBox(height: 16),
-        Card(
+        const SizedBox(height: 12),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.06),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
           child: Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
               children: [
                 _buildActivityItem(
-                  'Sự kiện mới chờ duyệt',
-                  '2 sự kiện',
+                  'New Events Pending',
+                  '2 events',
                   Icons.event_available,
                   Colors.orange,
                 ),
-                const Divider(),
+                const Divider(height: 20),
                 _buildActivityItem(
-                  'Người dùng mới đăng ký',
-                  '5 người dùng',
+                  'New User Registrations',
+                  '5 users',
                   Icons.person_add,
                   Colors.blue,
                 ),
-                const Divider(),
+                const Divider(height: 20),
                 _buildActivityItem(
-                  'Sự kiện đã hoàn thành',
-                  '3 sự kiện',
+                  'Completed Events',
+                  '3 events',
                   Icons.check_circle,
                   Colors.green,
                 ),

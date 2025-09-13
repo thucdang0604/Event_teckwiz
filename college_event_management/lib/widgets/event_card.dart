@@ -103,25 +103,31 @@ class EventCard extends StatelessWidget {
                     color: AppColors.textSecondary,
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    DateFormat(AppConstants.dateFormat).format(event.startDate),
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: AppColors.textSecondary,
+                  Expanded(
+                    child: Text(
+                      'Start: ${DateFormat(AppConstants.dateTimeFormat).format(event.startDate)}',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 16),
-                  Icon(
-                    Icons.access_time,
-                    size: 16,
-                    color: AppColors.textSecondary,
-                  ),
+                ],
+              ),
+
+              const SizedBox(height: 4),
+
+              Row(
+                children: [
+                  Icon(Icons.event, size: 16, color: AppColors.textSecondary),
                   const SizedBox(width: 8),
-                  Text(
-                    DateFormat(AppConstants.timeFormat).format(event.startDate),
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: AppColors.textSecondary,
+                  Expanded(
+                    child: Text(
+                      'End: ${DateFormat(AppConstants.dateTimeFormat).format(event.endDate)}',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                   ),
                 ],

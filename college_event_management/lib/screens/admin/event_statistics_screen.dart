@@ -15,6 +15,7 @@ class EventStatisticsScreen extends StatefulWidget {
 class _EventStatisticsScreenState extends State<EventStatisticsScreen> {
   String _selectedLocation = 'all';
   String _selectedPeriod = 'month';
+  int _currentIndex = 4;
 
   @override
   void initState() {
@@ -68,6 +69,56 @@ class _EventStatisticsScreenState extends State<EventStatisticsScreen> {
             ],
           );
         },
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        type: BottomNavigationBarType.fixed,
+        currentIndex: _currentIndex,
+        selectedItemColor: AppColors.primary,
+        unselectedItemColor: Colors.grey,
+        onTap: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+          switch (index) {
+            case 0:
+              context.go('/admin-dashboard');
+              break;
+            case 1:
+              context.go('/admin/approvals');
+              break;
+            case 2:
+              context.go('/admin/users');
+              break;
+            case 3:
+              context.go('/admin/locations');
+              break;
+            case 4:
+              context.go('/admin/statistics');
+              break;
+          }
+        },
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.dashboard_outlined),
+            label: 'Dashboard',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.event_available_outlined),
+            label: 'Approval',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.people_outline),
+            label: 'Users',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.location_on_outlined),
+            label: 'Locations',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.analytics_outlined),
+            label: 'Statistics',
+          ),
+        ],
       ),
     );
   }

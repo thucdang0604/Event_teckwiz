@@ -26,6 +26,8 @@ class _EventRegistrationsScreenState extends State<EventRegistrationsScreen> {
   List<RegistrationModel> _registrations = [];
   bool _isLoading = true;
   String? _errorMessage;
+  String _searchQuery = '';
+  String _statusFilter = 'all';
 
   @override
   void initState() {
@@ -65,7 +67,7 @@ class _EventRegistrationsScreenState extends State<EventRegistrationsScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Duyệt đăng ký thành công'),
+          content: Text('Registration approved'),
           backgroundColor: AppColors.success,
         ),
       );
@@ -74,7 +76,7 @@ class _EventRegistrationsScreenState extends State<EventRegistrationsScreen> {
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Lỗi duyệt đăng ký: ${e.toString()}'),
+          content: Text('Approve failed: ${e.toString()}'),
           backgroundColor: AppColors.error,
         ),
       );
@@ -87,17 +89,17 @@ class _EventRegistrationsScreenState extends State<EventRegistrationsScreen> {
     final result = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Từ chối đăng ký'),
+        title: const Text('Reject Registration'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Từ chối đăng ký của ${registration.userName}?'),
+            Text('Reject registration for ${registration.userName}?'),
             const SizedBox(height: 16),
             TextField(
               controller: reasonController,
               decoration: const InputDecoration(
-                labelText: 'Lý do từ chối',
-                hintText: 'Nhập lý do từ chối...',
+                labelText: 'Rejection reason',
+                hintText: 'Enter reason...',
               ),
               maxLines: 3,
             ),
@@ -106,11 +108,11 @@ class _EventRegistrationsScreenState extends State<EventRegistrationsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Hủy'),
+            child: const Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Từ chối'),
+            child: const Text('Reject'),
           ),
         ],
       ),
@@ -127,7 +129,7 @@ class _EventRegistrationsScreenState extends State<EventRegistrationsScreen> {
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Từ chối đăng ký thành công'),
+            content: Text('Registration rejected'),
             backgroundColor: AppColors.warning,
           ),
         );
@@ -136,7 +138,7 @@ class _EventRegistrationsScreenState extends State<EventRegistrationsScreen> {
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Lỗi từ chối đăng ký: ${e.toString()}'),
+            content: Text('Reject failed: ${e.toString()}'),
             backgroundColor: AppColors.error,
           ),
         );
@@ -148,7 +150,7 @@ class _EventRegistrationsScreenState extends State<EventRegistrationsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Đăng ký - ${widget.eventTitle}'),
+        title: Text('Registrations - ${widget.eventTitle}'),
         actions: [
           IconButton(
             onPressed: _loadRegistrations,
@@ -166,33 +168,85 @@ class _EventRegistrationsScreenState extends State<EventRegistrationsScreen> {
                   const Icon(Icons.error, size: 64, color: AppColors.error),
                   const SizedBox(height: 16),
                   Text(
-                    'Lỗi: $_errorMessage',
+                    'Error: $_errorMessage',
                     style: const TextStyle(color: AppColors.error),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 16),
                   ElevatedButton(
                     onPressed: _loadRegistrations,
-                    child: const Text('Thử lại'),
+                    child: const Text('Try Again'),
                   ),
                 ],
               ),
             )
-          : _registrations.isEmpty
-          ? const Center(
-              child: Text(
-                'Chưa có đăng ký nào',
-                style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
-              ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _registrations.length,
-              itemBuilder: (context, index) {
-                final registration = _registrations[index];
-                return _buildRegistrationCard(registration);
-              },
+          : _buildContent(),
+    );
+  }
+
+  Widget _buildContent() {
+    final filtered = _registrations.where((r) {
+      final q = _searchQuery.trim().toLowerCase();
+      final matchesQuery =
+          q.isEmpty ||
+          r.userName.toLowerCase().contains(q) ||
+          r.userEmail.toLowerCase().contains(q);
+      final matchesStatus = _statusFilter == 'all' || r.status == _statusFilter;
+      return matchesQuery && matchesStatus;
+    }).toList();
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: filtered.length + 1,
+      itemBuilder: (context, index) {
+        if (index == 0) return _buildHeader();
+        final registration = filtered[index - 1];
+        return _buildRegistrationCard(registration);
+      },
+    );
+  }
+
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        children: [
+          TextField(
+            decoration: const InputDecoration(
+              hintText: 'Search by name or email',
+              prefixIcon: Icon(Icons.search),
+              border: OutlineInputBorder(),
             ),
+            onChanged: (v) => setState(() => _searchQuery = v),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const Text('Status: '),
+              const SizedBox(width: 8),
+              Expanded(
+                child: DropdownButton<String>(
+                  value: _statusFilter,
+                  isExpanded: true,
+                  items: const [
+                    DropdownMenuItem(value: 'all', child: Text('All')),
+                    DropdownMenuItem(value: 'pending', child: Text('Pending')),
+                    DropdownMenuItem(
+                      value: 'approved',
+                      child: Text('Approved'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'rejected',
+                      child: Text('Rejected'),
+                    ),
+                  ],
+                  onChanged: (v) => setState(() => _statusFilter = v ?? 'all'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -267,7 +321,7 @@ class _EventRegistrationsScreenState extends State<EventRegistrationsScreen> {
 
             // Registration Info
             Text(
-              'Đăng ký lúc: ${_formatDateTime(registration.registeredAt)}',
+              'Registered at: ${_formatDateTime(registration.registeredAt)}',
               style: const TextStyle(
                 fontSize: 12,
                 color: AppColors.textSecondary,
@@ -277,7 +331,7 @@ class _EventRegistrationsScreenState extends State<EventRegistrationsScreen> {
             if (registration.additionalInfo != null) ...[
               const SizedBox(height: 8),
               Text(
-                'Ghi chú: ${registration.additionalInfo!['note'] ?? ''}',
+                'Note: ${registration.additionalInfo!['note'] ?? ''}',
                 style: const TextStyle(
                   fontSize: 14,
                   color: AppColors.textPrimary,
@@ -294,7 +348,7 @@ class _EventRegistrationsScreenState extends State<EventRegistrationsScreen> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  'Lý do từ chối: ${registration.rejectionReason}',
+                  'Rejection reason: ${registration.rejectionReason}',
                   style: const TextStyle(fontSize: 12, color: AppColors.error),
                 ),
               ),
@@ -307,7 +361,7 @@ class _EventRegistrationsScreenState extends State<EventRegistrationsScreen> {
                 children: [
                   Expanded(
                     child: CustomButton(
-                      text: 'Duyệt',
+                      text: 'Approve',
                       onPressed: () => _approveRegistration(registration),
                       backgroundColor: AppColors.success,
                     ),
@@ -315,7 +369,7 @@ class _EventRegistrationsScreenState extends State<EventRegistrationsScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: CustomButton(
-                      text: 'Từ chối',
+                      text: 'Reject',
                       onPressed: () => _rejectRegistration(registration),
                       backgroundColor: AppColors.error,
                     ),
@@ -342,7 +396,7 @@ class _EventRegistrationsScreenState extends State<EventRegistrationsScreen> {
                     ),
                     SizedBox(width: 4),
                     Text(
-                      'Đã tham dự',
+                      'Attended',
                       style: TextStyle(
                         color: AppColors.success,
                         fontSize: 12,

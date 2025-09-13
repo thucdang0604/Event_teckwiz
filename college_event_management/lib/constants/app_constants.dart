@@ -14,6 +14,11 @@ class AppConstants {
   static const String organizerRole = 'organizer';
   static const String studentRole = 'student';
 
+  // User Approval Status
+  static const String userPending = 'pending';
+  static const String userApproved = 'approved';
+  static const String userRejected = 'rejected';
+
   // Event Status
   static const String eventDraft = 'draft';
   static const String eventPublished = 'published';

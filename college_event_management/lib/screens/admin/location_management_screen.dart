@@ -27,7 +27,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Quản lý vị trí'),
+        title: const Text('Location Management'),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         leading: IconButton(
@@ -41,6 +41,51 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
           ),
         ],
       ),
+      bottomNavigationBar: BottomNavigationBar(
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: Colors.white,
+        selectedItemColor: AppColors.primary,
+        unselectedItemColor: Colors.grey,
+        currentIndex: 2,
+        onTap: (index) {
+          switch (index) {
+            case 0:
+              context.go('/admin-dashboard');
+              break;
+            case 1:
+              context.go('/admin/users');
+              break;
+            case 2:
+              context.go('/admin/locations');
+              break;
+            case 3:
+              context.go('/admin/approvals');
+              break;
+            case 4:
+              context.go('/admin/statistics');
+              break;
+          }
+        },
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.dashboard),
+            label: 'Dashboard',
+          ),
+          BottomNavigationBarItem(icon: Icon(Icons.people), label: 'Users'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.location_on),
+            label: 'Locations',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.event_available),
+            label: 'Approvals',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.analytics),
+            label: 'Statistics',
+          ),
+        ],
+      ),
       body: Consumer<AdminProvider>(
         builder: (context, adminProvider, child) {
           if (adminProvider.isLoading) {
@@ -49,7 +94,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
 
           if (adminProvider.locations.isEmpty) {
             return const Center(
-              child: Text('Chưa có vị trí nào', style: TextStyle(fontSize: 16)),
+              child: Text('No locations found', style: TextStyle(fontSize: 16)),
             );
           }
 
@@ -71,121 +116,125 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
   ) {
     return Card(
       margin: const EdgeInsets.all(16),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    location.name,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+      child: InkWell(
+        onTap: () => context.go('/admin/location-detail/${location.id}'),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      location.name,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: location.isActive ? Colors.green : Colors.red,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      location.isActive ? 'Active' : 'Inactive',
+                      style: const TextStyle(color: Colors.white, fontSize: 12),
+                    ),
                   ),
-                  decoration: BoxDecoration(
-                    color: location.isActive ? Colors.green : Colors.red,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    location.isActive ? 'Hoạt động' : 'Tạm dừng',
-                    style: const TextStyle(color: Colors.white, fontSize: 12),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              location.description,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Icon(Icons.location_on, size: 16, color: Colors.grey),
-                const SizedBox(width: 4),
-                Expanded(child: Text(location.address)),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Icon(Icons.people, size: 16, color: Colors.grey),
-                const SizedBox(width: 4),
-                Text('Sức chứa: ${location.capacity} người'),
-                const SizedBox(width: 16),
-                const Icon(Icons.star, size: 16, color: Colors.grey),
-                const SizedBox(width: 4),
-                Text('${location.facilities.length} tiện ích'),
-              ],
-            ),
-            if (location.facilities.isNotEmpty) ...[
+                ],
+              ),
               const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                children: location.facilities.take(3).map((facility) {
-                  return Chip(
-                    label: Text(facility),
-                    backgroundColor: Colors.blue.shade100,
-                    labelStyle: const TextStyle(fontSize: 12),
-                  );
-                }).toList(),
+              Text(
+                location.description,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(Icons.location_on, size: 16, color: Colors.grey),
+                  const SizedBox(width: 4),
+                  Expanded(child: Text(location.address)),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(Icons.people, size: 16, color: Colors.grey),
+                  const SizedBox(width: 4),
+                  Text('Capacity: ${location.capacity} people'),
+                  const SizedBox(width: 16),
+                  const Icon(Icons.star, size: 16, color: Colors.grey),
+                  const SizedBox(width: 4),
+                  Text('${location.facilities.length} facilities'),
+                ],
+              ),
+              if (location.facilities.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: location.facilities.take(3).map((facility) {
+                    return Chip(
+                      label: Text(facility),
+                      backgroundColor: Colors.blue.shade100,
+                      labelStyle: const TextStyle(fontSize: 12),
+                    );
+                  }).toList(),
+                ),
+              ],
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () =>
+                          _showEditLocationDialog(location, adminProvider),
+                      icon: const Icon(Icons.edit),
+                      label: const Text('Edit'),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () =>
+                          _toggleLocationStatus(location, adminProvider),
+                      icon: Icon(
+                        location.isActive ? Icons.pause : Icons.play_arrow,
+                      ),
+                      label: Text(location.isActive ? 'Pause' : 'Activate'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: location.isActive
+                            ? Colors.orange
+                            : Colors.green,
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => _deleteLocation(location, adminProvider),
+                      icon: const Icon(Icons.delete),
+                      label: const Text('Delete'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () =>
-                        _showEditLocationDialog(location, adminProvider),
-                    icon: const Icon(Icons.edit),
-                    label: const Text('Chỉnh sửa'),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () =>
-                        _toggleLocationStatus(location, adminProvider),
-                    icon: Icon(
-                      location.isActive ? Icons.pause : Icons.play_arrow,
-                    ),
-                    label: Text(location.isActive ? 'Tạm dừng' : 'Kích hoạt'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: location.isActive
-                          ? Colors.orange
-                          : Colors.green,
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () => _deleteLocation(location, adminProvider),
-                    icon: const Icon(Icons.delete),
-                    label: const Text('Xóa'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -202,7 +251,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
-          title: const Text('Thêm vị trí mới'),
+          title: const Text('Add New Location'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -210,7 +259,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                 TextField(
                   controller: nameController,
                   decoration: const InputDecoration(
-                    labelText: 'Tên vị trí',
+                    labelText: 'Location Name',
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -218,7 +267,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                 TextField(
                   controller: descriptionController,
                   decoration: const InputDecoration(
-                    labelText: 'Mô tả',
+                    labelText: 'Description',
                     border: OutlineInputBorder(),
                   ),
                   maxLines: 3,
@@ -227,7 +276,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                 TextField(
                   controller: addressController,
                   decoration: const InputDecoration(
-                    labelText: 'Địa chỉ',
+                    labelText: 'Address',
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -235,7 +284,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                 TextField(
                   controller: capacityController,
                   decoration: const InputDecoration(
-                    labelText: 'Sức chứa',
+                    labelText: 'Capacity',
                     border: OutlineInputBorder(),
                   ),
                   keyboardType: TextInputType.number,
@@ -246,7 +295,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                     Expanded(
                       child: TextField(
                         decoration: const InputDecoration(
-                          labelText: 'Thêm tiện ích',
+                          labelText: 'Add Facility',
                           border: OutlineInputBorder(),
                         ),
                         onSubmitted: (value) {
@@ -294,7 +343,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
             TextButton(
               onPressed: () =>
                   safePop(context, fallbackRoute: '/admin-dashboard'),
-              child: const Text('Hủy'),
+              child: const Text('Cancel'),
             ),
             ElevatedButton(
               onPressed: () {
@@ -316,7 +365,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                   safePop(context, fallbackRoute: '/admin-dashboard');
                 }
               },
-              child: const Text('Thêm'),
+              child: const Text('Add'),
             ),
           ],
         ),
@@ -346,7 +395,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
-          title: const Text('Chỉnh sửa vị trí'),
+          title: const Text('Edit Location'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -354,7 +403,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                 TextField(
                   controller: nameController,
                   decoration: const InputDecoration(
-                    labelText: 'Tên vị trí',
+                    labelText: 'Location Name',
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -362,7 +411,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                 TextField(
                   controller: descriptionController,
                   decoration: const InputDecoration(
-                    labelText: 'Mô tả',
+                    labelText: 'Description',
                     border: OutlineInputBorder(),
                   ),
                   maxLines: 3,
@@ -371,7 +420,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                 TextField(
                   controller: addressController,
                   decoration: const InputDecoration(
-                    labelText: 'Địa chỉ',
+                    labelText: 'Address',
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -379,7 +428,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                 TextField(
                   controller: capacityController,
                   decoration: const InputDecoration(
-                    labelText: 'Sức chứa',
+                    labelText: 'Capacity',
                     border: OutlineInputBorder(),
                   ),
                   keyboardType: TextInputType.number,
@@ -390,7 +439,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                     Expanded(
                       child: TextField(
                         decoration: const InputDecoration(
-                          labelText: 'Thêm tiện ích',
+                          labelText: 'Add Facility',
                           border: OutlineInputBorder(),
                         ),
                         onSubmitted: (value) {
@@ -438,7 +487,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
             TextButton(
               onPressed: () =>
                   safePop(context, fallbackRoute: '/admin-dashboard'),
-              child: const Text('Hủy'),
+              child: const Text('Cancel'),
             ),
             ElevatedButton(
               onPressed: () {
@@ -458,7 +507,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                   safePop(context, fallbackRoute: '/admin-dashboard');
                 }
               },
-              child: const Text('Cập nhật'),
+              child: const Text('Update'),
             ),
           ],
         ),
@@ -481,8 +530,10 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Xác nhận xóa'),
-        content: Text('Bạn có chắc chắn muốn xóa vị trí "${location.name}"?'),
+        title: const Text('Confirm Delete'),
+        content: Text(
+          'Are you sure you want to delete location "${location.name}"?',
+        ),
         actions: [
           TextButton(
             onPressed: () =>
@@ -494,7 +545,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
               adminProvider.deleteLocation(location.id);
               safePop(context, fallbackRoute: '/admin-dashboard');
             },
-            child: const Text('Xóa'),
+            child: const Text('Delete'),
           ),
         ],
       ),

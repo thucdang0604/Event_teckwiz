@@ -14,6 +14,7 @@ import '../../constants/app_constants.dart';
 import '../../widgets/custom_text_field.dart';
 import '../../widgets/custom_button.dart';
 import '../../services/image_service.dart';
+import '../../services/event_service.dart';
 
 class CreateEventScreen extends StatefulWidget {
   const CreateEventScreen({super.key});
@@ -39,6 +40,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   DateTime _registrationDeadline = DateTime.now().add(
     const Duration(hours: 12),
   );
+  String? _registrationDeadlineError;
   bool _isFree = true;
 
   // Media upload
@@ -47,6 +49,11 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   final List<File> _selectedImages = [];
   final List<File> _selectedVideos = [];
   String? _selectedLocationId;
+  final EventService _eventService = EventService();
+  final Set<int> _bookedHours = {};
+  // removed auto-duration usage; keeping default 1 hour logic inline
+  final Set<int> _bookedHoursEnd = {};
+  bool _selectingStart = true;
   @override
   void initState() {
     super.initState();
@@ -129,25 +136,130 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     );
 
     if (picked != null) {
-      final TimeOfDay? time = await showTimePicker(
-        context: context,
-        initialTime: TimeOfDay.fromDateTime(initialDate),
+      final DateTime selectedDateTime = DateTime(
+        picked.year,
+        picked.month,
+        picked.day,
+        initialDate.hour,
+        initialDate.minute,
       );
-
-      if (time != null) {
-        final DateTime selectedDateTime = DateTime(
-          picked.year,
-          picked.month,
-          picked.day,
-          time.hour,
-          time.minute,
-        );
-        onDateSelected(selectedDateTime);
+      onDateSelected(selectedDateTime);
+      if (onDateSelected == _onStartDateSelected) {
+        _loadBookedHoursForStartDate(selectedDateTime);
+      } else if (onDateSelected == _onEndDateSelected) {
+        _loadBookedHoursForEndDate(selectedDateTime);
       }
     }
   }
 
+  void _onStartDateSelected(DateTime dt) {
+    setState(() {
+      _startDate = dt;
+      if (!_endDate.isAfter(_startDate)) {
+        _endDate = _startDate.add(const Duration(hours: 1));
+      }
+    });
+  }
+
+  void _onEndDateSelected(DateTime dt) {
+    setState(() {
+      _endDate = dt.isAfter(_startDate)
+          ? dt
+          : _startDate.add(const Duration(hours: 1));
+    });
+  }
+
+  Future<void> _loadBookedHoursForStartDate(DateTime date) async {
+    _bookedHours.clear();
+    if (_selectedLocationId == null) {
+      setState(() {});
+      return;
+    }
+    try {
+      final events = await _eventService.getEvents();
+      final sameDayEvents = events.where((e) {
+        final sameLocation = e.location == _locationController.text;
+        final sameDay =
+            e.startDate.year == date.year &&
+                e.startDate.month == date.month &&
+                e.startDate.day == date.day ||
+            e.endDate.year == date.year &&
+                e.endDate.month == date.month &&
+                e.endDate.day == date.day;
+        return sameLocation && sameDay;
+      }).toList();
+
+      for (int h = 0; h < 24; h++) {
+        final slotStart = DateTime(date.year, date.month, date.day, h, 0);
+        final slotEnd = slotStart.add(const Duration(hours: 1));
+        final overlaps = sameDayEvents.any((ev) {
+          final evStart = ev.startDate;
+          final evEnd = ev.endDate;
+          return slotStart.isBefore(evEnd) && slotEnd.isAfter(evStart);
+        });
+        if (overlaps) {
+          _bookedHours.add(h);
+        }
+      }
+      // keep end-grid in sync with start day
+      _bookedHoursEnd
+        ..clear()
+        ..addAll(_bookedHours);
+      setState(() {});
+    } catch (_) {
+      setState(() {});
+    }
+  }
+
+  Future<void> _loadBookedHoursForEndDate(DateTime date) async {
+    _bookedHoursEnd.clear();
+    if (_selectedLocationId == null) {
+      setState(() {});
+      return;
+    }
+    try {
+      final events = await _eventService.getEvents();
+      final sameDayEvents = events.where((e) {
+        final sameLocation = e.location == _locationController.text;
+        final sameDay =
+            e.startDate.year == date.year &&
+                e.startDate.month == date.month &&
+                e.startDate.day == date.day ||
+            e.endDate.year == date.year &&
+                e.endDate.month == date.month &&
+                e.endDate.day == date.day;
+        return sameLocation && sameDay;
+      }).toList();
+
+      for (int h = 0; h < 24; h++) {
+        final slotStart = DateTime(date.year, date.month, date.day, h, 0);
+        final slotEnd = slotStart.add(const Duration(hours: 1));
+        final overlaps = sameDayEvents.any((ev) {
+          final evStart = ev.startDate;
+          final evEnd = ev.endDate;
+          return slotStart.isBefore(evEnd) && slotEnd.isAfter(evStart);
+        });
+        if (overlaps) {
+          _bookedHoursEnd.add(h);
+        }
+      }
+      setState(() {});
+    } catch (_) {
+      setState(() {});
+    }
+  }
+
   void _createEvent() async {
+    // Check registration deadline validation
+    if (_registrationDeadline.isAfter(_startDate) ||
+        _registrationDeadline.isAtSameMomentAs(_startDate)) {
+      setState(() {
+        _registrationDeadlineError =
+            'Registration deadline must be before event start time';
+      });
+      return;
+    }
+
     if (_formKey.currentState!.validate()) {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final eventProvider = Provider.of<EventProvider>(context, listen: false);
@@ -419,6 +531,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                 _locationController.text = loc.name;
                               }
                             });
+                            _loadBookedHoursForStartDate(_startDate);
                           },
                           validator: (val) {
                             if (val == null || val.isEmpty) {
@@ -442,13 +555,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
                         const SizedBox(height: 16),
 
-                        // Start Date
+                        // Event Time (combined selector)
                         InkWell(
-                          onTap: () => _selectDate(_startDate, (date) {
-                            setState(() {
-                              _startDate = date;
-                            });
-                          }),
+                          onTap: _openDateTimeSheet,
                           child: Container(
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
@@ -459,79 +568,36 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                             child: Row(
                               children: [
                                 const Icon(
-                                  Icons.calendar_today,
+                                  Icons.access_time,
                                   color: AppColors.primary,
                                 ),
                                 const SizedBox(width: 12),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'Start Date',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: AppColors.textSecondary,
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Event Time',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: AppColors.textSecondary,
+                                        ),
                                       ),
-                                    ),
-                                    Text(
-                                      DateFormat(
-                                        AppConstants.dateTimeFormat,
-                                      ).format(_startDate),
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        color: AppColors.textPrimary,
+                                      Text(
+                                        '${DateFormat(AppConstants.dateTimeFormat).format(_startDate)} - ${DateFormat(AppConstants.dateTimeFormat).format(_endDate)}',
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          color: AppColors.textPrimary,
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
-                              ],
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(height: 16),
-
-                        // End Date
-                        InkWell(
-                          onTap: () => _selectDate(_endDate, (date) {
-                            setState(() {
-                              _endDate = date;
-                            });
-                          }),
-                          child: Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: AppColors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: AppColors.grey),
-                            ),
-                            child: Row(
-                              children: [
                                 const Icon(
-                                  Icons.calendar_today,
-                                  color: AppColors.primary,
-                                ),
-                                const SizedBox(width: 12),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'End Date',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: AppColors.textSecondary,
-                                      ),
-                                    ),
-                                    Text(
-                                      DateFormat(
-                                        AppConstants.dateTimeFormat,
-                                      ).format(_endDate),
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        color: AppColors.textPrimary,
-                                      ),
-                                    ),
-                                  ],
+                                  Icons.arrow_forward_ios,
+                                  size: 16,
+                                  color: AppColors.textSecondary,
                                 ),
                               ],
                             ),
@@ -541,13 +607,51 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                         const SizedBox(height: 16),
 
                         // Registration Deadline
+                        if (_registrationDeadlineError != null)
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: AppColors.error.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: AppColors.error),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.warning,
+                                  color: AppColors.error,
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _registrationDeadlineError!,
+                                    style: const TextStyle(
+                                      color: AppColors.error,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         InkWell(
-                          onTap: () =>
-                              _selectDate(_registrationDeadline, (date) {
-                                setState(() {
-                                  _registrationDeadline = date;
-                                });
-                              }),
+                          onTap: () => _selectDate(_registrationDeadline, (
+                            date,
+                          ) {
+                            setState(() {
+                              _registrationDeadline = date;
+                              _registrationDeadlineError = null;
+                              if (_registrationDeadline.isAfter(_startDate) ||
+                                  _registrationDeadline.isAtSameMomentAs(
+                                    _startDate,
+                                  )) {
+                                _registrationDeadlineError =
+                                    'Registration deadline must be before event start time';
+                              }
+                            });
+                          }),
                           child: Container(
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
@@ -976,4 +1080,413 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       },
     );
   }
+
+  void _openDateTimeSheet() async {
+    if (_selectedLocationId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select a location first'),
+          backgroundColor: AppColors.warning,
+        ),
+      );
+      return;
+    }
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.9,
+          minChildSize: 0.6,
+          maxChildSize: 0.95,
+          builder: (context, scrollController) {
+            return StatefulBuilder(
+              builder: (context, sbSetState) {
+                return SingleChildScrollView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: const [
+                          Text(
+                            'Select Event Time',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // Start Date (inline, no popup)
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: AppColors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppColors.grey),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.calendar_today,
+                              color: AppColors.primary,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Start Date',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                  Text(
+                                    DateFormat(
+                                      AppConstants.dateTimeFormat,
+                                    ).format(_startDate),
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      color: AppColors.textPrimary,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.chevron_left),
+                              onPressed: () {
+                                setState(() {
+                                  final d = _startDate.subtract(
+                                    const Duration(days: 1),
+                                  );
+                                  _startDate = DateTime(
+                                    d.year,
+                                    d.month,
+                                    d.day,
+                                    _startDate.hour,
+                                    0,
+                                  );
+                                  if (!_endDate.isAfter(_startDate)) {
+                                    _endDate = _startDate.add(
+                                      const Duration(hours: 1),
+                                    );
+                                  }
+                                });
+                                _loadBookedHoursForStartDate(_startDate);
+                                sbSetState(() {});
+                              },
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.chevron_right),
+                              onPressed: () {
+                                setState(() {
+                                  final d = _startDate.add(
+                                    const Duration(days: 1),
+                                  );
+                                  _startDate = DateTime(
+                                    d.year,
+                                    d.month,
+                                    d.day,
+                                    _startDate.hour,
+                                    0,
+                                  );
+                                  if (!_endDate.isAfter(_startDate)) {
+                                    _endDate = _startDate.add(
+                                      const Duration(hours: 1),
+                                    );
+                                  }
+                                });
+                                _loadBookedHoursForStartDate(_startDate);
+                                sbSetState(() {});
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      // Display selected times
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: AppColors.primary.withOpacity(0.3),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Thời gian đã chọn:',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.white,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'Giờ bắt đầu:',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: AppColors.textSecondary,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          '${_startDate.hour.toString().padLeft(2, '0')}:00',
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppColors.primary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.white,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: AppColors.success,
+                                      ),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'Giờ kết thúc:',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: AppColors.textSecondary,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          '${_endDate.hour.toString().padLeft(2, '0')}:00',
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppColors.success,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      // Switch which bound to edit
+                      Row(
+                        children: [
+                          ChoiceChip(
+                            label: const Text('Chọn giờ bắt đầu'),
+                            selected: _selectingStart,
+                            onSelected: (v) =>
+                                setState(() => _selectingStart = true),
+                            selectedColor: AppColors.primary.withOpacity(0.2),
+                            labelStyle: TextStyle(
+                              color: _selectingStart
+                                  ? AppColors.primary
+                                  : AppColors.textSecondary,
+                              fontWeight: _selectingStart
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          ChoiceChip(
+                            label: const Text('Chọn giờ kết thúc'),
+                            selected: !_selectingStart,
+                            onSelected: (v) =>
+                                setState(() => _selectingStart = false),
+                            selectedColor: AppColors.success.withOpacity(0.2),
+                            labelStyle: TextStyle(
+                              color: !_selectingStart
+                                  ? AppColors.success
+                                  : AppColors.textSecondary,
+                              fontWeight: !_selectingStart
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      // One grid to pick start or end depending on toggle
+                      GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 4,
+                              crossAxisSpacing: 8,
+                              mainAxisSpacing: 8,
+                              childAspectRatio: 2.6,
+                            ),
+                        itemCount: 24,
+                        itemBuilder: (context, index) {
+                          final hour = index;
+                          final isBooked = _bookedHours.contains(hour);
+                          final isSelectedStart = _startDate.hour == hour;
+                          final isSelectedEnd =
+                              _endDate.hour == hour &&
+                              _endDate.day == _startDate.day;
+                          final bg = isBooked
+                              ? const Color(0xFFFFE5E5)
+                              : const Color(0xFFE8F8F0);
+                          final border = (isSelectedStart || isSelectedEnd)
+                              ? const Color(0xFF10b981)
+                              : Colors.transparent;
+                          return GestureDetector(
+                            onTap: isBooked
+                                ? null
+                                : () {
+                                    setState(() {
+                                      if (_selectingStart) {
+                                        final newStart = DateTime(
+                                          _startDate.year,
+                                          _startDate.month,
+                                          _startDate.day,
+                                          hour,
+                                          0,
+                                        );
+                                        _startDate = newStart;
+                                        if (!_endDate.isAfter(_startDate)) {
+                                          _endDate = _startDate.add(
+                                            const Duration(hours: 1),
+                                          );
+                                        }
+                                        // after picking start, auto switch to End selection
+                                        _selectingStart = false;
+                                        // Check registration deadline when start time changes
+                                        if (_registrationDeadline.isAfter(
+                                              _startDate,
+                                            ) ||
+                                            _registrationDeadline
+                                                .isAtSameMomentAs(_startDate)) {
+                                          _registrationDeadlineError =
+                                              'Registration deadline must be before event start time';
+                                        } else {
+                                          _registrationDeadlineError = null;
+                                        }
+                                        // Update UI to show selected times
+                                        sbSetState(() {});
+                                      } else {
+                                        final newEnd = DateTime(
+                                          _startDate.year,
+                                          _startDate.month,
+                                          _startDate.day,
+                                          hour,
+                                          0,
+                                        );
+                                        if (!newEnd.isAfter(_startDate)) {
+                                          _endDate = _startDate.add(
+                                            const Duration(hours: 1),
+                                          );
+                                        } else {
+                                          _endDate = newEnd;
+                                        }
+                                      }
+                                    });
+                                    sbSetState(() {});
+                                  },
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: bg,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: border, width: 2),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                '${hour.toString().padLeft(2, '0')}:00',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: isBooked
+                                      ? const Color(0xFFDC2626)
+                                      : const Color(0xFF10b981),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                foregroundColor: AppColors.white,
+                              ),
+                              child: const Text('Confirm'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // Removed old separate time slot builders; combined into bottom sheet
 }

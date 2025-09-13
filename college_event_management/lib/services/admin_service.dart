@@ -88,6 +88,26 @@ class AdminService {
     }
   }
 
+  Future<List<EventModel>> getAllEvents() async {
+    try {
+      print('🔍 Đang tải tất cả sự kiện...');
+      QuerySnapshot snapshot = await _firestore
+          .collection(AppConstants.eventsCollection)
+          .orderBy('createdAt', descending: true)
+          .get();
+
+      print('📊 Tìm thấy ${snapshot.docs.length} sự kiện');
+      List<EventModel> events = snapshot.docs
+          .map((doc) => EventModel.fromFirestore(doc))
+          .toList();
+
+      return events;
+    } catch (e) {
+      print('❌ Lỗi khi lấy tất cả sự kiện: $e');
+      throw Exception('Lỗi khi lấy danh sách tất cả sự kiện: $e');
+    }
+  }
+
   Future<void> approveEvent(String eventId) async {
     try {
       await _firestore
@@ -254,6 +274,95 @@ class AdminService {
       };
     } catch (e) {
       throw Exception('Lỗi khi lấy thống kê tổng quan: $e');
+    }
+  }
+
+  Future<void> approveUser(String userId) async {
+    try {
+      await _firestore
+          .collection(AppConstants.usersCollection)
+          .doc(userId)
+          .update({
+            'approvalStatus': AppConstants.userApproved,
+            'updatedAt': Timestamp.fromDate(DateTime.now()),
+          });
+    } catch (e) {
+      throw Exception('Lỗi duyệt tài khoản: $e');
+    }
+  }
+
+  Future<void> rejectUser(String userId) async {
+    try {
+      await _firestore
+          .collection(AppConstants.usersCollection)
+          .doc(userId)
+          .update({
+            'approvalStatus': AppConstants.userRejected,
+            'updatedAt': Timestamp.fromDate(DateTime.now()),
+          });
+    } catch (e) {
+      throw Exception('Lỗi từ chối tài khoản: $e');
+    }
+  }
+
+  Future<void> blockUser(String userId) async {
+    try {
+      await _firestore
+          .collection(AppConstants.usersCollection)
+          .doc(userId)
+          .update({
+            'isBlocked': true,
+            'updatedAt': Timestamp.fromDate(DateTime.now()),
+          });
+    } catch (e) {
+      throw Exception('Lỗi block tài khoản: $e');
+    }
+  }
+
+  Future<void> unblockUser(String userId) async {
+    try {
+      await _firestore
+          .collection(AppConstants.usersCollection)
+          .doc(userId)
+          .update({
+            'isBlocked': false,
+            'updatedAt': Timestamp.fromDate(DateTime.now()),
+          });
+    } catch (e) {
+      throw Exception('Lỗi unblock tài khoản: $e');
+    }
+  }
+
+  Future<void> cancelEvent(String eventId) async {
+    try {
+      await _firestore
+          .collection(AppConstants.eventsCollection)
+          .doc(eventId)
+          .update({'status': 'cancelled', 'updatedAt': Timestamp.now()});
+    } catch (e) {
+      throw Exception('Lỗi hủy sự kiện: $e');
+    }
+  }
+
+  Future<void> deleteEvent(String eventId) async {
+    try {
+      await _firestore
+          .collection(AppConstants.eventsCollection)
+          .doc(eventId)
+          .delete();
+    } catch (e) {
+      throw Exception('Lỗi xóa sự kiện: $e');
+    }
+  }
+
+  Future<void> updateEventStatus(String eventId, String status) async {
+    try {
+      await _firestore
+          .collection(AppConstants.eventsCollection)
+          .doc(eventId)
+          .update({'status': status, 'updatedAt': Timestamp.now()});
+    } catch (e) {
+      throw Exception('Lỗi cập nhật trạng thái sự kiện: $e');
     }
   }
 }
