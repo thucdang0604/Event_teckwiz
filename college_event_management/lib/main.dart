@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'firebase_options.dart';
 
 import 'providers/auth_provider.dart';
@@ -31,9 +32,18 @@ import 'screens/admin/location_management_screen.dart';
 import 'screens/admin/location_detail_screen.dart';
 import 'screens/admin/event_statistics_screen.dart';
 import 'screens/admin/location_calendar_screen.dart';
+import 'screens/admin/student_management_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Load .env file
+  try {
+    await dotenv.load(fileName: ".env");
+  } catch (e) {
+    print('⚠️ Could not load .env file: ${e.toString()}');
+    print('📝 Using console logging for email verification');
+  }
 
   // Initialize Firebase
   if (Firebase.apps.isEmpty) {
@@ -218,6 +228,10 @@ final GoRouter _router = GoRouter(
           },
         );
       },
+    ),
+    GoRoute(
+      path: '/admin/students',
+      builder: (context, state) => const StudentManagementScreen(),
     ),
     GoRoute(
       path: '/admin/statistics',

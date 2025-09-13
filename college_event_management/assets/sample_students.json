@@ -1,0 +1,302 @@
+[
+  {
+    "id": "student_001",
+    "studentId": "SV2024001",
+    "fullName": "Nguyễn Văn An",
+    "email": "nguyenvanan@fpt.edu.vn",
+    "phoneNumber": "0123456789",
+    "department": "Công nghệ thông tin",
+    "classCode": "IT01",
+    "isActive": true
+  },
+  {
+    "id": "student_002",
+    "studentId": "SV2024002",
+    "fullName": "Trần Thị Bình",
+    "email": "tranthibinh@fpt.edu.vn",
+    "phoneNumber": "0123456790",
+    "department": "Công nghệ thông tin",
+    "classCode": "IT01",
+    "isActive": true
+  },
+  {
+    "id": "student_003",
+    "studentId": "SV2024003",
+    "fullName": "Lê Văn Cường",
+    "email": "levancuong@fpt.edu.vn",
+    "phoneNumber": "0123456791",
+    "department": "Kỹ thuật phần mềm",
+    "classCode": "SE01",
+    "isActive": true
+  },
+  {
+    "id": "student_004",
+    "studentId": "SV2024004",
+    "fullName": "Phạm Thị Dung",
+    "email": "phamthidung@fpt.edu.vn",
+    "phoneNumber": "0123456792",
+    "department": "Kỹ thuật phần mềm",
+    "classCode": "SE01",
+    "isActive": true
+  },
+  {
+    "id": "student_005",
+    "studentId": "SV2024005",
+    "fullName": "Hoàng Văn Em",
+    "email": "hoangvanem@fpt.edu.vn",
+    "phoneNumber": "0123456793",
+    "department": "An toàn thông tin",
+    "classCode": "AT01",
+    "isActive": true
+  },
+  {
+    "id": "student_006",
+    "studentId": "SV2024006",
+    "fullName": "Vũ Thị Phương",
+    "email": "vuthiphuong@fpt.edu.vn",
+    "phoneNumber": "0123456794",
+    "department": "An toàn thông tin",
+    "classCode": "AT01",
+    "isActive": true
+  },
+  {
+    "id": "student_007",
+    "studentId": "SV2024007",
+    "fullName": "Đặng Văn Giang",
+    "email": "dangvangiang@fpt.edu.vn",
+    "phoneNumber": "0123456795",
+    "department": "Khoa học máy tính",
+    "classCode": "CS01",
+    "isActive": true
+  },
+  {
+    "id": "student_008",
+    "studentId": "SV2024008",
+    "fullName": "Bùi Thị Hoa",
+    "email": "buithihoa@fpt.edu.vn",
+    "phoneNumber": "0123456796",
+    "department": "Khoa học máy tính",
+    "classCode": "CS01",
+    "isActive": true
+  },
+  {
+    "id": "student_009",
+    "studentId": "SV2024009",
+    "fullName": "Phan Văn Inh",
+    "email": "phanvaninh@fpt.edu.vn",
+    "phoneNumber": "0123456797",
+    "department": "Mạng máy tính",
+    "classCode": "NT01",
+    "isActive": true
+  },
+  {
+    "id": "student_010",
+    "studentId": "SV2024010",
+    "fullName": "Ngô Thị Kim",
+    "email": "ngothikim@fpt.edu.vn",
+    "phoneNumber": "0123456798",
+    "department": "Mạng máy tính",
+    "classCode": "NT01",
+    "isActive": true
+  },
+  {
+    "id": "student_011",
+    "studentId": "SV2024011",
+    "fullName": "Đinh Văn Lâm",
+    "email": "dinhvanlam@fpt.edu.vn",
+    "phoneNumber": "0123456799",
+    "department": "Công nghệ thông tin",
+    "classCode": "IT02",
+    "isActive": true
+  },
+  {
+    "id": "student_012",
+    "studentId": "SV2024012",
+    "fullName": "Tôn Thị Mai",
+    "email": "tonthimai@fpt.edu.vn",
+    "phoneNumber": "0123456800",
+    "department": "Công nghệ thông tin",
+    "classCode": "IT02",
+    "isActive": true
+  },
+  {
+    "id": "student_013",
+    "studentId": "SV2024013",
+    "fullName": "Võ Văn Nam",
+    "email": "vovannam@fpt.edu.vn",
+    "phoneNumber": "0123456801",
+    "department": "Kỹ thuật phần mềm",
+    "classCode": "SE02",
+    "isActive": true
+  },
+  {
+    "id": "student_014",
+    "studentId": "SV2024014",
+    "fullName": "Cao Thị Oanh",
+    "email": "caothioanh@fpt.edu.vn",
+    "phoneNumber": "0123456802",
+    "department": "Kỹ thuật phần mềm",
+    "classCode": "SE02",
+    "isActive": true
+  },
+  {
+    "id": "student_015",
+    "studentId": "SV2024015",
+    "fullName": "Lý Văn Phúc",
+    "email": "lyvanphuc@fpt.edu.vn",
+    "phoneNumber": "0123456803",
+    "department": "An toàn thông tin",
+    "classCode": "AT02",
+    "isActive": true
+  },
+  {
+    "id": "student_016",
+    "studentId": "SV2024016",
+    "fullName": "Hồ Thị Quỳnh",
+    "email": "hothiquynh@fpt.edu.vn",
+    "phoneNumber": "0123456804",
+    "department": "An toàn thông tin",
+    "classCode": "AT02",
+    "isActive": true
+  },
+  {
+    "id": "student_017",
+    "studentId": "SV2024017",
+    "fullName": "Trương Văn Rồng",
+    "email": "truongvanrong@fpt.edu.vn",
+    "phoneNumber": "0123456805",
+    "department": "Khoa học máy tính",
+    "classCode": "CS02",
+    "isActive": true
+  },
+  {
+    "id": "student_018",
+    "studentId": "SV2024018",
+    "fullName": "Lâm Thị Sương",
+    "email": "lamthisuong@fpt.edu.vn",
+    "phoneNumber": "0123456806",
+    "department": "Khoa học máy tính",
+    "classCode": "CS02",
+    "isActive": true
+  },
+  {
+    "id": "student_019",
+    "studentId": "SV2024019",
+    "fullName": "Nguyễn Văn Tùng",
+    "email": "nguyenvantung@fpt.edu.vn",
+    "phoneNumber": "0123456807",
+    "department": "Mạng máy tính",
+    "classCode": "NT02",
+    "isActive": true
+  },
+  {
+    "id": "student_020",
+    "studentId": "SV2024020",
+    "fullName": "Đỗ Thị Uyên",
+    "email": "dothiuyen@fpt.edu.vn",
+    "phoneNumber": "0123456808",
+    "department": "Mạng máy tính",
+    "classCode": "NT02",
+    "isActive": true
+  },
+  {
+    "id": "student_021",
+    "studentId": "SV2024021",
+    "fullName": "Bùi Văn Vinh",
+    "email": "buivanvinh@fpt.edu.vn",
+    "phoneNumber": "0123456809",
+    "department": "Công nghệ thông tin",
+    "classCode": "IT03",
+    "isActive": true
+  },
+  {
+    "id": "student_022",
+    "studentId": "SV2024022",
+    "fullName": "Phạm Thị Xuân",
+    "email": "phamthixuan@fpt.edu.vn",
+    "phoneNumber": "0123456810",
+    "department": "Công nghệ thông tin",
+    "classCode": "IT03",
+    "isActive": true
+  },
+  {
+    "id": "student_023",
+    "studentId": "SV2024023",
+    "fullName": "Lê Văn Yên",
+    "email": "levanyen@fpt.edu.vn",
+    "phoneNumber": "0123456811",
+    "department": "Kỹ thuật phần mềm",
+    "classCode": "SE03",
+    "isActive": true
+  },
+  {
+    "id": "student_024",
+    "studentId": "SV2024024",
+    "fullName": "Trần Thị Zin",
+    "email": "tranthizin@fpt.edu.vn",
+    "phoneNumber": "0123456812",
+    "department": "Kỹ thuật phần mềm",
+    "classCode": "SE03",
+    "isActive": true
+  },
+  {
+    "id": "student_025",
+    "studentId": "SV2024025",
+    "fullName": "Hoàng Văn Anh",
+    "email": "hoangvananh@fpt.edu.vn",
+    "phoneNumber": "0123456813",
+    "department": "An toàn thông tin",
+    "classCode": "AT03",
+    "isActive": true
+  },
+  {
+    "id": "student_026",
+    "studentId": "SV2024026",
+    "fullName": "Vũ Thị Bảo",
+    "email": "vuthibao@fpt.edu.vn",
+    "phoneNumber": "0123456814",
+    "department": "An toàn thông tin",
+    "classCode": "AT03",
+    "isActive": true
+  },
+  {
+    "id": "student_027",
+    "studentId": "SV2024027",
+    "fullName": "Đặng Văn Cường",
+    "email": "dangvancuong@fpt.edu.vn",
+    "phoneNumber": "0123456815",
+    "department": "Khoa học máy tính",
+    "classCode": "CS03",
+    "isActive": true
+  },
+  {
+    "id": "student_028",
+    "studentId": "SV2024028",
+    "fullName": "Bùi Thị Dung",
+    "email": "buithidung@fpt.edu.vn",
+    "phoneNumber": "0123456816",
+    "department": "Khoa học máy tính",
+    "classCode": "CS03",
+    "isActive": true
+  },
+  {
+    "id": "student_029",
+    "studentId": "SV2024029",
+    "fullName": "Phan Văn Em",
+    "email": "phanvanem@fpt.edu.vn",
+    "phoneNumber": "0123456817",
+    "department": "Mạng máy tính",
+    "classCode": "NT03",
+    "isActive": true
+  },
+  {
+    "id": "student_030",
+    "studentId": "SV2024030",
+    "fullName": "Ngô Thị Phương",
+    "email": "ngothiphuong@fpt.edu.vn",
+    "phoneNumber": "0123456818",
+    "department": "Mạng máy tính",
+    "classCode": "NT03",
+    "isActive": true
+  }
+]

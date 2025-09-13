@@ -166,30 +166,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.orange.withOpacity(0.3)),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.info_outline, color: Colors.orange, size: 20),
-                    const SizedBox(width: 8),
-                    const Expanded(
-                      child: Text(
-                        'This action is visible to both user and admin',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
             ],
           ),
           actions: [
@@ -289,8 +265,6 @@ class _LoginScreenState extends State<LoginScreen> {
       },
     );
   }
-
-  // demo and test admin helpers removed per UI cleanup
 
   @override
   Widget build(BuildContext context) {
@@ -420,10 +394,12 @@ class _LoginScreenState extends State<LoginScreen> {
                                         prefixIcon: Icons.email_outlined,
                                         validator: (value) {
                                           if (value == null || value.isEmpty) {
-                                            return 'Please enter email';
+                                            return 'Vui lòng nhập email';
                                           }
-                                          if (!value.contains('@')) {
-                                            return 'Invalid email address';
+                                          if (!RegExp(
+                                            r'^[^@]+@[^@]+\.[^@]+',
+                                          ).hasMatch(value)) {
+                                            return 'Email không hợp lệ';
                                           }
                                           return null;
                                         },
@@ -616,8 +592,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                       ),
 
                                       const SizedBox(height: 6),
-
-                                      // removed demo/admin test shortcuts
                                     ],
                                   ),
                                 ),

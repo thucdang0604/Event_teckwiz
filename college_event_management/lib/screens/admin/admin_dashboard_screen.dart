@@ -4,6 +4,9 @@ import 'package:provider/provider.dart';
 import '../../providers/admin_provider.dart';
 import '../../constants/app_colors.dart';
 import '../../providers/auth_provider.dart';
+import '../../services/student_service.dart';
+import '../../services/data_import_service.dart';
+import 'debug_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -14,6 +17,10 @@ class AdminDashboardScreen extends StatefulWidget {
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   int _currentIndex = 0;
+  final StudentService _studentService = StudentService();
+  final DataImportService _importService = DataImportService();
+  bool _isSyncing = false;
+  bool _isImporting = false;
   @override
   void initState() {
     super.initState();
@@ -23,6 +30,72 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       context.read<AdminProvider>().loadPendingEvents();
       context.read<AdminProvider>().loadLocations();
     });
+  }
+
+  Future<void> _syncStudentsToPublic() async {
+    setState(() {
+      _isSyncing = true;
+    });
+
+    try {
+      await _studentService.syncAllStudentsToPublic();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Đồng bộ dữ liệu sinh viên thành công!'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi đồng bộ: ${e.toString()}'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSyncing = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _importSampleData() async {
+    setState(() {
+      _isImporting = true;
+    });
+
+    try {
+      await _importService.importSampleStudents();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Import dữ liệu mẫu thành công!'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi import: ${e.toString()}'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isImporting = false;
+        });
+      }
+    }
   }
 
   @override
@@ -37,6 +110,44 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           onPressed: () => context.go('/home'),
         ),
         actions: [
+          IconButton(
+            tooltip: 'Debug Student Data',
+            icon: const Icon(Icons.bug_report),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const DebugScreen()),
+              );
+            },
+          ),
+          IconButton(
+            tooltip: 'Import Sample Data',
+            icon: _isImporting
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : const Icon(Icons.file_download),
+            onPressed: _isImporting ? null : _importSampleData,
+          ),
+          IconButton(
+            tooltip: 'Sync Students Data',
+            icon: _isSyncing
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : const Icon(Icons.sync),
+            onPressed: _isSyncing ? null : _syncStudentsToPublic,
+          ),
           IconButton(
             tooltip: 'Logout',
             icon: const Icon(Icons.logout),
@@ -102,6 +213,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               context.go('/admin/locations');
               break;
             case 4:
+              context.go('/admin/students');
+              break;
+            case 5:
               context.go('/admin/statistics');
               break;
           }
@@ -122,6 +236,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.location_on_outlined),
             label: 'Locations',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.school_outlined),
+            label: 'Students',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.analytics_outlined),
@@ -186,71 +304,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   // old _buildStatsCards removed after merge
-
-  // Keep stat card for potential reuse later
-  Widget _buildStatCard(
-    String title,
-    String value,
-    IconData icon,
-    Color color, [
-    VoidCallback? onTap,
-  ]) {
-    final card = Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: color, size: 22),
-          ),
-          const Spacer(),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 26,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF111827),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF6B7280),
-            ),
-          ),
-        ],
-      ),
-    );
-
-    if (onTap != null) {
-      return InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: card,
-      );
-    }
-    return card;
-  }
 
   // old _buildQuickActions removed after merge
 
