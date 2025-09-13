@@ -58,10 +58,14 @@ class _LoginScreenState extends State<LoginScreen> {
             );
 
             final user = authProvider.currentUser;
-            if (user != null && user.isStudent) {
-              context.go('/student');
-            } else {
-              context.go('/home');
+            if (user != null) {
+              if (user.role == 'admin') {
+                context.go('/admin-dashboard');
+              } else if (user.isStudent) {
+                context.go('/student');
+              } else {
+                context.go('/home');
+              }
             }
           } else {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -78,12 +82,21 @@ class _LoginScreenState extends State<LoginScreen> {
             _isLoading = false;
           });
 
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Sign in error: ${e.toString()}'),
-              backgroundColor: AppColors.error,
-            ),
-          );
+          // Kiểm tra nếu lỗi là do tài khoản bị block
+          if (e.toString().contains('BLOCKED_USER')) {
+            _showBlockedUserDialog();
+          }
+          // Kiểm tra nếu lỗi là do tài khoản chưa được duyệt
+          else if (e.toString().contains('chưa được duyệt')) {
+            _showContactAdminDialog();
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Sign in error: ${e.toString()}'),
+                backgroundColor: AppColors.error,
+              ),
+            );
+          }
         }
       }
     }
@@ -91,6 +104,190 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _goToRegister() {
     context.go('/register');
+  }
+
+  void _showBlockedUserDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.block, color: AppColors.error, size: 28),
+              const SizedBox(width: 12),
+              const Text(
+                'Account Blocked',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Your account has been blocked by the administrator.',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Please contact admin to resolve this issue and restore access to your account.',
+                style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.error.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.error.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.contact_support,
+                      color: AppColors.error,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'Contact admin: admin@fusionfiesta.com',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.orange, size: 20),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'This action is visible to both user and admin',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text(
+                'Understood',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showContactAdminDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(
+                Icons.admin_panel_settings,
+                color: AppColors.error,
+                size: 28,
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'Tài khoản chưa được duyệt',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Tài khoản của bạn chưa được admin duyệt.',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Vui lòng liên hệ admin để được kích hoạt tài khoản trước khi sử dụng.',
+                style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.error.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.error.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.contact_support,
+                      color: AppColors.error,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'Liên hệ admin qua email: admin@fusionfiesta.com',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text(
+                'Đã hiểu',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   // demo and test admin helpers removed per UI cleanup
@@ -277,65 +474,10 @@ class _LoginScreenState extends State<LoginScreen> {
                                                     .shrinkWrap,
                                           ),
                                           const SizedBox(width: 4),
-                                          const Expanded(
-                                            child: Text(
-                                              'Remember me for 30 days',
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: TextStyle(
-                                                color: Color(0xFF6B7280),
-                                              ),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Flexible(
-                                            fit: FlexFit.loose,
-                                            child: TextButton(
-                                              onPressed: _isLoading
-                                                  ? null
-                                                  : () async {
-                                                      if (_emailController
-                                                          .text
-                                                          .isEmpty) {
-                                                        ScaffoldMessenger.of(
-                                                          context,
-                                                        ).showSnackBar(
-                                                          const SnackBar(
-                                                            content: Text(
-                                                              'Enter email to reset password',
-                                                            ),
-                                                          ),
-                                                        );
-                                                        return;
-                                                      }
-                                                      final provider =
-                                                          Provider.of<
-                                                            AuthProvider
-                                                          >(
-                                                            context,
-                                                            listen: false,
-                                                          );
-                                                      await provider
-                                                          .resetPassword(
-                                                            _emailController
-                                                                .text
-                                                                .trim(),
-                                                          );
-                                                      if (!mounted) return;
-                                                      ScaffoldMessenger.of(
-                                                        context,
-                                                      ).showSnackBar(
-                                                        const SnackBar(
-                                                          content: Text(
-                                                            'Password reset link sent',
-                                                          ),
-                                                        ),
-                                                      );
-                                                    },
-                                              child: const Text(
-                                                'Forgot password?',
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
+                                          const Text(
+                                            'Remember Me',
+                                            style: TextStyle(
+                                              color: Color(0xFF6B7280),
                                             ),
                                           ),
                                         ],

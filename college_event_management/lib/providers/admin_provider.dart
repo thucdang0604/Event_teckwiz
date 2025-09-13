@@ -10,6 +10,7 @@ class AdminProvider with ChangeNotifier {
 
   List<UserModel> _users = [];
   List<EventModel> _pendingEvents = [];
+  List<EventModel> _allEvents = [];
   List<LocationModel> _locations = [];
   List<EventStatisticsModel> _eventStatistics = [];
   List<EventModel> _locationEvents = [];
@@ -19,6 +20,7 @@ class AdminProvider with ChangeNotifier {
 
   List<UserModel> get users => _users;
   List<EventModel> get pendingEvents => _pendingEvents;
+  List<EventModel> get allEvents => _allEvents;
   List<LocationModel> get locations => _locations;
   List<EventStatisticsModel> get eventStatistics => _eventStatistics;
   List<EventModel> get locationEvents => _locationEvents;
@@ -46,6 +48,20 @@ class AdminProvider with ChangeNotifier {
 
     try {
       _pendingEvents = await _adminService.getPendingEvents();
+      _setLoading(false);
+      notifyListeners();
+    } catch (e) {
+      _setError(e.toString());
+      _setLoading(false);
+    }
+  }
+
+  Future<void> loadAllEvents() async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      _allEvents = await _adminService.getAllEvents();
       _setLoading(false);
       notifyListeners();
     } catch (e) {
@@ -128,7 +144,7 @@ class AdminProvider with ChangeNotifier {
 
     try {
       await _adminService.approveEvent(eventId);
-      await loadPendingEvents();
+      await loadAllEvents();
     } catch (e) {
       _setError(e.toString());
       _setLoading(false);
@@ -141,7 +157,7 @@ class AdminProvider with ChangeNotifier {
 
     try {
       await _adminService.rejectEvent(eventId, reason);
-      await loadPendingEvents();
+      await loadAllEvents();
     } catch (e) {
       _setError(e.toString());
       _setLoading(false);
@@ -203,6 +219,58 @@ class AdminProvider with ChangeNotifier {
     }
   }
 
+  Future<void> approveUser(String userId) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      await _adminService.approveUser(userId);
+      await loadUsers();
+    } catch (e) {
+      _setError(e.toString());
+      _setLoading(false);
+    }
+  }
+
+  Future<void> rejectUser(String userId) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      await _adminService.rejectUser(userId);
+      await loadUsers();
+    } catch (e) {
+      _setError(e.toString());
+      _setLoading(false);
+    }
+  }
+
+  Future<void> blockUser(String userId) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      await _adminService.blockUser(userId);
+      await loadUsers();
+    } catch (e) {
+      _setError(e.toString());
+      _setLoading(false);
+    }
+  }
+
+  Future<void> unblockUser(String userId) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      await _adminService.unblockUser(userId);
+      await loadUsers();
+    } catch (e) {
+      _setError(e.toString());
+      _setLoading(false);
+    }
+  }
+
   Future<void> loadEventsByLocation(String locationName) async {
     _setLoading(true);
     _clearError();
@@ -211,6 +279,45 @@ class AdminProvider with ChangeNotifier {
       _locationEvents = await _adminService.getEventsByLocation(locationName);
       _setLoading(false);
       notifyListeners();
+    } catch (e) {
+      _setError(e.toString());
+      _setLoading(false);
+    }
+  }
+
+  Future<void> cancelEvent(String eventId) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      await _adminService.cancelEvent(eventId);
+      await loadAllEvents();
+    } catch (e) {
+      _setError(e.toString());
+      _setLoading(false);
+    }
+  }
+
+  Future<void> deleteEvent(String eventId) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      await _adminService.deleteEvent(eventId);
+      await loadAllEvents();
+    } catch (e) {
+      _setError(e.toString());
+      _setLoading(false);
+    }
+  }
+
+  Future<void> updateEventStatus(String eventId, String status) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      await _adminService.updateEventStatus(eventId, status);
+      await loadAllEvents();
     } catch (e) {
       _setError(e.toString());
       _setLoading(false);

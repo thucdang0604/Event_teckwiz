@@ -12,6 +12,8 @@ class UserModel {
   final DateTime createdAt;
   final DateTime updatedAt;
   final bool isActive;
+  final String approvalStatus;
+  final bool isBlocked;
 
   UserModel({
     required this.id,
@@ -25,6 +27,8 @@ class UserModel {
     required this.createdAt,
     required this.updatedAt,
     this.isActive = true,
+    this.approvalStatus = 'pending',
+    this.isBlocked = false,
   });
 
   factory UserModel.fromFirestore(DocumentSnapshot doc) {
@@ -41,6 +45,8 @@ class UserModel {
       createdAt: (data['createdAt'] as Timestamp).toDate(),
       updatedAt: (data['updatedAt'] as Timestamp).toDate(),
       isActive: data['isActive'] ?? true,
+      approvalStatus: data['approvalStatus'] ?? 'pending',
+      isBlocked: data['isBlocked'] ?? false,
     );
   }
 
@@ -56,6 +62,8 @@ class UserModel {
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
       'isActive': isActive,
+      'approvalStatus': approvalStatus,
+      'isBlocked': isBlocked,
     };
   }
 
@@ -71,6 +79,8 @@ class UserModel {
     DateTime? createdAt,
     DateTime? updatedAt,
     bool? isActive,
+    String? approvalStatus,
+    bool? isBlocked,
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -84,10 +94,16 @@ class UserModel {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       isActive: isActive ?? this.isActive,
+      approvalStatus: approvalStatus ?? this.approvalStatus,
+      isBlocked: isBlocked ?? this.isBlocked,
     );
   }
 
   bool get isAdmin => role == 'admin';
   bool get isOrganizer => role == 'organizer';
   bool get isStudent => role == 'student';
+  bool get isApproved => approvalStatus == 'approved';
+  bool get isPending => approvalStatus == 'pending';
+  bool get isRejected => approvalStatus == 'rejected';
+  bool get canLogin => isActive && !isBlocked && isApproved;
 }

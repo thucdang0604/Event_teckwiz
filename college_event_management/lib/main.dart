@@ -23,6 +23,14 @@ import 'screens/settings/settings_screen.dart';
 import 'screens/student/student_dashboard_screen.dart';
 import 'constants/app_colors.dart';
 import 'services/notification_service.dart';
+import 'screens/admin/admin_dashboard_screen.dart';
+import 'screens/admin/user_management_screen.dart';
+import 'screens/admin/user_detail_screen.dart';
+import 'screens/admin/event_approval_screen.dart';
+import 'screens/admin/location_management_screen.dart';
+import 'screens/admin/location_detail_screen.dart';
+import 'screens/admin/event_statistics_screen.dart';
+import 'screens/admin/location_calendar_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -164,6 +172,60 @@ final GoRouter _router = GoRouter(
     GoRoute(
       path: '/student',
       builder: (context, state) => const StudentDashboardScreen(),
+    ),
+    GoRoute(
+      path: '/admin-dashboard',
+      builder: (context, state) => const AdminDashboardScreen(),
+    ),
+    GoRoute(
+      path: '/admin/users',
+      builder: (context, state) => const UserManagementScreen(),
+    ),
+    GoRoute(
+      path: '/admin/users/:userId',
+      builder: (context, state) {
+        final userId = state.pathParameters['userId']!;
+        return Consumer<AdminProvider>(
+          builder: (context, adminProvider, child) {
+            final user = adminProvider.users.firstWhere(
+              (u) => u.id == userId,
+              orElse: () => throw Exception('User not found'),
+            );
+            return UserDetailScreen(user: user);
+          },
+        );
+      },
+    ),
+    GoRoute(
+      path: '/admin/approvals',
+      builder: (context, state) => const EventApprovalScreen(),
+    ),
+    GoRoute(
+      path: '/admin/locations',
+      builder: (context, state) => const LocationManagementScreen(),
+    ),
+    GoRoute(
+      path: '/admin/location-detail/:locationId',
+      builder: (context, state) {
+        final locationId = state.pathParameters['locationId']!;
+        return Consumer<AdminProvider>(
+          builder: (context, adminProvider, child) {
+            final location = adminProvider.locations.firstWhere(
+              (l) => l.id == locationId,
+              orElse: () => throw Exception('Location not found'),
+            );
+            return LocationDetailScreen(location: location);
+          },
+        );
+      },
+    ),
+    GoRoute(
+      path: '/admin/statistics',
+      builder: (context, state) => const EventStatisticsScreen(),
+    ),
+    GoRoute(
+      path: '/admin/location-calendar',
+      builder: (context, state) => const LocationCalendarScreen(),
     ),
   ],
 );

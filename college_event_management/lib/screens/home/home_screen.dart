@@ -157,6 +157,19 @@ class _HomeScreenState extends State<HomeScreen>
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              Consumer<AuthProvider>(
+                builder: (context, authProvider, _) {
+                  final isAdmin = authProvider.currentUser?.role == 'admin';
+                  if (!isAdmin) return const SizedBox.shrink();
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: _buildHeaderButton(
+                      icon: Icons.admin_panel_settings,
+                      onTap: () => context.go('/admin-dashboard'),
+                    ),
+                  );
+                },
+              ),
               _buildHeaderButton(
                 icon: Icons.qr_code_scanner,
                 onTap: () {
@@ -772,28 +785,30 @@ class _HomeScreenState extends State<HomeScreen>
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Events',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1f2937),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Events',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1f2937),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        authProvider.currentUser?.isOrganizer == true
-                            ? 'Manage your events and discover new ones'
-                            : 'Discover and join events',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Color(0xFF6b7280),
+                        const SizedBox(height: 4),
+                        Text(
+                          authProvider.currentUser?.isOrganizer == true
+                              ? 'Manage your events and discover new ones'
+                              : 'Discover and join events',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFF6b7280),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                   if (authProvider.currentUser?.isOrganizer == true)
                     ElevatedButton.icon(

@@ -49,10 +49,16 @@ class _SplashScreenState extends State<SplashScreen>
 
       if (authProvider.isAuthenticated) {
         final user = authProvider.currentUser;
-        if (user != null && user.isStudent) {
-          context.go('/student');
+        if (user != null) {
+          if (user.role == 'admin') {
+            context.go('/admin-dashboard');
+          } else if (user.isStudent) {
+            context.go('/student');
+          } else {
+            context.go('/home');
+          }
         } else {
-          context.go('/home');
+          context.go('/login');
         }
       } else {
         context.go('/login');
