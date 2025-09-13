@@ -5,6 +5,9 @@ import '../../providers/auth_provider.dart';
 import '../../constants/app_colors.dart';
 import '../../widgets/custom_text_field.dart';
 import '../../widgets/custom_button.dart';
+import '../../services/student_service.dart';
+import '../../services/email_service.dart';
+import '../../models/student_model.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -21,10 +24,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _fullNameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _studentIdController = TextEditingController();
+  final _verificationCodeController = TextEditingController();
 
   String _selectedRole = 'student';
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  bool _isSearchingStudent = false;
+  bool _isEmailVerificationSent = false;
+  bool _isVerifyingEmail = false;
+  StudentModel? _foundStudent;
+  final StudentService _studentService = StudentService();
+  final EmailService _emailService = EmailService();
 
   @override
   void dispose() {
@@ -34,7 +44,164 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _fullNameController.dispose();
     _phoneController.dispose();
     _studentIdController.dispose();
+    _verificationCodeController.dispose();
     super.dispose();
+  }
+
+  Future<void> _searchStudentByStudentId(String studentId) async {
+    if (studentId.isEmpty) {
+      setState(() {
+        _foundStudent = null;
+        _isSearchingStudent = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _isSearchingStudent = true;
+    });
+
+    try {
+      StudentModel? student = await _studentService.getStudentByStudentId(
+        studentId,
+      );
+
+      if (student != null) {
+        setState(() {
+          _foundStudent = student;
+          _fullNameController.text = student.fullName;
+          _emailController.text = student.email;
+          _phoneController.text = student.phoneNumber;
+        });
+      } else {
+        setState(() {
+          _foundStudent = null;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Không tìm thấy sinh viên với mã số này'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi tìm kiếm sinh viên: ${e.toString()}'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSearchingStudent = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _sendVerificationCode() async {
+    if (_emailController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Vui lòng nhập email trước khi gửi mã xác thực'),
+          backgroundColor: AppColors.warning,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isVerifyingEmail = true;
+    });
+
+    try {
+      await _emailService.sendVerificationCode(_emailController.text.trim());
+      setState(() {
+        _isEmailVerificationSent = true;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Mã xác thực đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư.',
+            ),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi gửi mã xác thực: ${e.toString()}'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isVerifyingEmail = false;
+        });
+      }
+    }
+  }
+
+  Future<bool> _verifyEmailCode() async {
+    if (_verificationCodeController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Vui lòng nhập mã xác thực'),
+          backgroundColor: AppColors.warning,
+        ),
+      );
+      return false;
+    }
+
+    try {
+      bool isValid = await _emailService.verifyCode(
+        _emailController.text.trim(),
+        _verificationCodeController.text.trim(),
+      );
+
+      if (isValid) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Email đã được xác thực thành công!'),
+              backgroundColor: AppColors.success,
+            ),
+          );
+        }
+        return true;
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Mã xác thực không đúng hoặc đã hết hạn'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+        return false;
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi xác thực: ${e.toString()}'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+      return false;
+    }
   }
 
   void _showApprovalPendingDialog() {
@@ -117,6 +284,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   void _register() async {
     if (_formKey.currentState!.validate()) {
+      // Kiểm tra xác thực email trước khi đăng ký
+      if (!_isEmailVerificationSent) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Vui lòng xác thực email trước khi đăng ký'),
+            backgroundColor: AppColors.warning,
+          ),
+        );
+        return;
+      }
+
+      // Xác thực mã email
+      bool isEmailVerified = await _verifyEmailCode();
+      if (!isEmailVerified) {
+        return;
+      }
+
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
       bool success = await authProvider.register(
@@ -126,12 +310,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
         phoneNumber: _phoneController.text.trim().isNotEmpty
             ? _phoneController.text.trim()
             : null,
-        studentId:
-            _selectedRole == 'student' &&
-                _studentIdController.text.trim().isNotEmpty
+        studentId: _selectedRole == 'student'
             ? _studentIdController.text.trim()
             : null,
-        department: null,
+        department: _selectedRole == 'student' && _foundStudent != null
+            ? _foundStudent!.department
+            : null,
         role: _selectedRole,
       );
 
@@ -143,6 +327,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         _fullNameController.clear();
         _phoneController.clear();
         _studentIdController.clear();
+        _foundStudent = null;
 
         // Show approval pending dialog
         _showApprovalPendingDialog();
@@ -282,6 +467,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                         label: 'Full name *',
                                         hint: 'Enter your full name',
                                         prefixIcon: Icons.person_outlined,
+                                        readOnly:
+                                            _selectedRole == 'student' &&
+                                            _foundStudent != null,
                                         validator: (value) {
                                           if (value == null || value.isEmpty) {
                                             return 'Please enter your name';
@@ -297,12 +485,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                         keyboardType:
                                             TextInputType.emailAddress,
                                         prefixIcon: Icons.email_outlined,
+                                        readOnly:
+                                            _selectedRole == 'student' &&
+                                            _foundStudent != null,
                                         validator: (value) {
                                           if (value == null || value.isEmpty) {
-                                            return 'Please enter email';
+                                            return 'Vui lòng nhập email';
                                           }
-                                          if (!value.contains('@')) {
-                                            return 'Invalid email address';
+                                          if (!RegExp(
+                                            r'^[^@]+@[^@]+\.[^@]+',
+                                          ).hasMatch(value)) {
+                                            return 'Email không hợp lệ';
                                           }
                                           return null;
                                         },
@@ -314,15 +507,221 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                         hint: 'Enter phone (optional)',
                                         keyboardType: TextInputType.phone,
                                         prefixIcon: Icons.phone_outlined,
+                                        readOnly:
+                                            _selectedRole == 'student' &&
+                                            _foundStudent != null,
                                       ),
                                       const SizedBox(height: 12),
-                                      if (_selectedRole == 'student')
+                                      // Email verification section
+                                      if (!_isEmailVerificationSent) ...[
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: ElevatedButton.icon(
+                                                onPressed: _isVerifyingEmail
+                                                    ? null
+                                                    : _sendVerificationCode,
+                                                icon: _isVerifyingEmail
+                                                    ? const SizedBox(
+                                                        width: 16,
+                                                        height: 16,
+                                                        child: CircularProgressIndicator(
+                                                          strokeWidth: 2,
+                                                          valueColor:
+                                                              AlwaysStoppedAnimation<
+                                                                Color
+                                                              >(Colors.white),
+                                                        ),
+                                                      )
+                                                    : const Icon(
+                                                        Icons.email_outlined,
+                                                      ),
+                                                label: Text(
+                                                  _isVerifyingEmail
+                                                      ? 'Đang gửi...'
+                                                      : 'Gửi mã xác thực',
+                                                ),
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor:
+                                                      AppColors.primary,
+                                                  foregroundColor: Colors.white,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 12),
+                                      ] else ...[
+                                        Container(
+                                          padding: const EdgeInsets.all(12),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.success
+                                                .withOpacity(0.1),
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                            border: Border.all(
+                                              color: AppColors.success
+                                                  .withOpacity(0.3),
+                                            ),
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Icon(
+                                                Icons.check_circle,
+                                                color: AppColors.success,
+                                                size: 20,
+                                              ),
+                                              const SizedBox(width: 8),
+                                              const Expanded(
+                                                child: Text(
+                                                  'Mã xác thực đã được gửi. Vui lòng kiểm tra email và nhập mã bên dưới.',
+                                                  style: TextStyle(
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w500,
+                                                    color:
+                                                        AppColors.textPrimary,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(height: 12),
+                                        CustomTextField(
+                                          controller:
+                                              _verificationCodeController,
+                                          label: 'Mã xác thực *',
+                                          hint: 'Nhập mã 6 số từ email',
+                                          keyboardType: TextInputType.number,
+                                          prefixIcon: Icons.security,
+                                          maxLines: 1,
+                                        ),
+                                        const SizedBox(height: 12),
+                                      ],
+                                      if (_selectedRole == 'student') ...[
+                                        const Text(
+                                          'Nhập mã số sinh viên và nhấn nút tìm kiếm để tự động điền thông tin',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: AppColors.textSecondary,
+                                            fontStyle: FontStyle.italic,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
                                         CustomTextField(
                                           controller: _studentIdController,
-                                          label: 'Student ID',
-                                          hint: 'Enter student ID (optional)',
+                                          label: 'Student ID *',
+                                          hint:
+                                              'Enter your student ID and click search',
                                           prefixIcon: Icons.badge_outlined,
+                                          suffixIcon: _isSearchingStudent
+                                              ? const SizedBox(
+                                                  width: 20,
+                                                  height: 20,
+                                                  child: Padding(
+                                                    padding: EdgeInsets.all(
+                                                      12.0,
+                                                    ),
+                                                    child: CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                      valueColor:
+                                                          AlwaysStoppedAnimation<
+                                                            Color
+                                                          >(AppColors.primary),
+                                                    ),
+                                                  ),
+                                                )
+                                              : IconButton(
+                                                  icon: const Icon(
+                                                    Icons.search,
+                                                  ),
+                                                  tooltip: 'Tìm kiếm sinh viên',
+                                                  onPressed: () {
+                                                    if (_studentIdController
+                                                        .text
+                                                        .trim()
+                                                        .isNotEmpty) {
+                                                      _searchStudentByStudentId(
+                                                        _studentIdController
+                                                            .text
+                                                            .trim(),
+                                                      );
+                                                    } else {
+                                                      ScaffoldMessenger.of(
+                                                        context,
+                                                      ).showSnackBar(
+                                                        const SnackBar(
+                                                          content: Text(
+                                                            'Vui lòng nhập mã số sinh viên trước khi tìm kiếm',
+                                                          ),
+                                                          backgroundColor:
+                                                              AppColors.warning,
+                                                        ),
+                                                      );
+                                                    }
+                                                  },
+                                                ),
+                                          onChanged: (value) {
+                                            if (value.isEmpty) {
+                                              setState(() {
+                                                _foundStudent = null;
+                                                _fullNameController.clear();
+                                                _emailController.clear();
+                                                _phoneController.clear();
+                                              });
+                                            }
+                                          },
+                                          validator: (value) {
+                                            if (value == null ||
+                                                value.isEmpty) {
+                                              return 'Student ID is required for students';
+                                            }
+                                            if (_foundStudent == null) {
+                                              return 'Please enter a valid student ID';
+                                            }
+                                            return null;
+                                          },
                                         ),
+                                        if (_foundStudent != null) ...[
+                                          const SizedBox(height: 8),
+                                          Container(
+                                            padding: const EdgeInsets.all(12),
+                                            decoration: BoxDecoration(
+                                              color: AppColors.success
+                                                  .withOpacity(0.1),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                              border: Border.all(
+                                                color: AppColors.success
+                                                    .withOpacity(0.3),
+                                              ),
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.check_circle,
+                                                  color: AppColors.success,
+                                                  size: 20,
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Expanded(
+                                                  child: Text(
+                                                    'Đã tìm thấy sinh viên: ${_foundStudent!.fullName}',
+                                                    style: const TextStyle(
+                                                      fontSize: 13,
+                                                      fontWeight:
+                                                          FontWeight.w500,
+                                                      color:
+                                                          AppColors.textPrimary,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ],
                                       const SizedBox(height: 12),
                                       const Text(
                                         'Role *',
@@ -363,6 +762,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                             onChanged: (value) {
                                               setState(() {
                                                 _selectedRole = value!;
+                                                if (value != 'student') {
+                                                  _foundStudent = null;
+                                                  _fullNameController.clear();
+                                                  _emailController.clear();
+                                                  _phoneController.clear();
+                                                }
                                               });
                                             },
                                           ),

@@ -1,11 +1,14 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user_model.dart';
+import '../models/student_model.dart';
+import '../services/student_service.dart';
 import '../constants/app_constants.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final StudentService _studentService = StudentService();
 
   // Đăng ký người dùng mới
   Future<UserModel?> registerWithEmailAndPassword({
@@ -18,6 +21,29 @@ class AuthService {
     String role = AppConstants.studentRole,
   }) async {
     try {
+      // Kiểm tra xác thực sinh viên nếu là role student
+      if (role == AppConstants.studentRole) {
+        if (studentId == null || studentId.isEmpty) {
+          throw Exception('Mã số sinh viên là bắt buộc');
+        }
+
+        // Kiểm tra sinh viên có tồn tại trong danh sách không
+        StudentModel? student = await _studentService.getStudentByEmail(email);
+        if (student == null) {
+          throw Exception(
+            'Email không có trong danh sách sinh viên được phép đăng ký',
+          );
+        }
+
+        if (student.studentId != studentId) {
+          throw Exception('Mã số sinh viên không khớp với email');
+        }
+
+        if (!student.isActive) {
+          throw Exception('Tài khoản sinh viên đã bị vô hiệu hóa');
+        }
+      }
+
       // Tạo tài khoản Firebase Auth
       UserCredential userCredential = await _auth
           .createUserWithEmailAndPassword(email: email, password: password);
