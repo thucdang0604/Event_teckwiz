@@ -5,7 +5,7 @@ import '../constants/app_constants.dart';
 class EventService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Lấy danh sách sự kiện
+  // Lấy danh sách sự kiện - chỉ hiển thị sự kiện đã được duyệt cho sinh viên
   Future<List<EventModel>> getEvents({
     String? category,
     String? status,
@@ -14,6 +14,48 @@ class EventService {
   }) async {
     try {
       // Sử dụng query đơn giản để tránh lỗi index
+      QuerySnapshot snapshot = await _firestore
+          .collection(AppConstants.eventsCollection)
+          .where('isActive', isEqualTo: true)
+          .where('status', isEqualTo: AppConstants.eventPublished)
+          .get();
+
+      List<EventModel> events = snapshot.docs
+          .map((doc) => EventModel.fromFirestore(doc))
+          .toList();
+
+      // Lọc theo category nếu có
+      if (category != null && category.isNotEmpty) {
+        events = events.where((event) => event.category == category).toList();
+      }
+
+      // Lọc theo status nếu có (chỉ áp dụng cho admin)
+      if (status != null && status.isNotEmpty) {
+        events = events.where((event) => event.status == status).toList();
+      }
+
+      // Sắp xếp theo createdAt
+      events.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+      // Giới hạn số lượng
+      if (events.length > limit) {
+        events = events.take(limit).toList();
+      }
+
+      return events;
+    } catch (e) {
+      throw Exception('Lỗi lấy danh sách sự kiện: ${e.toString()}');
+    }
+  }
+
+  // Lấy tất cả sự kiện cho admin (bao gồm pending)
+  Future<List<EventModel>> getAllEventsForAdmin({
+    String? category,
+    String? status,
+    int limit = 20,
+    DocumentSnapshot? lastDocument,
+  }) async {
+    try {
       QuerySnapshot snapshot = await _firestore
           .collection(AppConstants.eventsCollection)
           .where('isActive', isEqualTo: true)
@@ -43,7 +85,7 @@ class EventService {
 
       return events;
     } catch (e) {
-      throw Exception('Lỗi lấy danh sách sự kiện: ${e.toString()}');
+      throw Exception('Lỗi lấy danh sách sự kiện cho admin: ${e.toString()}');
     }
   }
 
@@ -101,7 +143,7 @@ class EventService {
     }
   }
 
-  // Tìm kiếm sự kiện
+  // Tìm kiếm sự kiện - chỉ tìm kiếm sự kiện đã được duyệt
   Future<List<EventModel>> searchEvents(String searchTerm) async {
     try {
       QuerySnapshot snapshot = await _firestore
@@ -114,7 +156,7 @@ class EventService {
           .map((doc) => EventModel.fromFirestore(doc))
           .where(
             (event) =>
-                event.title.toLowerCase().contains(searchTerm.toLowerCase()) ||
+                (event.title.toLowerCase().contains(searchTerm.toLowerCase()) ||
                 event.description.toLowerCase().contains(
                   searchTerm.toLowerCase(),
                 ) ||
@@ -123,7 +165,7 @@ class EventService {
                 ) ||
                 event.tags.any(
                   (tag) => tag.toLowerCase().contains(searchTerm.toLowerCase()),
-                ),
+                )),
           )
           .toList();
 
@@ -165,7 +207,7 @@ class EventService {
     }
   }
 
-  // Lấy sự kiện sắp diễn ra
+  // Lấy sự kiện sắp diễn ra - chỉ hiển thị sự kiện đã được duyệt
   Future<List<EventModel>> getUpcomingEvents({int limit = 10}) async {
     try {
       DateTime now = DateTime.now();
@@ -192,28 +234,17 @@ class EventService {
     }
   }
 
-  // Stream để theo dõi sự kiện real-time
+  // Stream để theo dõi sự kiện real-time - chỉ hiển thị sự kiện đã được duyệt cho sinh viên
   Stream<List<EventModel>> getEventsStream() {
     return _firestore
         .collection(AppConstants.eventsCollection)
         .where('isActive', isEqualTo: true)
+        .where('status', isEqualTo: AppConstants.eventPublished)
         .snapshots()
         .map((snapshot) {
           List<EventModel> events = snapshot.docs
               .map((doc) => EventModel.fromFirestore(doc))
               .toList();
-
-          // Lọc sự kiện đã published và (còn hạn đăng ký hoặc đang diễn ra)
-          final now = DateTime.now();
-          events = events.where((event) {
-            final isPublished = event.status == AppConstants.eventPublished;
-            final registrationOpen =
-                now.isBefore(event.registrationDeadline) &&
-                event.currentParticipants < event.maxParticipants;
-            final ongoing =
-                now.isAfter(event.startDate) && now.isBefore(event.endDate);
-            return isPublished && (registrationOpen || ongoing);
-          }).toList();
 
           // Sắp xếp theo createdAt
           events.sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -251,7 +282,7 @@ class EventService {
               .map((doc) => EventModel.fromFirestore(doc))
               .toList();
 
-          // Lọc sự kiện: published hoặc của organizer này
+          // Lọc sự kiện: published hoặc của organizer này (organizer có thể thấy sự kiện pending của mình)
           events = events
               .where(
                 (event) =>
@@ -271,7 +302,6 @@ class EventService {
   Stream<List<EventModel>> getMyEventsStream(String organizerId) {
     return _firestore
         .collection(AppConstants.eventsCollection)
-        .where('organizerId', isEqualTo: organizerId)
         .where('isActive', isEqualTo: true)
         .snapshots()
         .map((snapshot) {
@@ -279,9 +309,35 @@ class EventService {
               .map((doc) => EventModel.fromFirestore(doc))
               .toList();
 
+          // Lọc: sự kiện do tôi tạo hoặc tôi là co-organizer
+          events = events
+              .where(
+                (event) =>
+                    event.organizerId == organizerId ||
+                    (event.coOrganizers).contains(organizerId),
+              )
+              .toList();
+
           // Sắp xếp theo createdAt
           events.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
+          return events;
+        });
+  }
+
+  // Stream: chỉ các sự kiện mà user là co-organizer
+  Stream<List<EventModel>> getCoOrganizerEventsStream(String userId) {
+    return _firestore
+        .collection(AppConstants.eventsCollection)
+        .where('isActive', isEqualTo: true)
+        .snapshots()
+        .map((snapshot) {
+          List<EventModel> events = snapshot.docs
+              .map((doc) => EventModel.fromFirestore(doc))
+              .where((event) => event.coOrganizers.contains(userId))
+              .toList();
+
+          events.sort((a, b) => b.createdAt.compareTo(a.createdAt));
           return events;
         });
   }

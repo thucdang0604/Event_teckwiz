@@ -49,6 +49,7 @@ class AdminService {
       QuerySnapshot snapshot = await _firestore
           .collection(AppConstants.eventsCollection)
           .where('status', isEqualTo: 'pending')
+          .where('isActive', isEqualTo: true)
           .get();
 
       print('📊 Tìm thấy ${snapshot.docs.length} sự kiện pending');
@@ -91,15 +92,19 @@ class AdminService {
   Future<List<EventModel>> getAllEvents() async {
     try {
       print('🔍 Đang tải tất cả sự kiện...');
+      // Lấy tất cả sự kiện active trước, sau đó sort trong code để tránh cần composite index
       QuerySnapshot snapshot = await _firestore
           .collection(AppConstants.eventsCollection)
-          .orderBy('createdAt', descending: true)
+          .where('isActive', isEqualTo: true)
           .get();
 
-      print('📊 Tìm thấy ${snapshot.docs.length} sự kiện');
+      print('📊 Tìm thấy ${snapshot.docs.length} sự kiện active');
       List<EventModel> events = snapshot.docs
           .map((doc) => EventModel.fromFirestore(doc))
           .toList();
+
+      // Sort trong code thay vì trong query
+      events.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
       return events;
     } catch (e) {
@@ -181,6 +186,7 @@ class AdminService {
       QuerySnapshot snapshot = await _firestore
           .collection('events')
           .where('location', isEqualTo: locationName)
+          .where('isActive', isEqualTo: true)
           .orderBy('startDate', descending: false)
           .get();
 
@@ -245,6 +251,7 @@ class AdminService {
       QuerySnapshot usersSnapshot = await _firestore.collection('users').get();
       QuerySnapshot eventsSnapshot = await _firestore
           .collection('events')
+          .where('isActive', isEqualTo: true)
           .get();
       QuerySnapshot registrationsSnapshot = await _firestore
           .collection('registrations')
@@ -341,17 +348,6 @@ class AdminService {
           .update({'status': 'cancelled', 'updatedAt': Timestamp.now()});
     } catch (e) {
       throw Exception('Lỗi hủy sự kiện: $e');
-    }
-  }
-
-  Future<void> deleteEvent(String eventId) async {
-    try {
-      await _firestore
-          .collection(AppConstants.eventsCollection)
-          .doc(eventId)
-          .delete();
-    } catch (e) {
-      throw Exception('Lỗi xóa sự kiện: $e');
     }
   }
 

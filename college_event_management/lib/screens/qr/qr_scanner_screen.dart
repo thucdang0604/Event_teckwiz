@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../services/registration_service.dart';
 import '../../models/registration_model.dart';
+import '../../models/support_registration_model.dart';
 import '../../constants/app_colors.dart';
 
 class QRScannerScreen extends StatefulWidget {
@@ -18,6 +19,8 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
   bool _isLoading = false;
   String? _errorMessage;
   RegistrationModel? _scannedRegistration;
+  SupportRegistrationModel? _scannedSupportRegistration;
+  String _registrationType = ''; // 'participant' or 'support'
 
   @override
   void dispose() {
@@ -39,20 +42,38 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
       });
 
       try {
+        // Thử tìm participant registration trước
         final registration = await _registrationService.getRegistrationByQRCode(
           qrCode,
         );
 
-        if (registration == null) {
+        if (registration != null) {
           setState(() {
-            _errorMessage = 'Không tìm thấy đăng ký với mã QR này';
+            _scannedRegistration = registration;
+            _scannedSupportRegistration = null;
+            _registrationType = 'participant';
             _isLoading = false;
           });
           return;
         }
 
+        // Nếu không tìm thấy participant registration, thử tìm support registration
+        final supportRegistration = await _registrationService
+            .getSupportRegistrationByQRCode(qrCode);
+
+        if (supportRegistration != null) {
+          setState(() {
+            _scannedRegistration = null;
+            _scannedSupportRegistration = supportRegistration;
+            _registrationType = 'support';
+            _isLoading = false;
+          });
+          return;
+        }
+
+        // Nếu không tìm thấy cả hai
         setState(() {
-          _scannedRegistration = registration;
+          _errorMessage = 'Không tìm thấy đăng ký với mã QR này';
           _isLoading = false;
         });
       } catch (e) {
@@ -65,25 +86,37 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
   }
 
   Future<void> _markAttendance() async {
-    if (_scannedRegistration == null) return;
+    if (_scannedRegistration == null && _scannedSupportRegistration == null)
+      return;
 
     setState(() {
       _isLoading = true;
     });
 
     try {
-      await _registrationService.markAttendance(_scannedRegistration!.id);
+      if (_registrationType == 'participant' && _scannedRegistration != null) {
+        await _registrationService.markAttendance(_scannedRegistration!.id);
+      } else if (_registrationType == 'support' &&
+          _scannedSupportRegistration != null) {
+        await _registrationService.markSupportAttendance(
+          _scannedSupportRegistration!.id,
+        );
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Check-in thành công!'),
+          SnackBar(
+            content: Text(
+              'Check-in thành công! (${_registrationType == 'participant' ? 'Tham gia' : 'Hỗ trợ'})',
+            ),
             backgroundColor: AppColors.success,
           ),
         );
 
         setState(() {
           _scannedRegistration = null;
+          _scannedSupportRegistration = null;
+          _registrationType = '';
           _isLoading = false;
         });
         Navigator.pop(context, true);
@@ -260,7 +293,8 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
             ),
 
           // Scanned Registration Info
-          if (_scannedRegistration != null)
+          if (_scannedRegistration != null ||
+              _scannedSupportRegistration != null)
             Positioned(
               bottom: 100,
               left: 16,
@@ -281,14 +315,20 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(
-                      Icons.check_circle,
-                      color: AppColors.success,
+                    Icon(
+                      _registrationType == 'support'
+                          ? Icons.support_agent
+                          : Icons.check_circle,
+                      color: _registrationType == 'support'
+                          ? AppColors.warning
+                          : AppColors.success,
                       size: 48,
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'Tìm thấy đăng ký',
+                      _registrationType == 'support'
+                          ? 'Tìm thấy nhân viên hỗ trợ'
+                          : 'Tìm thấy đăng ký',
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -297,17 +337,46 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      _scannedRegistration!.userName,
+                      _registrationType == 'support'
+                          ? _scannedSupportRegistration!.userName
+                          : _scannedRegistration!.userName,
                       style: const TextStyle(
                         fontSize: 16,
                         color: AppColors.textSecondary,
                       ),
                     ),
                     Text(
-                      _scannedRegistration!.userEmail,
+                      _registrationType == 'support'
+                          ? _scannedSupportRegistration!.userEmail
+                          : _scannedRegistration!.userEmail,
                       style: const TextStyle(
                         fontSize: 14,
                         color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _registrationType == 'support'
+                            ? AppColors.warning.withOpacity(0.1)
+                            : AppColors.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        _registrationType == 'support'
+                            ? 'Nhân viên hỗ trợ'
+                            : 'Người tham gia',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: _registrationType == 'support'
+                              ? AppColors.warning
+                              : AppColors.primary,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -320,6 +389,8 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
                                 : () {
                                     setState(() {
                                       _scannedRegistration = null;
+                                      _scannedSupportRegistration = null;
+                                      _registrationType = '';
                                     });
                                   },
                             style: ElevatedButton.styleFrom(
@@ -346,7 +417,11 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
                                       color: AppColors.white,
                                     ),
                                   )
-                                : const Text('Check-in'),
+                                : Text(
+                                    _registrationType == 'support'
+                                        ? 'Check-in Hỗ trợ'
+                                        : 'Check-in',
+                                  ),
                           ),
                         ),
                         const SizedBox(width: 12),

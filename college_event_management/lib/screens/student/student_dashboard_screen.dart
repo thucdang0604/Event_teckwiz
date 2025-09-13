@@ -6,10 +6,13 @@ import '../../providers/auth_provider.dart';
 import '../../providers/event_provider.dart';
 import '../../models/event_model.dart';
 import '../../models/registration_model.dart';
+import '../../models/support_registration_model.dart';
 import '../events/event_detail_screen.dart';
 import '../../services/registration_service.dart';
 import '../../services/event_service.dart';
+import '../../services/coorganizer_invitation_service.dart';
 import '../qr/student_qr_scanner_screen.dart';
+import '../coorganizer/coorganizer_invitations_screen.dart';
 import 'package:qr_flutter/qr_flutter.dart' as qr;
 
 class StudentDashboardScreen extends StatefulWidget {
@@ -74,7 +77,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                     _currentIndex = index;
                   });
                 },
-                itemCount: 5,
+                itemCount: 6,
                 itemBuilder: (context, index) {
                   switch (index) {
                     case 0:
@@ -95,8 +98,10 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                     case 2:
                       return const _TicketsTab();
                     case 3:
-                      return const _CertificatesTab();
+                      return const _InvitationsTab();
                     case 4:
+                      return const _CertificatesTab();
+                    case 5:
                       return _ProfileTab(onLogout: _showLogoutConfirmation);
                     default:
                       return _HomeTab(
@@ -145,6 +150,10 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.confirmation_num_outlined),
             label: 'Tickets',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.group_add_outlined),
+            label: 'Invitations',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.workspace_premium_outlined),
@@ -377,7 +386,7 @@ class _HomeTab extends StatelessWidget {
                 title: 'Certificates',
                 desc: 'View certificates',
                 onTap: () {
-                  onNavigateToTab(3); // Navigate to Certificates tab
+                  onNavigateToTab(4); // Navigate to Certificates tab
                 },
               ),
             ),
@@ -413,7 +422,59 @@ class _HomeTab extends StatelessWidget {
             ),
           ],
         ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(child: _buildCoOrganizerInvitationsCard(context)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _actionCard(
+                icon: Icons.settings,
+                color: Colors.white,
+                iconColor: const Color(0xFF6b7280),
+                title: 'Settings',
+                desc: 'App settings',
+                onTap: () {
+                  onNavigateToTab(5); // Navigate to Profile tab
+                },
+              ),
+            ),
+          ],
+        ),
       ],
+    );
+  }
+
+  Widget _buildCoOrganizerInvitationsCard(BuildContext context) {
+    final authProvider = context.watch<AuthProvider>();
+    final currentUser = authProvider.currentUser;
+
+    if (currentUser == null) {
+      return const SizedBox.shrink();
+    }
+
+    return StreamBuilder<int>(
+      stream: CoOrganizerInvitationService()
+          .getPendingInvitationsCount(currentUser.id)
+          .asStream(),
+      builder: (context, snapshot) {
+        final pendingCount = snapshot.data ?? 0;
+
+        return _actionCard(
+          icon: Icons.group_add,
+          color: Colors.white,
+          iconColor: const Color(0xFF8b5cf6),
+          title: 'Invitations',
+          desc: pendingCount > 0 ? '$pendingCount pending' : 'Co-organizer',
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const CoOrganizerInvitationsScreen(),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -833,103 +894,32 @@ class _EventsTabState extends State<_EventsTab> {
                     Row(
                       children: [
                         Expanded(
-                          child: ElevatedButton(
-                            onPressed: registration != null
-                                ? null
-                                : () async {
-                                    final currentUser =
-                                        Provider.of<AuthProvider>(
-                                          context,
-                                          listen: false,
-                                        ).currentUser;
-                                    if (currentUser == null) return;
-
-                                    try {
-                                      final registrationService =
-                                          RegistrationService();
-                                      await registrationService
-                                          .registerForEvent(
-                                            eventId: event.id,
-                                            userId: currentUser.id,
-                                            userEmail: currentUser.email,
-                                            userName: currentUser.fullName,
-                                            additionalInfo: {
-                                              'note': '',
-                                              'location': event.location,
-                                            },
-                                          );
-
-                                      if (mounted) {
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          const SnackBar(
-                                            content: Text(
-                                              'Registration successful! Please wait for approval.',
-                                            ),
-                                            backgroundColor: Colors.green,
-                                          ),
-                                        );
-                                      }
-                                    } catch (e) {
-                                      if (mounted) {
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              'Registration failed: ${e.toString()}',
-                                            ),
-                                            backgroundColor: Colors.red,
-                                          ),
-                                        );
-                                      }
-                                    }
-                                  },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: registration != null
-                                  ? Colors.grey
-                                  : AppColors.primary,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: Text(
-                              registration != null
-                                  ? _getRegistrationButtonText(
-                                      registration.status,
-                                    )
-                                  : 'Register Now',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: OutlinedButton(
+                          child: ElevatedButton.icon(
                             onPressed: () {
-                              Navigator.of(context).push(
+                              Navigator.push(
+                                context,
                                 MaterialPageRoute(
                                   builder: (context) =>
                                       EventDetailScreen(eventId: event.id),
                                 ),
                               );
                             },
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppColors.primary,
+                            icon: const Icon(Icons.visibility, size: 18),
+                            label: Text(
+                              registration != null
+                                  ? 'View Registration'
+                                  : 'View Details & Register',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(vertical: 12),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              side: const BorderSide(color: AppColors.primary),
-                            ),
-                            child: const Text(
-                              'View Details',
-                              style: TextStyle(fontWeight: FontWeight.w600),
                             ),
                           ),
                         ),
@@ -1042,27 +1032,33 @@ class _EventsTabState extends State<_EventsTab> {
       ),
     );
   }
-
-  String _getRegistrationButtonText(String status) {
-    switch (status.toLowerCase()) {
-      case 'approved':
-        return 'Approved';
-      case 'pending':
-        return 'Pending Approval';
-      case 'rejected':
-        return 'Registration Rejected';
-      default:
-        return 'Registered';
-    }
-  }
 }
 
-class _TicketsTab extends StatelessWidget {
+class _TicketsTab extends StatefulWidget {
   const _TicketsTab();
 
   @override
+  State<_TicketsTab> createState() => _TicketsTabState();
+}
+
+class _TicketsTabState extends State<_TicketsTab>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final registrationService = RegistrationService();
     final authProvider = context.watch<AuthProvider>();
     final currentUser = authProvider.currentUser;
 
@@ -1070,17 +1066,62 @@ class _TicketsTab extends StatelessWidget {
       return const Center(child: Text('Please login to view your tickets'));
     }
 
+    return Column(
+      children: [
+        // Tab Bar
+        Container(
+          margin: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF3F4F6),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: TabBar(
+            controller: _tabController,
+            indicator: BoxDecoration(
+              color: AppColors.primary,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            labelColor: Colors.white,
+            unselectedLabelColor: const Color(0xFF6B7280),
+            labelStyle: const TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+            ),
+            tabs: const [
+              Tab(icon: Icon(Icons.person, size: 20), text: 'Participants'),
+              Tab(
+                icon: Icon(Icons.support_agent, size: 20),
+                text: 'Support Staff',
+              ),
+            ],
+          ),
+        ),
+        // Tab Content
+        Expanded(
+          child: TabBarView(
+            controller: _tabController,
+            children: [
+              _buildParticipantTickets(currentUser.id),
+              _buildSupportTickets(currentUser.id),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildParticipantTickets(String userId) {
+    final registrationService = RegistrationService();
+
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionHeader('Your Tickets'),
+          _sectionHeader('Participant Tickets'),
           const SizedBox(height: 8),
           StreamBuilder<List<RegistrationModel>>(
-            stream: registrationService.getUserRegistrationsStream(
-              currentUser.id,
-            ),
+            stream: registrationService.getUserRegistrationsStream(userId),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(
@@ -1101,9 +1142,9 @@ class _TicketsTab extends StatelessWidget {
                         color: AppColors.error,
                       ),
                       const SizedBox(height: 16),
-                      Text(
+                      const Text(
                         'Error loading tickets',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w600,
                           color: AppColors.textPrimary,
@@ -1136,14 +1177,14 @@ class _TicketsTab extends StatelessWidget {
                           borderRadius: BorderRadius.circular(50),
                         ),
                         child: const Icon(
-                          Icons.confirmation_num_outlined,
+                          Icons.person_outline,
                           size: 48,
                           color: Color(0xFF9ca3af),
                         ),
                       ),
                       const SizedBox(height: 24),
                       const Text(
-                        'No Tickets Yet',
+                        'No Participant Tickets',
                         style: TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 18,
@@ -1152,7 +1193,7 @@ class _TicketsTab extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       const Text(
-                        'Register for events to get your tickets',
+                        'Register as a participant to get your tickets',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 14,
@@ -1169,6 +1210,117 @@ class _TicketsTab extends StatelessWidget {
                 children: registrations
                     .where((reg) => reg.isApproved || reg.isPending)
                     .map((registration) => _ticketCard(registration))
+                    .toList(),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSupportTickets(String userId) {
+    final registrationService = RegistrationService();
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionHeader('Support Staff Tickets'),
+          const SizedBox(height: 8),
+          StreamBuilder<List<SupportRegistrationModel>>(
+            stream: registrationService.getUserSupportRegistrationsStream(
+              userId,
+            ),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: CircularProgressIndicator(),
+                  ),
+                );
+              }
+
+              if (snapshot.hasError) {
+                return Center(
+                  child: Column(
+                    children: [
+                      const Icon(
+                        Icons.error_outline,
+                        size: 64,
+                        color: AppColors.error,
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Error loading tickets',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        snapshot.error.toString(),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: AppColors.textSecondary,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              final registrations = snapshot.data ?? [];
+
+              if (registrations.isEmpty) {
+                return Center(
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF3F4F6),
+                          borderRadius: BorderRadius.circular(50),
+                        ),
+                        child: const Icon(
+                          Icons.support_agent_outlined,
+                          size: 48,
+                          color: Color(0xFF9ca3af),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      const Text(
+                        'No Support Staff Tickets',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 18,
+                          color: Color(0xFF374151),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Register as support staff to get your tickets',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Color(0xFF6b7280),
+                          height: 1.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              return Column(
+                children: registrations
+                    .where((reg) => reg.isApproved || reg.isPending)
+                    .map((registration) => _supportTicketCard(registration))
                     .toList(),
               );
             },
@@ -1368,6 +1520,226 @@ class _TicketsTab extends StatelessWidget {
     );
   }
 
+  Widget _supportTicketCard(SupportRegistrationModel registration) {
+    return FutureBuilder<EventModel?>(
+      future: EventService().getEventById(registration.eventId),
+      builder: (context, snapshot) {
+        final event = snapshot.data;
+        if (event == null) {
+          return const SizedBox.shrink();
+        }
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.08),
+                blurRadius: 20,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              // Event Info Section
+              Container(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                event.title,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: Color(0xFF111827),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${_formatDateTime(event.startDate)} • ${event.location}',
+                                style: const TextStyle(
+                                  color: Color(0xFF6b7280),
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: registration.isApproved
+                                ? AppColors.success.withOpacity(0.1)
+                                : AppColors.warning.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            registration.isApproved ? 'Approved' : 'Pending',
+                            style: TextStyle(
+                              color: registration.isApproved
+                                  ? AppColors.success
+                                  : AppColors.warning,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.warning.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.support_agent,
+                            size: 12,
+                            color: AppColors.warning,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Support Staff',
+                            style: TextStyle(
+                              color: AppColors.warning,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // QR Code Section
+              if (registration.isApproved) ...[
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF9FAFB),
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(16),
+                      bottomRight: Radius.circular(16),
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      const Text(
+                        'Your Support QR Code',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF6B7280),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: const Color(0xFFE5E7EB),
+                            width: 1,
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            // QR Code Widget
+                            SizedBox(
+                              width: 120,
+                              height: 120,
+                              child: qr.QrImageView(
+                                data: registration.qrCode ?? '',
+                                version: qr.QrVersions.auto,
+                                size: 120,
+                                backgroundColor: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Support ID: ${registration.id.substring(0, 8)}...',
+                              style: const TextStyle(
+                                fontSize: 10,
+                                color: Color(0xFF9CA3AF),
+                                fontFamily: 'monospace',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Show this QR code at the event for support staff check-in',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF6B7280),
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+              ] else ...[
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFFBF0),
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(16),
+                      bottomRight: Radius.circular(16),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.pending_outlined,
+                        color: AppColors.warning,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'Your support registration is pending approval',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF92400E),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   String _formatDateTime(DateTime dateTime) {
     return '${dateTime.day.toString().padLeft(2, '0')}/${dateTime.month.toString().padLeft(2, '0')}/${dateTime.year} ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
   }
@@ -1478,6 +1850,19 @@ class _CertificatesTab extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _InvitationsTab extends StatelessWidget {
+  const _InvitationsTab();
+
+  @override
+  Widget build(BuildContext context) {
+    return Navigator(
+      onGenerateRoute: (settings) => MaterialPageRoute(
+        builder: (context) => const CoOrganizerInvitationsScreen(),
+      ),
     );
   }
 }

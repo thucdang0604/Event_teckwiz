@@ -33,6 +33,8 @@ import 'screens/admin/location_detail_screen.dart';
 import 'screens/admin/event_statistics_screen.dart';
 import 'screens/admin/location_calendar_screen.dart';
 import 'screens/admin/student_management_screen.dart';
+import 'screens/coorganizer/coorganizer_invitations_screen.dart';
+import 'screens/organizer/organizer_dashboard_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -240,6 +242,14 @@ final GoRouter _router = GoRouter(
     GoRoute(
       path: '/admin/location-calendar',
       builder: (context, state) => const LocationCalendarScreen(),
+    ),
+    GoRoute(
+      path: '/coorganizer-invitations',
+      builder: (context, state) => const CoOrganizerInvitationsScreen(),
+    ),
+    GoRoute(
+      path: '/organizer-dashboard',
+      builder: (context, state) => const OrganizerDashboardScreen(),
     ),
   ],
 );

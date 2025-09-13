@@ -14,6 +14,9 @@ class EventModel {
   final String status;
   final String organizerId;
   final String organizerName;
+  final List<String> coOrganizers;
+  final int maxSupportStaff;
+  final int currentSupportStaff;
   final List<String> imageUrls;
   final List<String> videoUrls;
   final String? requirements;
@@ -39,6 +42,9 @@ class EventModel {
     required this.status,
     required this.organizerId,
     required this.organizerName,
+    this.coOrganizers = const [],
+    this.maxSupportStaff = 0,
+    this.currentSupportStaff = 0,
     this.imageUrls = const [],
     this.videoUrls = const [],
     this.requirements,
@@ -68,6 +74,9 @@ class EventModel {
       status: data['status'] ?? 'draft',
       organizerId: data['organizerId'] ?? '',
       organizerName: data['organizerName'] ?? '',
+      coOrganizers: List<String>.from(data['coOrganizers'] ?? []),
+      maxSupportStaff: data['maxSupportStaff'] ?? 0,
+      currentSupportStaff: data['currentSupportStaff'] ?? 0,
       imageUrls: List<String>.from(data['imageUrls'] ?? []),
       videoUrls: List<String>.from(data['videoUrls'] ?? []),
       requirements: data['requirements'],
@@ -95,6 +104,9 @@ class EventModel {
       'status': status,
       'organizerId': organizerId,
       'organizerName': organizerName,
+      'coOrganizers': coOrganizers,
+      'maxSupportStaff': maxSupportStaff,
+      'currentSupportStaff': currentSupportStaff,
       'imageUrls': imageUrls,
       'videoUrls': videoUrls,
       'requirements': requirements,
@@ -122,6 +134,9 @@ class EventModel {
     String? status,
     String? organizerId,
     String? organizerName,
+    List<String>? coOrganizers,
+    int? maxSupportStaff,
+    int? currentSupportStaff,
     List<String>? imageUrls,
     List<String>? videoUrls,
     String? requirements,
@@ -147,6 +162,9 @@ class EventModel {
       status: status ?? this.status,
       organizerId: organizerId ?? this.organizerId,
       organizerName: organizerName ?? this.organizerName,
+      coOrganizers: coOrganizers ?? this.coOrganizers,
+      maxSupportStaff: maxSupportStaff ?? this.maxSupportStaff,
+      currentSupportStaff: currentSupportStaff ?? this.currentSupportStaff,
       imageUrls: imageUrls ?? this.imageUrls,
       videoUrls: videoUrls ?? this.videoUrls,
       requirements: requirements ?? this.requirements,

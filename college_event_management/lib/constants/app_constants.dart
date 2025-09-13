@@ -7,6 +7,7 @@ class AppConstants {
   static const String usersCollection = 'users';
   static const String eventsCollection = 'events';
   static const String registrationsCollection = 'registrations';
+  static const String supportRegistrationsCollection = 'support_registrations';
   static const String notificationsCollection = 'notifications';
 
   // User Roles

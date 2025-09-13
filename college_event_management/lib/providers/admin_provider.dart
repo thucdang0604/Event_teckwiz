@@ -298,19 +298,6 @@ class AdminProvider with ChangeNotifier {
     }
   }
 
-  Future<void> deleteEvent(String eventId) async {
-    _setLoading(true);
-    _clearError();
-
-    try {
-      await _adminService.deleteEvent(eventId);
-      await loadAllEvents();
-    } catch (e) {
-      _setError(e.toString());
-      _setLoading(false);
-    }
-  }
-
   Future<void> updateEventStatus(String eventId, String status) async {
     _setLoading(true);
     _clearError();
