@@ -312,4 +312,22 @@ class AuthService {
       throw Exception('Lỗi cập nhật admin cũ: ${e.toString()}');
     }
   }
+
+  // Lấy thông tin người dùng theo email
+  Future<UserModel?> getUserByEmail(String email) async {
+    try {
+      QuerySnapshot snapshot = await _firestore
+          .collection(AppConstants.usersCollection)
+          .where('email', isEqualTo: email)
+          .limit(1)
+          .get();
+
+      if (snapshot.docs.isNotEmpty) {
+        return UserModel.fromFirestore(snapshot.docs.first);
+      }
+      return null;
+    } catch (e) {
+      throw Exception('Error getting user by email: ${e.toString()}');
+    }
+  }
 }

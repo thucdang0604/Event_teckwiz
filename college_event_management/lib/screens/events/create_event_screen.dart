@@ -32,6 +32,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   final _requirementsController = TextEditingController();
   final _contactInfoController = TextEditingController();
   final _priceController = TextEditingController();
+  final _maxSupportStaffController = TextEditingController();
 
   String _selectedCategory = AppConstants.eventCategories.first;
   final String _selectedStatus = 'pending';
@@ -54,6 +55,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   // removed auto-duration usage; keeping default 1 hour logic inline
   final Set<int> _bookedHoursEnd = {};
   bool _selectingStart = true;
+  // Removed co-organizer variables as they're now managed through invitation system
   @override
   void initState() {
     super.initState();
@@ -73,6 +75,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     _requirementsController.dispose();
     _contactInfoController.dispose();
     _priceController.dispose();
+    _maxSupportStaffController.dispose();
     super.dispose();
   }
 
@@ -179,14 +182,12 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       final events = await _eventService.getEvents();
       final sameDayEvents = events.where((e) {
         final sameLocation = e.location == _locationController.text;
-        final sameDay =
-            e.startDate.year == date.year &&
-                e.startDate.month == date.month &&
-                e.startDate.day == date.day ||
-            e.endDate.year == date.year &&
-                e.endDate.month == date.month &&
-                e.endDate.day == date.day;
-        return sameLocation && sameDay;
+        // Check if event overlaps with the given date
+        final dayStart = DateTime(date.year, date.month, date.day, 0, 0);
+        final dayEnd = DateTime(date.year, date.month, date.day, 23, 59, 59);
+        final eventOverlaps =
+            e.startDate.isBefore(dayEnd) && e.endDate.isAfter(dayStart);
+        return sameLocation && eventOverlaps;
       }).toList();
 
       for (int h = 0; h < 24; h++) {
@@ -201,12 +202,12 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
           _bookedHours.add(h);
         }
       }
-      // keep end-grid in sync with start day
-      _bookedHoursEnd
-        ..clear()
-        ..addAll(_bookedHours);
       setState(() {});
-    } catch (_) {
+      print(
+        'Loaded ${_bookedHours.length} booked hours for start date ${date.toString()}: ${_bookedHours.toList()}',
+      );
+    } catch (e) {
+      print('Error loading booked hours for start date: $e');
       setState(() {});
     }
   }
@@ -221,14 +222,12 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       final events = await _eventService.getEvents();
       final sameDayEvents = events.where((e) {
         final sameLocation = e.location == _locationController.text;
-        final sameDay =
-            e.startDate.year == date.year &&
-                e.startDate.month == date.month &&
-                e.startDate.day == date.day ||
-            e.endDate.year == date.year &&
-                e.endDate.month == date.month &&
-                e.endDate.day == date.day;
-        return sameLocation && sameDay;
+        // Check if event overlaps with the given date
+        final dayStart = DateTime(date.year, date.month, date.day, 0, 0);
+        final dayEnd = DateTime(date.year, date.month, date.day, 23, 59, 59);
+        final eventOverlaps =
+            e.startDate.isBefore(dayEnd) && e.endDate.isAfter(dayStart);
+        return sameLocation && eventOverlaps;
       }).toList();
 
       for (int h = 0; h < 24; h++) {
@@ -244,8 +243,31 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         }
       }
       setState(() {});
-    } catch (_) {
+      print(
+        'Loaded ${_bookedHoursEnd.length} booked hours for end date ${date.toString()}: ${_bookedHoursEnd.toList()}',
+      );
+    } catch (e) {
+      print('Error loading booked hours for end date: $e');
       setState(() {});
+    }
+  }
+
+  Future<bool> _isRangeAvailable(DateTime start, DateTime end) async {
+    try {
+      final events = await _eventService.getEvents();
+      final sameLocationEvents = events.where(
+        (e) => e.location == _locationController.text,
+      );
+      for (final ev in sameLocationEvents) {
+        final evStart = ev.startDate;
+        final evEnd = ev.endDate;
+        if (start.isBefore(evEnd) && end.isAfter(evStart)) {
+          return false;
+        }
+      }
+      return true;
+    } catch (_) {
+      return true;
     }
   }
 
@@ -296,6 +318,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
           status: _selectedStatus,
           organizerId: authProvider.currentUser!.id,
           organizerName: authProvider.currentUser!.fullName,
+          coOrganizers: [], // Không thêm co-organizers trực tiếp
+          maxSupportStaff: int.tryParse(_maxSupportStaffController.text) ?? 0,
           requirements: _requirementsController.text.trim().isNotEmpty
               ? _requirementsController.text.trim()
               : null,
@@ -313,10 +337,13 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         bool success = await eventProvider.createEvent(event);
 
         if (success && mounted) {
+          // Gửi lời mời co-organizer sau khi tạo event thành công
+          // Co-organizer invitations are now sent through the invitation system after event creation
+
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text(
-                'Event created successfully! Your event is pending approval.',
+                'Event created successfully! You can now invite co-organizers from the event details.',
               ),
               backgroundColor: AppColors.success,
             ),
@@ -774,6 +801,42 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
                         const SizedBox(height: 24),
 
+                        // Co-Organizers & Support Staff
+                        const Text(
+                          'Co-Organizers & Support Staff',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        // Note: Co-Organizers are now managed through the invitation system
+                        // after event creation, not during creation
+                        const SizedBox(height: 16),
+
+                        // Max Support Staff
+                        CustomTextField(
+                          controller: _maxSupportStaffController,
+                          label: 'Maximum Support Staff',
+                          hint:
+                              'Enter maximum support staff count (0 if not needed)',
+                          keyboardType: TextInputType.number,
+                          validator: (value) {
+                            if (value != null && value.isNotEmpty) {
+                              final num = int.tryParse(value);
+                              if (num == null || num < 0) {
+                                return 'Must be a non-negative integer';
+                              }
+                            }
+                            return null;
+                          },
+                        ),
+
+                        const SizedBox(height: 24),
+
                         // Additional Information
                         const Text(
                           'Additional Information',
@@ -1221,6 +1284,97 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
                       const SizedBox(height: 12),
 
+                      // End Date (inline, independent day control)
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: AppColors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppColors.grey),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.event_available,
+                              color: AppColors.success,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'End Date',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                  Text(
+                                    DateFormat(
+                                      AppConstants.dateTimeFormat,
+                                    ).format(_endDate),
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      color: AppColors.textPrimary,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.chevron_left),
+                              onPressed: () {
+                                setState(() {
+                                  final d = _endDate.subtract(
+                                    const Duration(days: 1),
+                                  );
+                                  _endDate = DateTime(
+                                    d.year,
+                                    d.month,
+                                    d.day,
+                                    _endDate.hour,
+                                    0,
+                                  );
+                                  if (!_endDate.isAfter(_startDate)) {
+                                    _endDate = _startDate.add(
+                                      const Duration(hours: 1),
+                                    );
+                                  }
+                                });
+                                _loadBookedHoursForEndDate(_endDate);
+                                sbSetState(() {});
+                              },
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.chevron_right),
+                              onPressed: () {
+                                setState(() {
+                                  final d = _endDate.add(
+                                    const Duration(days: 1),
+                                  );
+                                  _endDate = DateTime(
+                                    d.year,
+                                    d.month,
+                                    d.day,
+                                    _endDate.hour,
+                                    0,
+                                  );
+                                  if (!_endDate.isAfter(_startDate)) {
+                                    _endDate = _startDate.add(
+                                      const Duration(hours: 1),
+                                    );
+                                  }
+                                });
+                                _loadBookedHoursForEndDate(_endDate);
+                                sbSetState(() {});
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+
                       // Display selected times
                       Container(
                         padding: const EdgeInsets.all(16),
@@ -1260,7 +1414,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                           CrossAxisAlignment.start,
                                       children: [
                                         const Text(
-                                          'Giờ bắt đầu:',
+                                          'Start:',
                                           style: TextStyle(
                                             fontSize: 12,
                                             color: AppColors.textSecondary,
@@ -1268,7 +1422,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                         ),
                                         const SizedBox(height: 4),
                                         Text(
-                                          '${_startDate.hour.toString().padLeft(2, '0')}:00',
+                                          DateFormat(
+                                            AppConstants.dateTimeFormat,
+                                          ).format(_startDate),
                                           style: const TextStyle(
                                             fontSize: 16,
                                             fontWeight: FontWeight.bold,
@@ -1295,7 +1451,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                           CrossAxisAlignment.start,
                                       children: [
                                         const Text(
-                                          'Giờ kết thúc:',
+                                          'End:',
                                           style: TextStyle(
                                             fontSize: 12,
                                             color: AppColors.textSecondary,
@@ -1303,7 +1459,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                         ),
                                         const SizedBox(height: 4),
                                         Text(
-                                          '${_endDate.hour.toString().padLeft(2, '0')}:00',
+                                          DateFormat(
+                                            AppConstants.dateTimeFormat,
+                                          ).format(_endDate),
                                           style: const TextStyle(
                                             fontSize: 16,
                                             fontWeight: FontWeight.bold,
@@ -1328,8 +1486,12 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                           ChoiceChip(
                             label: const Text('Chọn giờ bắt đầu'),
                             selected: _selectingStart,
-                            onSelected: (v) =>
-                                setState(() => _selectingStart = true),
+                            onSelected: (v) async {
+                              print('Switching to start time selection');
+                              setState(() => _selectingStart = true);
+                              await _loadBookedHoursForStartDate(_startDate);
+                              sbSetState(() {});
+                            },
                             selectedColor: AppColors.primary.withOpacity(0.2),
                             labelStyle: TextStyle(
                               color: _selectingStart
@@ -1344,8 +1506,12 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                           ChoiceChip(
                             label: const Text('Chọn giờ kết thúc'),
                             selected: !_selectingStart,
-                            onSelected: (v) =>
-                                setState(() => _selectingStart = false),
+                            onSelected: (v) async {
+                              print('Switching to end time selection');
+                              setState(() => _selectingStart = false);
+                              await _loadBookedHoursForEndDate(_endDate);
+                              sbSetState(() {});
+                            },
                             selectedColor: AppColors.success.withOpacity(0.2),
                             labelStyle: TextStyle(
                               color: !_selectingStart
@@ -1375,11 +1541,16 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                         itemCount: 24,
                         itemBuilder: (context, index) {
                           final hour = index;
-                          final isBooked = _bookedHours.contains(hour);
+                          final isBooked = _selectingStart
+                              ? _bookedHours.contains(hour)
+                              : _bookedHoursEnd.contains(hour);
+                          if (isBooked) {
+                            print(
+                              'Hour $hour is booked for ${_selectingStart ? 'start' : 'end'} selection',
+                            );
+                          }
                           final isSelectedStart = _startDate.hour == hour;
-                          final isSelectedEnd =
-                              _endDate.hour == hour &&
-                              _endDate.day == _startDate.day;
+                          final isSelectedEnd = _endDate.hour == hour;
                           final bg = isBooked
                               ? const Color(0xFFFFE5E5)
                               : const Color(0xFFE8F8F0);
@@ -1388,9 +1559,14 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                               : Colors.transparent;
                           return GestureDetector(
                             onTap: isBooked
-                                ? null
+                                ? () => print(
+                                    'Cannot select hour $hour - it is booked',
+                                  )
                                 : () {
-                                    setState(() {
+                                    () async {
+                                      print(
+                                        'Selecting ${_selectingStart ? 'start' : 'end'} time: hour $hour',
+                                      );
                                       if (_selectingStart) {
                                         final newStart = DateTime(
                                           _startDate.year,
@@ -1399,45 +1575,78 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                           hour,
                                           0,
                                         );
-                                        _startDate = newStart;
-                                        if (!_endDate.isAfter(_startDate)) {
-                                          _endDate = _startDate.add(
-                                            const Duration(hours: 1),
+                                        final ok = await _isRangeAvailable(
+                                          newStart,
+                                          _endDate.isAfter(newStart)
+                                              ? _endDate
+                                              : newStart.add(
+                                                  const Duration(hours: 1),
+                                                ),
+                                        );
+                                        if (!ok) return;
+                                        final endDateChanged = !_endDate
+                                            .isAfter(_startDate);
+                                        setState(() {
+                                          _startDate = newStart;
+                                          if (endDateChanged) {
+                                            _endDate = _startDate.add(
+                                              const Duration(hours: 1),
+                                            );
+                                          }
+                                          // giữ nguyên chip chọn, user tự chọn End
+                                          if (_registrationDeadline.isAfter(
+                                                _startDate,
+                                              ) ||
+                                              _registrationDeadline
+                                                  .isAtSameMomentAs(
+                                                    _startDate,
+                                                  )) {
+                                            _registrationDeadlineError =
+                                                'Registration deadline must be before event start time';
+                                          } else {
+                                            _registrationDeadlineError = null;
+                                          }
+                                        });
+                                        // Refresh booked hours for start date
+                                        print(
+                                          'Refreshing booked hours for start date after selection',
+                                        );
+                                        await _loadBookedHoursForStartDate(
+                                          _startDate,
+                                        );
+                                        // If end date was adjusted, refresh its booked hours too
+                                        if (endDateChanged) {
+                                          print(
+                                            'End date was adjusted, refreshing booked hours for end date',
+                                          );
+                                          await _loadBookedHoursForEndDate(
+                                            _endDate,
                                           );
                                         }
-                                        // after picking start, auto switch to End selection
-                                        _selectingStart = false;
-                                        // Check registration deadline when start time changes
-                                        if (_registrationDeadline.isAfter(
-                                              _startDate,
-                                            ) ||
-                                            _registrationDeadline
-                                                .isAtSameMomentAs(_startDate)) {
-                                          _registrationDeadlineError =
-                                              'Registration deadline must be before event start time';
-                                        } else {
-                                          _registrationDeadlineError = null;
-                                        }
-                                        // Update UI to show selected times
                                         sbSetState(() {});
                                       } else {
                                         final newEnd = DateTime(
-                                          _startDate.year,
-                                          _startDate.month,
-                                          _startDate.day,
+                                          _endDate.year,
+                                          _endDate.month,
+                                          _endDate.day,
                                           hour,
                                           0,
                                         );
-                                        if (!newEnd.isAfter(_startDate)) {
-                                          _endDate = _startDate.add(
-                                            const Duration(hours: 1),
-                                          );
-                                        } else {
+                                        if (!newEnd.isAfter(_startDate)) return;
+                                        final ok = await _isRangeAvailable(
+                                          _startDate,
+                                          newEnd,
+                                        );
+                                        if (!ok) return;
+                                        setState(() {
                                           _endDate = newEnd;
-                                        }
+                                        });
+                                        await _loadBookedHoursForEndDate(
+                                          _endDate,
+                                        );
+                                        sbSetState(() {});
                                       }
-                                    });
-                                    sbSetState(() {});
+                                    }();
                                   },
                             child: Container(
                               decoration: BoxDecoration(

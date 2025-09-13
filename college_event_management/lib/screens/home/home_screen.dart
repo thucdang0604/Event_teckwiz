@@ -7,6 +7,7 @@ import '../../services/event_service.dart';
 import '../../services/registration_service.dart';
 import '../../models/registration_model.dart';
 import '../../models/event_model.dart';
+import '../coorganizer/coorganizer_invitations_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -23,7 +24,7 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   void initState() {
     super.initState();
-    _eventsTabController = TabController(length: 2, vsync: this);
+    _eventsTabController = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -160,14 +161,28 @@ class _HomeScreenState extends State<HomeScreen>
               Consumer<AuthProvider>(
                 builder: (context, authProvider, _) {
                   final isAdmin = authProvider.currentUser?.role == 'admin';
-                  if (!isAdmin) return const SizedBox.shrink();
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 4),
-                    child: _buildHeaderButton(
-                      icon: Icons.admin_panel_settings,
-                      onTap: () => context.go('/admin-dashboard'),
-                    ),
-                  );
+                  final isOrganizer =
+                      authProvider.currentUser?.role == 'organizer';
+
+                  if (isAdmin) {
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 4),
+                      child: _buildHeaderButton(
+                        icon: Icons.admin_panel_settings,
+                        onTap: () => context.go('/admin-dashboard'),
+                      ),
+                    );
+                  } else if (isOrganizer) {
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 4),
+                      child: _buildHeaderButton(
+                        icon: Icons.event_note,
+                        onTap: () => context.go('/organizer-dashboard'),
+                      ),
+                    );
+                  }
+
+                  return const SizedBox.shrink();
                 },
               ),
               _buildHeaderButton(
@@ -286,33 +301,15 @@ class _HomeScreenState extends State<HomeScreen>
               isActive: _currentIndex == 1,
               onTap: () => setState(() => _currentIndex = 1),
             ),
-            Consumer<AuthProvider>(
-              builder: (context, authProvider, _) {
-                return StreamBuilder<List<EventModel>>(
-                  stream: authProvider.currentUser?.isOrganizer == true
-                      ? EventService().getOrganizerEventsStream(
-                          authProvider.currentUser!.id,
-                        )
-                      : EventService().getAllEventsStream(),
-                  builder: (context, snapshot) {
-                    int totalParticipants = 0;
-                    if (snapshot.hasData) {
-                      for (var event in snapshot.data!) {
-                        totalParticipants += event.currentParticipants;
-                      }
-                    }
-                    return _buildNavItem(
-                      icon: Icons.people,
-                      label: 'Members',
-                      isActive: false,
-                      onTap: () {
-                        // TODO: Navigate to participants
-                      },
-                      badge: totalParticipants > 0
-                          ? '$totalParticipants'
-                          : null,
-                    );
-                  },
+            _buildNavItem(
+              icon: Icons.mail_outline,
+              label: 'Invitations',
+              isActive: false,
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const CoOrganizerInvitationsScreen(),
+                  ),
                 );
               },
             ),
@@ -593,7 +590,7 @@ class _HomeScreenState extends State<HomeScreen>
           );
         } else {
           return StreamBuilder<List<EventModel>>(
-            stream: EventService().getAllEventsStream(),
+            stream: EventService().getEventsStream(),
             builder: (context, snapshot) {
               if (snapshot.hasData) {
                 final events = snapshot.data!;
@@ -857,6 +854,7 @@ class _HomeScreenState extends State<HomeScreen>
                 tabs: const [
                   Tab(text: 'My Events'),
                   Tab(text: 'All Events'),
+                  Tab(text: 'Co-Organizer'),
                 ],
               ),
             ),
@@ -870,6 +868,7 @@ class _HomeScreenState extends State<HomeScreen>
                 children: [
                   _buildMyEventsContent(authProvider),
                   _buildAllEventsContent(authProvider),
+                  _buildCoOrganizerEventsContent(authProvider),
                 ],
               ),
             ),
@@ -918,9 +917,39 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
+  Widget _buildCoOrganizerEventsContent(AuthProvider authProvider) {
+    return StreamBuilder<List<EventModel>>(
+      stream: EventService().getCoOrganizerEventsStream(
+        authProvider.currentUser!.id,
+      ),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(32),
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return _buildErrorState(snapshot.error.toString());
+        }
+
+        final events = snapshot.data ?? [];
+        if (events.isEmpty) {
+          return _buildEmptyState();
+        }
+        return _buildEventsList(events);
+      },
+    );
+  }
+
   Widget _buildAllEventsContent(AuthProvider authProvider) {
     return StreamBuilder<List<EventModel>>(
-      stream: EventService().getAllEventsStream(),
+      stream: authProvider.currentUser?.isOrganizer == true
+          ? EventService().getAllEventsStream()
+          : EventService().getEventsStream(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(

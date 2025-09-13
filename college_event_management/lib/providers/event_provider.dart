@@ -45,6 +45,27 @@ class EventProvider with ChangeNotifier {
     });
   }
 
+  // Lấy tất cả sự kiện cho admin (bao gồm pending)
+  Future<void> loadAllEventsForAdmin({String? category, String? status}) async {
+    Future.microtask(() async {
+      _setLoading(true);
+      _clearError();
+
+      try {
+        _events = await _eventService.getAllEventsForAdmin(
+          category: category,
+          status: status,
+        );
+        _selectedCategory = category ?? '';
+        _setLoading(false);
+        notifyListeners();
+      } catch (e) {
+        _setError(e.toString());
+        _setLoading(false);
+      }
+    });
+  }
+
   // Lấy sự kiện sắp diễn ra
   Future<void> loadUpcomingEvents() async {
     _setLoading(true);

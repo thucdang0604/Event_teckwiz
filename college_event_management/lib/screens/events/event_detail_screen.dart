@@ -11,10 +11,14 @@ import '../events/event_registration_screen.dart';
 import '../events/event_registrations_screen.dart';
 import '../events/event_attendance_screen.dart';
 import '../chat/event_chat_screen.dart';
+import '../organizer/support_registrations_screen.dart';
+import 'event_coorganizers_screen.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/admin_provider.dart';
 import '../../services/registration_service.dart';
+import '../../services/auth_service.dart';
 import '../../models/registration_model.dart';
+import '../../models/support_registration_model.dart';
 import 'package:qr_flutter/qr_flutter.dart' as qr;
 import 'package:url_launcher/url_launcher.dart';
 
@@ -33,9 +37,12 @@ class _EventDetailScreenState extends State<EventDetailScreen>
   bool _isLoading = true;
   String? _errorMessage;
   final RegistrationService _registrationService = RegistrationService();
+  final AuthService _authService = AuthService();
   RegistrationModel? _myRegistration;
+  SupportRegistrationModel? _mySupportRegistration;
   int _pendingCount = 0;
   int _approvedCount = 0;
+  Map<String, String> _coOrganizerNames = {}; // userId -> name
 
   @override
   void initState() {
@@ -60,9 +67,22 @@ class _EventDetailScreenState extends State<EventDetailScreen>
 
   Future<void> _loadEvent() async {
     final eventProvider = Provider.of<EventProvider>(context, listen: false);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
     try {
       EventModel? event = await eventProvider.getEventById(widget.eventId);
+
+      // Kiểm tra quyền truy cập: sinh viên chỉ có thể xem sự kiện đã được duyệt
+      if (event != null &&
+          authProvider.currentUser?.role == 'student' &&
+          event.status != 'published') {
+        setState(() {
+          _errorMessage = 'Sự kiện này chưa được duyệt hoặc không tồn tại';
+          _isLoading = false;
+        });
+        return;
+      }
+
       setState(() {
         _event = event;
         _isLoading = false;
@@ -70,6 +90,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
       await _loadMyRegistrationIfNeeded();
       await _loadOrganizerSummaryIfNeeded();
       await _loadParticipantCount();
+      await _loadCoOrganizerNames();
     } catch (e) {
       setState(() {
         _errorMessage = e.toString();
@@ -82,13 +103,14 @@ class _EventDetailScreenState extends State<EventDetailScreen>
     final user = Provider.of<AuthProvider>(context, listen: false).currentUser;
     if (user == null || _event == null) return;
     try {
-      final reg = await _registrationService.getUserRegistrationForEvent(
-        _event!.id,
-        user.id,
-      );
+      final participantReg = await _registrationService
+          .getUserRegistrationForEvent(_event!.id, user.id);
+      final supportReg = await _registrationService
+          .getUserSupportRegistrationForEvent(_event!.id, user.id);
       if (mounted) {
         setState(() {
-          _myRegistration = reg;
+          _myRegistration = participantReg;
+          _mySupportRegistration = supportReg;
         });
       }
     } catch (_) {}
@@ -128,6 +150,35 @@ class _EventDetailScreenState extends State<EventDetailScreen>
       if (mounted) {
         setState(() {
           _approvedCount = approved;
+        });
+      }
+    } catch (e) {
+      // Silently handle errors
+    }
+  }
+
+  Future<void> _loadCoOrganizerNames() async {
+    if (_event == null || _event!.coOrganizers.isEmpty) return;
+
+    try {
+      final names = <String, String>{};
+
+      for (final userId in _event!.coOrganizers) {
+        try {
+          final user = await _authService.getUserById(userId);
+          if (user != null) {
+            names[userId] = user.fullName;
+          } else {
+            names[userId] = 'Unknown User';
+          }
+        } catch (e) {
+          names[userId] = 'Unknown User';
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _coOrganizerNames = names;
         });
       }
     } catch (e) {
@@ -176,12 +227,17 @@ class _EventDetailScreenState extends State<EventDetailScreen>
     final bool isAdmin = currentUser?.role == 'admin';
     final bool isOrganizerRole = currentUser?.role == 'organizer';
     final bool isEventHost = _event!.organizerId == currentUser?.id;
+    final bool isCoOrganizer = _event!.coOrganizers.contains(currentUser?.id);
+    final bool isEventOrganizer = isEventHost || isCoOrganizer;
     final bool canRegisterBase =
         _event!.isRegistrationOpen &&
-        !(isAdmin || isOrganizerRole || isEventHost);
+        !(isAdmin || isOrganizerRole || isEventOrganizer);
     final bool hasActiveRegistration =
-        _myRegistration != null &&
-        (_myRegistration!.isPending || _myRegistration!.isApproved);
+        (_myRegistration != null &&
+            (_myRegistration!.isPending || _myRegistration!.isApproved)) ||
+        (_mySupportRegistration != null &&
+            (_mySupportRegistration!.isPending ||
+                _mySupportRegistration!.isApproved));
     final bool canRegister = canRegisterBase && !hasActiveRegistration;
 
     return Scaffold(
@@ -335,6 +391,79 @@ class _EventDetailScreenState extends State<EventDetailScreen>
                     'Organizer',
                     _event!.organizerName,
                   ),
+
+                  // Co-Organizers
+                  if (_event!.coOrganizers.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(
+                          Icons.group,
+                          color: AppColors.primary,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Co-Organizers',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 4,
+                                children: _event!.coOrganizers.map((userId) {
+                                  final name =
+                                      _coOrganizerNames[userId] ?? 'Loading...';
+                                  return Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primary.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: AppColors.primary.withOpacity(
+                                          0.3,
+                                        ),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      name,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: AppColors.primary,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+
+                  // Support Staff
+                  if (_event!.maxSupportStaff > 0) ...[
+                    const SizedBox(height: 8),
+                    _buildDetailRow(
+                      Icons.support_agent,
+                      'Support Staff',
+                      '${_event!.currentSupportStaff}/${_event!.maxSupportStaff}',
+                    ),
+                  ],
 
                   _buildDetailRow(
                     Icons.people,
@@ -688,7 +817,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
       floatingActionButton: _buildFloatingActionButton(
         isAdmin: isAdmin,
         isOrganizerRole: isOrganizerRole,
-        isEventHost: isEventHost,
+        isEventHost: isEventOrganizer,
         canRegister: canRegister,
         hasActiveRegistration: hasActiveRegistration,
       ),
@@ -759,6 +888,8 @@ class _EventDetailScreenState extends State<EventDetailScreen>
       listen: false,
     ).currentUser;
     final isEventHost = _event!.organizerId == currentUser?.id;
+    final isCoOrganizer = _event!.coOrganizers.contains(currentUser?.id);
+    final isEventOrganizer = isEventHost || isCoOrganizer;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -806,7 +937,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
                 ),
               ),
 
-              if (isEventHost) ...[
+              if (isEventOrganizer) ...[
                 const SizedBox(width: 8),
 
                 // View List Button
@@ -842,6 +973,49 @@ class _EventDetailScreenState extends State<EventDetailScreen>
                         context,
                         MaterialPageRoute(
                           builder: (context) => EventAttendanceScreen(
+                            eventId: _event!.id,
+                            eventTitle: _event!.title,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+
+                // Support Staff Button
+                if (_event!.maxSupportStaff > 0)
+                  Expanded(
+                    child: _buildActionButton(
+                      icon: Icons.support_agent,
+                      label: 'Support\nStaff',
+                      color: const Color(0xFF10B981),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => SupportRegistrationsScreen(
+                              eventId: _event!.id,
+                              eventTitle: _event!.title,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                const SizedBox(width: 8),
+
+                // Co-Organizers Button
+                Expanded(
+                  child: _buildActionButton(
+                    icon: Icons.group_add,
+                    label: 'Co-Organizers',
+                    color: const Color(0xFF6366F1),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => EventCoOrganizersScreen(
                             eventId: _event!.id,
                             eventTitle: _event!.title,
                           ),
@@ -995,7 +1169,8 @@ class _EventDetailScreenState extends State<EventDetailScreen>
   Widget? _buildFloatingActionButton({
     required bool isAdmin,
     required bool isOrganizerRole,
-    required bool isEventHost,
+    required bool
+    isEventHost, // Note: this now includes both organizer and co-organizer
     required bool canRegister,
     required bool hasActiveRegistration,
   }) {
@@ -1042,30 +1217,83 @@ class _EventDetailScreenState extends State<EventDetailScreen>
       );
     }
 
-    // Show register button or pending state
+    // Show registration options or status
+    // Only allow registration for published events
     if (_event!.isRegistrationOpen) {
-      return FloatingActionButton.extended(
-        onPressed: canRegister
-            ? () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        EventRegistrationScreen(event: _event!),
-                  ),
-                ).then((_) => _loadMyRegistrationIfNeeded());
-              }
-            : null,
-        backgroundColor: canRegister ? AppColors.primary : AppColors.grey,
-        icon: Icon(
-          hasActiveRegistration ? Icons.hourglass_top : Icons.add,
-          color: AppColors.white,
-        ),
-        label: Text(
-          hasActiveRegistration ? 'Pending Approval' : 'Register Now',
-          style: const TextStyle(color: AppColors.white),
-        ),
-      );
+      if (hasActiveRegistration) {
+        // Show current registration status
+        String buttonText = '';
+        Color buttonColor = AppColors.warning;
+        IconData buttonIcon = Icons.hourglass_top;
+
+        if (_myRegistration != null) {
+          if (_myRegistration!.isPending) {
+            buttonText = 'Participant Registration Pending';
+            buttonColor = AppColors.warning;
+            buttonIcon = Icons.hourglass_top;
+          } else if (_myRegistration!.isApproved) {
+            buttonText = 'Participant Registration Approved';
+            buttonColor = AppColors.success;
+            buttonIcon = Icons.check_circle;
+          } else if (_myRegistration!.isRejected) {
+            buttonText = 'Participant Registration Rejected';
+            buttonColor = AppColors.error;
+            buttonIcon = Icons.cancel;
+          }
+        } else if (_mySupportRegistration != null) {
+          if (_mySupportRegistration!.isPending) {
+            buttonText = 'Support Staff Registration Pending';
+            buttonColor = AppColors.warning;
+            buttonIcon = Icons.hourglass_top;
+          } else if (_mySupportRegistration!.isApproved) {
+            buttonText = 'Support Staff Registration Approved';
+            buttonColor = AppColors.success;
+            buttonIcon = Icons.check_circle;
+          } else if (_mySupportRegistration!.isRejected) {
+            buttonText = 'Support Staff Registration Rejected';
+            buttonColor = AppColors.error;
+            buttonIcon = Icons.cancel;
+          }
+        }
+
+        return FloatingActionButton.extended(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => EventRegistrationScreen(event: _event!),
+              ),
+            ).then((_) => _loadMyRegistrationIfNeeded());
+          },
+          backgroundColor: buttonColor,
+          icon: Icon(buttonIcon, color: AppColors.white),
+          label: Text(
+            buttonText,
+            style: const TextStyle(color: AppColors.white),
+          ),
+        );
+      } else {
+        // Show registration options
+        return FloatingActionButton.extended(
+          onPressed: canRegister
+              ? () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          EventRegistrationScreen(event: _event!),
+                    ),
+                  ).then((_) => _loadMyRegistrationIfNeeded());
+                }
+              : null,
+          backgroundColor: canRegister ? AppColors.primary : AppColors.grey,
+          icon: const Icon(Icons.add, color: AppColors.white),
+          label: const Text(
+            'Register for Event',
+            style: TextStyle(color: AppColors.white),
+          ),
+        );
+      }
     }
     return null;
   }

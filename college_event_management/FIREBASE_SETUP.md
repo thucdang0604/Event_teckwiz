@@ -95,6 +95,25 @@ service cloud.firestore {
         (resource.data.userId == request.auth.uid || 
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'organizer']);
     }
+
+    // Support registrations collection
+    match /support_registrations/{supportRegistrationId} {
+      allow read: if request.auth != null && (
+        // Organizer or co-organizer of the event can read
+        get(/databases/$(database)/documents/events/$(request.resource.data.eventId)).data.organizerId == request.auth.uid ||
+        request.auth.token != null &&
+        request.auth.uid in get(/databases/$(database)/documents/events/$(request.resource.data.eventId)).data.coOrganizers ||
+        // Admin can read
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+      );
+      
+      allow write: if request.auth != null && (
+        // Only organizer/co-organizer/admin can approve/reject
+        get(/databases/$(database)/documents/events/$(request.resource.data.eventId)).data.organizerId == request.auth.uid ||
+        request.auth.uid in get(/databases/$(database)/documents/events/$(request.resource.data.eventId)).data.coOrganizers ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+      );
+    }
   }
 }
 ```
