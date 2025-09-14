@@ -3,19 +3,22 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../providers/notification_provider.dart';
-import '../../providers/auth_provider.dart';
+import '../../providers/admin_provider.dart';
 import '../../services/notification_service.dart';
 import '../../constants/app_colors.dart';
-import '../../widgets/app_bottom_navigation_bar.dart';
+import '../../constants/app_design.dart';
 
-class NotificationsScreen extends StatefulWidget {
-  const NotificationsScreen({super.key});
+class AdminNotificationsScreen extends StatefulWidget {
+  const AdminNotificationsScreen({super.key});
 
   @override
-  State<NotificationsScreen> createState() => _NotificationsScreenState();
+  State<AdminNotificationsScreen> createState() =>
+      _AdminNotificationsScreenState();
 }
 
-class _NotificationsScreenState extends State<NotificationsScreen> {
+class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
+  int _currentIndex = 4; // Notifications tab
+
   @override
   void initState() {
     super.initState();
@@ -27,7 +30,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final role = context.watch<AuthProvider>().currentUser?.role;
     return SafeArea(
       child: Scaffold(
         appBar: AppBar(
@@ -39,12 +41,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               letterSpacing: -0.25,
             ),
           ),
-          backgroundColor: role == 'admin'
-              ? AppColors.adminPrimary
-              : AppColors.primary,
+          backgroundColor: AppColors.adminPrimary,
           foregroundColor: Colors.white,
           elevation: 0,
-          automaticallyImplyLeading: true,
+          automaticallyImplyLeading: false,
           actions: [
             Consumer<NotificationProvider>(
               builder: (context, provider, child) {
@@ -95,7 +95,86 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             );
           },
         ),
-        bottomNavigationBar: const AppBottomNavigationBar(currentIndex: 3),
+        bottomNavigationBar: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border(
+              top: BorderSide(color: AppColors.cardBorder, width: 1),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.cardShadow,
+                blurRadius: 8,
+                offset: const Offset(0, -2),
+              ),
+            ],
+          ),
+          child: Consumer<NotificationProvider>(
+            builder: (context, notificationProvider, child) {
+              return BottomNavigationBar(
+                type: BottomNavigationBarType.fixed,
+                currentIndex: _currentIndex,
+                selectedItemColor: AppColors.adminPrimary,
+                unselectedItemColor: const Color(0xFF9CA3AF),
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                selectedLabelStyle: AppDesign.labelSmall.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+                unselectedLabelStyle: AppDesign.labelSmall,
+                onTap: (index) {
+                  setState(() {
+                    _currentIndex = index;
+                  });
+                  switch (index) {
+                    case 0:
+                      context.go('/admin-dashboard');
+                      break;
+                    case 1:
+                      context.go('/admin/approvals');
+                      break;
+                    case 2:
+                      context.go('/admin/users');
+                      break;
+                    case 3:
+                      context.go('/admin/locations');
+                      break;
+                    case 4:
+                      // Already on notifications
+                      break;
+                  }
+                },
+                items: const [
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.dashboard_outlined),
+                    activeIcon: Icon(Icons.dashboard),
+                    label: 'Dashboard',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.event_available_outlined),
+                    activeIcon: Icon(Icons.event_available),
+                    label: 'Approval',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.people_outline),
+                    activeIcon: Icon(Icons.people),
+                    label: 'Users',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.location_on_outlined),
+                    activeIcon: Icon(Icons.location_on),
+                    label: 'Locations',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.notifications_outlined),
+                    activeIcon: Icon(Icons.notifications),
+                    label: 'Notifications',
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
       ),
     );
   }

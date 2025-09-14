@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../providers/admin_provider.dart';
 import '../../models/event_statistics_model.dart';
 import '../../constants/app_colors.dart';
+import '../../widgets/admin_bottom_navigation_bar.dart';
 
 class EventStatisticsScreen extends StatefulWidget {
   const EventStatisticsScreen({super.key});
@@ -16,12 +17,14 @@ class _EventStatisticsScreenState extends State<EventStatisticsScreen> {
   String _selectedLocation = 'all';
   String _selectedPeriod = 'month';
   int _currentIndex = 4;
+  String _selectedMetric = 'rate';
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AdminProvider>().loadEventStatistics();
+      context.read<AdminProvider>().loadLocations();
     });
   }
 
@@ -29,7 +32,7 @@ class _EventStatisticsScreenState extends State<EventStatisticsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Thống kê sự kiện'),
+        title: const Text('Event statistics'),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         leading: IconButton(
@@ -49,95 +52,59 @@ class _EventStatisticsScreenState extends State<EventStatisticsScreen> {
 
           return Column(
             children: [
-              _buildFilters(),
+              _buildFilters(adminProvider),
               Expanded(
                 child: filteredStats.isEmpty
                     ? const Center(
                         child: Text(
-                          'Không có dữ liệu thống kê',
+                          'No statistics data',
                           style: TextStyle(fontSize: 16),
                         ),
                       )
-                    : ListView.builder(
-                        itemCount: filteredStats.length,
-                        itemBuilder: (context, index) {
-                          final stat = filteredStats[index];
-                          return _buildStatCard(stat);
-                        },
+                    : ListView(
+                        padding: EdgeInsets.zero,
+                        children: [
+                          _buildOverview(filteredStats),
+                          const SizedBox(height: 8),
+                          _buildTrendChart(filteredStats),
+                          const SizedBox(height: 8),
+                          ...filteredStats.map(_buildStatCard).toList(),
+                        ],
                       ),
               ),
             ],
           );
         },
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
+      bottomNavigationBar: AdminBottomNavigationBar(
         currentIndex: _currentIndex,
-        selectedItemColor: AppColors.primary,
-        unselectedItemColor: Colors.grey,
-        onTap: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-          switch (index) {
-            case 0:
-              context.go('/admin-dashboard');
-              break;
-            case 1:
-              context.go('/admin/approvals');
-              break;
-            case 2:
-              context.go('/admin/users');
-              break;
-            case 3:
-              context.go('/admin/locations');
-              break;
-            case 4:
-              context.go('/admin/statistics');
-              break;
-          }
-        },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard_outlined),
-            label: 'Dashboard',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.event_available_outlined),
-            label: 'Approval',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.people_outline),
-            label: 'Users',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.location_on_outlined),
-            label: 'Locations',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.analytics_outlined),
-            label: 'Statistics',
-          ),
-        ],
       ),
     );
   }
 
-  Widget _buildFilters() {
+  Widget _buildFilters(AdminProvider adminProvider) {
     return Container(
       padding: const EdgeInsets.all(16.0),
       child: Column(
         children: [
           Row(
             children: [
-              const Text('Vị trí: '),
+              const Text('Location: '),
               const SizedBox(width: 16),
               Expanded(
                 child: DropdownButton<String>(
                   value: _selectedLocation,
                   isExpanded: true,
-                  items: const [
-                    DropdownMenuItem(value: 'all', child: Text('Tất cả')),
+                  items: [
+                    const DropdownMenuItem(value: 'all', child: Text('All')),
+                    ...adminProvider.locations
+                        .map(
+                          (l) => DropdownMenuItem(
+                            value: l.name,
+                            child: Text(l.name),
+                          ),
+                        )
+                        .toList(),
                   ],
                   onChanged: (value) {
                     setState(() {
@@ -147,16 +114,16 @@ class _EventStatisticsScreenState extends State<EventStatisticsScreen> {
                 ),
               ),
               const SizedBox(width: 16),
-              const Text('Thời gian: '),
+              const Text('Period: '),
               const SizedBox(width: 16),
               Expanded(
                 child: DropdownButton<String>(
                   value: _selectedPeriod,
                   isExpanded: true,
                   items: const [
-                    DropdownMenuItem(value: 'week', child: Text('Tuần')),
-                    DropdownMenuItem(value: 'month', child: Text('Tháng')),
-                    DropdownMenuItem(value: 'year', child: Text('Năm')),
+                    DropdownMenuItem(value: 'week', child: Text('Week')),
+                    DropdownMenuItem(value: 'month', child: Text('Month')),
+                    DropdownMenuItem(value: 'year', child: Text('Year')),
                   ],
                   onChanged: (value) {
                     setState(() {
@@ -166,6 +133,42 @@ class _EventStatisticsScreenState extends State<EventStatisticsScreen> {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Wrap(
+              spacing: 8,
+              children: [
+                ChoiceChip(
+                  label: const Text('Registrations'),
+                  selected: _selectedMetric == 'registrations',
+                  onSelected: (_) {
+                    setState(() {
+                      _selectedMetric = 'registrations';
+                    });
+                  },
+                ),
+                ChoiceChip(
+                  label: const Text('Attendees'),
+                  selected: _selectedMetric == 'attendees',
+                  onSelected: (_) {
+                    setState(() {
+                      _selectedMetric = 'attendees';
+                    });
+                  },
+                ),
+                ChoiceChip(
+                  label: const Text('Rate'),
+                  selected: _selectedMetric == 'rate',
+                  onSelected: (_) {
+                    setState(() {
+                      _selectedMetric = 'rate';
+                    });
+                  },
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -186,12 +189,12 @@ class _EventStatisticsScreenState extends State<EventStatisticsScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Vị trí: ${stat.location}',
+              'Location: ${stat.location}',
               style: const TextStyle(color: Colors.grey),
             ),
             const SizedBox(height: 8),
             Text(
-              'Ngày: ${_formatDate(stat.eventDate)}',
+              'Date: ${_formatDate(stat.eventDate)}',
               style: const TextStyle(color: Colors.grey),
             ),
             const SizedBox(height: 16),
@@ -199,7 +202,7 @@ class _EventStatisticsScreenState extends State<EventStatisticsScreen> {
               children: [
                 Expanded(
                   child: _buildStatItem(
-                    'Đăng ký',
+                    'Registrations',
                     '${stat.totalRegistrations}',
                     Icons.person_add,
                     Colors.blue,
@@ -207,7 +210,7 @@ class _EventStatisticsScreenState extends State<EventStatisticsScreen> {
                 ),
                 Expanded(
                   child: _buildStatItem(
-                    'Tham dự dự kiến',
+                    'Expected attendees',
                     '${stat.expectedAttendees}',
                     Icons.people,
                     Colors.orange,
@@ -215,7 +218,7 @@ class _EventStatisticsScreenState extends State<EventStatisticsScreen> {
                 ),
                 Expanded(
                   child: _buildStatItem(
-                    'Tham dự thực tế',
+                    'Actual attendees',
                     '${stat.actualAttendees}',
                     Icons.check_circle,
                     Colors.green,
@@ -228,7 +231,7 @@ class _EventStatisticsScreenState extends State<EventStatisticsScreen> {
               children: [
                 Expanded(
                   child: _buildStatItem(
-                    'Tỷ lệ tham dự',
+                    'Attendance rate',
                     '${stat.attendanceRate.toStringAsFixed(1)}%',
                     Icons.trending_up,
                     Colors.purple,
@@ -236,7 +239,7 @@ class _EventStatisticsScreenState extends State<EventStatisticsScreen> {
                 ),
                 Expanded(
                   child: _buildStatItem(
-                    'Chênh lệch',
+                    'Gap',
                     '${stat.expectedAttendees - stat.actualAttendees}',
                     Icons.trending_down,
                     Colors.red,
@@ -330,5 +333,168 @@ class _EventStatisticsScreenState extends State<EventStatisticsScreen> {
 
       return matchesLocation && matchesPeriod;
     }).toList();
+  }
+
+  Widget _buildOverview(List<EventStatisticsModel> stats) {
+    final int totalEvents = stats.length;
+    final int totalRegistrations = stats.fold(
+      0,
+      (p, e) => p + e.totalRegistrations,
+    );
+    final int totalAttendees = stats.fold(0, (p, e) => p + e.actualAttendees);
+    final double avgRate = stats.isEmpty
+        ? 0
+        : stats.map((e) => e.attendanceRate).reduce((a, b) => a + b) /
+              stats.length;
+
+    return Card(
+      margin: const EdgeInsets.all(16),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: _buildStatItem(
+                    'Events',
+                    '$totalEvents',
+                    Icons.event,
+                    Colors.blue,
+                  ),
+                ),
+                Expanded(
+                  child: _buildStatItem(
+                    'Registrations',
+                    '$totalRegistrations',
+                    Icons.person_add,
+                    Colors.indigo,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildStatItem(
+                    'Attendees',
+                    '$totalAttendees',
+                    Icons.groups,
+                    Colors.teal,
+                  ),
+                ),
+                Expanded(
+                  child: _buildStatItem(
+                    'Avg. rate',
+                    '${avgRate.toStringAsFixed(1)}%',
+                    Icons.trending_up,
+                    Colors.purple,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTrendChart(List<EventStatisticsModel> stats) {
+    final Map<DateTime, double> grouped = {};
+    for (final s in stats) {
+      final d = DateTime(s.eventDate.year, s.eventDate.month, s.eventDate.day);
+      double v;
+      if (_selectedMetric == 'registrations') {
+        v = s.totalRegistrations.toDouble();
+      } else if (_selectedMetric == 'attendees') {
+        v = s.actualAttendees.toDouble();
+      } else {
+        v = s.attendanceRate;
+      }
+      grouped[d] = (grouped[d] ?? 0) + v;
+    }
+
+    final entries = grouped.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+
+    if (entries.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final double maxValue = _selectedMetric == 'rate'
+        ? 100
+        : entries.map((e) => e.value).reduce((a, b) => a > b ? a : b);
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              _selectedMetric == 'registrations'
+                  ? 'Registrations trend'
+                  : _selectedMetric == 'attendees'
+                  ? 'Attendees trend'
+                  : 'Rate trend',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 180,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    for (final e in entries) ...[
+                      _buildBar(
+                        label: '${e.key.day}/${e.key.month}',
+                        value: e.value,
+                        maxValue: maxValue <= 0 ? 1 : maxValue,
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBar({
+    required String label,
+    required double value,
+    required double maxValue,
+  }) {
+    final double ratio = value / maxValue;
+    final double height = 140 * (ratio.clamp(0, 1));
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        Container(
+          height: height,
+          width: 16,
+          decoration: BoxDecoration(
+            color: AppColors.primary,
+            borderRadius: BorderRadius.circular(6),
+          ),
+        ),
+        const SizedBox(height: 6),
+        SizedBox(
+          width: 32,
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 11, color: Colors.grey),
+          ),
+        ),
+      ],
+    );
   }
 }

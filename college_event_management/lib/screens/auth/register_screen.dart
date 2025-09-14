@@ -80,7 +80,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: const Text('Không tìm thấy sinh viên với mã số này'),
+              content: const Text(
+                'Student not found with this ID. Please check and try again.',
+              ),
               backgroundColor: AppColors.error,
             ),
           );
@@ -90,7 +92,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Lỗi tìm kiếm sinh viên: ${e.toString()}'),
+            content: Text('Error searching for student: ${e.toString()}'),
             backgroundColor: AppColors.error,
           ),
         );
@@ -108,7 +110,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (_emailController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Vui lòng nhập email trước khi gửi mã xác thực'),
+          content: Text(
+            'Please enter your email address before sending verification code',
+          ),
           backgroundColor: AppColors.warning,
         ),
       );
@@ -129,7 +133,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'Mã xác thực đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư.',
+              'Verification code has been sent to your email. Please check your inbox.',
             ),
             backgroundColor: AppColors.success,
           ),
@@ -139,7 +143,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Lỗi gửi mã xác thực: ${e.toString()}'),
+            content: Text('Error sending verification code: ${e.toString()}'),
             backgroundColor: AppColors.error,
           ),
         );
@@ -157,7 +161,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (_verificationCodeController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Vui lòng nhập mã xác thực'),
+          content: Text('Please enter verification code'),
           backgroundColor: AppColors.warning,
         ),
       );
@@ -174,7 +178,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Email đã được xác thực thành công!'),
+              content: Text('Email has been verified successfully!'),
               backgroundColor: AppColors.success,
             ),
           );
@@ -184,7 +188,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Mã xác thực không đúng hoặc đã hết hạn'),
+              content: Text('Verification code is incorrect or has expired'),
               backgroundColor: AppColors.error,
             ),
           );
@@ -195,7 +199,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Lỗi xác thực: ${e.toString()}'),
+            content: Text('Verification error: ${e.toString()}'),
             backgroundColor: AppColors.error,
           ),
         );
@@ -218,7 +222,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               Icon(Icons.pending_actions, color: AppColors.warning, size: 28),
               const SizedBox(width: 12),
               const Text(
-                'Chờ duyệt tài khoản',
+                'Account Pending Approval',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
               ),
             ],
@@ -228,12 +232,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Tài khoản của bạn đã được tạo thành công!',
+                'Your account has been created successfully!',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
               ),
               const SizedBox(height: 12),
               const Text(
-                'Tuy nhiên, tài khoản cần được admin duyệt trước khi bạn có thể sử dụng.',
+                'However, your account needs to be approved by an administrator before you can use it.',
                 style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
               ),
               const SizedBox(height: 16),
@@ -254,7 +258,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     const SizedBox(width: 8),
                     const Expanded(
                       child: Text(
-                        'Vui lòng liên hệ admin để được kích hoạt tài khoản.',
+                        'Please contact the administrator to activate your account.',
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
@@ -272,7 +276,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 Navigator.of(context).pop();
               },
               child: const Text(
-                'Đã hiểu',
+                'Understood',
                 style: TextStyle(fontWeight: FontWeight.w600),
               ),
             ),
@@ -284,18 +288,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   void _register() async {
     if (_formKey.currentState!.validate()) {
-      // Kiểm tra xác thực email trước khi đăng ký
+      // Check email verification before registration
       if (!_isEmailVerificationSent) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Vui lòng xác thực email trước khi đăng ký'),
+            content: Text('Please verify your email before registering'),
             backgroundColor: AppColors.warning,
           ),
         );
         return;
       }
 
-      // Xác thực mã email
+      // Verify email code
       bool isEmailVerified = await _verifyEmailCode();
       if (!isEmailVerified) {
         return;
@@ -348,7 +352,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     final gradient = const LinearGradient(
-      colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+      colors: [AppColors.adminPrimary, AppColors.adminSecondary],
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
     );
@@ -423,7 +427,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 ),
                                 child: Container(
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFF3F4F6),
+                                    color: AppColors.hoverBackground,
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   padding: const EdgeInsets.all(4),
@@ -490,12 +494,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                             _foundStudent != null,
                                         validator: (value) {
                                           if (value == null || value.isEmpty) {
-                                            return 'Vui lòng nhập email';
+                                            return 'Please enter your email address';
                                           }
                                           if (!RegExp(
                                             r'^[^@]+@[^@]+\.[^@]+',
                                           ).hasMatch(value)) {
-                                            return 'Email không hợp lệ';
+                                            return 'Please enter a valid email address';
                                           }
                                           return null;
                                         },
@@ -538,8 +542,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                                       ),
                                                 label: Text(
                                                   _isVerifyingEmail
-                                                      ? 'Đang gửi...'
-                                                      : 'Gửi mã xác thực',
+                                                      ? 'Sending...'
+                                                      : 'Send Verification Code',
                                                 ),
                                                 style: ElevatedButton.styleFrom(
                                                   backgroundColor:
@@ -575,7 +579,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                               const SizedBox(width: 8),
                                               const Expanded(
                                                 child: Text(
-                                                  'Mã xác thực đã được gửi. Vui lòng kiểm tra email và nhập mã bên dưới.',
+                                                  'Verification code has been sent. Please check your email and enter the code below.',
                                                   style: TextStyle(
                                                     fontSize: 13,
                                                     fontWeight: FontWeight.w500,
@@ -591,8 +595,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                         CustomTextField(
                                           controller:
                                               _verificationCodeController,
-                                          label: 'Mã xác thực *',
-                                          hint: 'Nhập mã 6 số từ email',
+                                          label: 'Verification Code *',
+                                          hint: 'Enter 6-digit code from email',
                                           keyboardType: TextInputType.number,
                                           prefixIcon: Icons.security,
                                           maxLines: 1,
@@ -601,7 +605,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                       ],
                                       if (_selectedRole == 'student') ...[
                                         const Text(
-                                          'Nhập mã số sinh viên và nhấn nút tìm kiếm để tự động điền thông tin',
+                                          'Enter student ID and click search to auto-fill information',
                                           style: TextStyle(
                                             fontSize: 12,
                                             color: AppColors.textSecondary,
@@ -636,7 +640,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                                   icon: const Icon(
                                                     Icons.search,
                                                   ),
-                                                  tooltip: 'Tìm kiếm sinh viên',
+                                                  tooltip: 'Search student',
                                                   onPressed: () {
                                                     if (_studentIdController
                                                         .text
@@ -653,7 +657,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                                       ).showSnackBar(
                                                         const SnackBar(
                                                           content: Text(
-                                                            'Vui lòng nhập mã số sinh viên trước khi tìm kiếm',
+                                                            'Please enter student ID before searching',
                                                           ),
                                                           backgroundColor:
                                                               AppColors.warning,
@@ -707,7 +711,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                                 const SizedBox(width: 8),
                                                 Expanded(
                                                   child: Text(
-                                                    'Đã tìm thấy sinh viên: ${_foundStudent!.fullName}',
+                                                    'Student found: ${_foundStudent!.fullName}',
                                                     style: const TextStyle(
                                                       fontSize: 13,
                                                       fontWeight:
@@ -957,7 +961,7 @@ class _SegmentButton extends StatelessWidget {
           boxShadow: selected
               ? [
                   BoxShadow(
-                    color: const Color(0x1A000000),
+                    color: AppColors.cardShadow,
                     blurRadius: 4,
                     offset: const Offset(0, 2),
                   ),
@@ -968,7 +972,7 @@ class _SegmentButton extends StatelessWidget {
         child: Text(
           label,
           style: TextStyle(
-            color: selected ? const Color(0xFF6366F1) : const Color(0xFF6B7280),
+            color: selected ? AppColors.adminPrimary : AppColors.textSecondary,
             fontWeight: FontWeight.w700,
           ),
         ),

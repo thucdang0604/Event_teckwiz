@@ -112,7 +112,7 @@ class _SplashScreenState extends State<SplashScreen>
 
                     // App Name
                     const Text(
-                      'Quản Lý Sự Kiện',
+                      'Event Management',
                       style: TextStyle(
                         fontSize: 32,
                         fontWeight: FontWeight.bold,
@@ -123,7 +123,7 @@ class _SplashScreenState extends State<SplashScreen>
 
                     // Subtitle
                     const Text(
-                      'Trường Đại Học',
+                      'College Events',
                       style: TextStyle(
                         fontSize: 18,
                         color: AppColors.white,

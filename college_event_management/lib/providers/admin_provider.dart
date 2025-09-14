@@ -3,6 +3,7 @@ import '../models/user_model.dart';
 import '../models/event_model.dart';
 import '../models/location_model.dart';
 import '../models/event_statistics_model.dart';
+import '../models/admin_statistics_model.dart';
 import '../services/admin_service.dart';
 
 class AdminProvider with ChangeNotifier {
@@ -15,7 +16,9 @@ class AdminProvider with ChangeNotifier {
   List<EventStatisticsModel> _eventStatistics = [];
   List<EventModel> _locationEvents = [];
   Map<String, dynamic> _dashboardStats = {};
+  AdminStatisticsModel _statistics = AdminStatisticsModel.empty();
   bool _isLoading = false;
+  bool _isLocationEventsLoading = false;
   String? _errorMessage;
 
   List<UserModel> get users => _users;
@@ -25,7 +28,9 @@ class AdminProvider with ChangeNotifier {
   List<EventStatisticsModel> get eventStatistics => _eventStatistics;
   List<EventModel> get locationEvents => _locationEvents;
   Map<String, dynamic> get dashboardStats => _dashboardStats;
+  AdminStatisticsModel get statistics => _statistics;
   bool get isLoading => _isLoading;
+  bool get isLocationEventsLoading => _isLocationEventsLoading;
   String? get errorMessage => _errorMessage;
 
   Future<void> loadUsers() async {
@@ -165,7 +170,6 @@ class AdminProvider with ChangeNotifier {
   }
 
   Future<void> addLocation(LocationModel location) async {
-    _setLoading(true);
     _clearError();
 
     try {
@@ -173,7 +177,7 @@ class AdminProvider with ChangeNotifier {
       await loadLocations();
     } catch (e) {
       _setError(e.toString());
-      _setLoading(false);
+      rethrow;
     }
   }
 
@@ -272,16 +276,18 @@ class AdminProvider with ChangeNotifier {
   }
 
   Future<void> loadEventsByLocation(String locationName) async {
-    _setLoading(true);
+    _isLocationEventsLoading = true;
     _clearError();
+    notifyListeners();
 
     try {
       _locationEvents = await _adminService.getEventsByLocation(locationName);
-      _setLoading(false);
+      _isLocationEventsLoading = false;
       notifyListeners();
     } catch (e) {
       _setError(e.toString());
-      _setLoading(false);
+      _isLocationEventsLoading = false;
+      notifyListeners();
     }
   }
 
@@ -324,6 +330,114 @@ class AdminProvider with ChangeNotifier {
   void _clearError() {
     _errorMessage = null;
     notifyListeners();
+  }
+
+  Future<void> loadStatistics() async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      // Calculate statistics from existing data
+      print('📊 Loading events and users for statistics...');
+      final allEvents = await _adminService.getAllEvents();
+      final allUsers = await _adminService.getAllUsers();
+      print(
+        '📊 Loaded ${allEvents.length} events and ${allUsers.length} users',
+      );
+
+      // Update the stored data for future use
+      _allEvents = allEvents;
+      _users = allUsers;
+
+      final totalEvents = allEvents.length;
+      final activeUsers = allUsers.where((user) => !user.isBlocked).length;
+      final approvedEvents = allEvents
+          .where((event) => event.status == 'published')
+          .length;
+      final pendingEvents = allEvents
+          .where((event) => event.status == 'pending')
+          .length;
+      final rejectedEvents = allEvents
+          .where((event) => event.status == 'rejected')
+          .length;
+
+      // Calculate total registrations
+      final totalRegistrations = allEvents.fold<int>(
+        0,
+        (sum, event) => sum + (event.currentParticipants),
+      );
+
+      // Calculate average events per month (simplified)
+      final now = DateTime.now();
+      final monthsSinceStart =
+          now.month + (now.year - 2024) * 12; // Assuming started in 2024
+      final averageEventsPerMonth = monthsSinceStart > 0
+          ? totalEvents / monthsSinceStart
+          : 0.0;
+
+      // Find top category (simplified - just get most common)
+      final categoryCount = <String, int>{};
+      for (final event in allEvents) {
+        final category = event.category ?? 'Other';
+        categoryCount[category] = (categoryCount[category] ?? 0) + 1;
+      }
+      final topCategory = categoryCount.isNotEmpty
+          ? categoryCount.entries
+                .reduce((a, b) => a.value > b.value ? a : b)
+                .key
+          : 'N/A';
+
+      // Find most active organizer
+      final organizerCount = <String, int>{};
+      for (final event in allEvents) {
+        final organizer = event.organizerName ?? 'Unknown';
+        organizerCount[organizer] = (organizerCount[organizer] ?? 0) + 1;
+      }
+      final mostActiveOrganizer = organizerCount.isNotEmpty
+          ? organizerCount.entries
+                .reduce((a, b) => a.value > b.value ? a : b)
+                .key
+          : 'N/A';
+
+      // Generate recent activities (simplified)
+      final recentActivities = <String>[];
+      final recentEvents =
+          allEvents.where((event) => event.createdAt != null).toList()..sort(
+            (a, b) => (b.createdAt ?? DateTime.now()).compareTo(
+              a.createdAt ?? DateTime.now(),
+            ),
+          );
+
+      for (final event in recentEvents.take(5)) {
+        recentActivities.add('${event.title} was ${event.status}');
+      }
+
+      _statistics = AdminStatisticsModel(
+        totalEvents: totalEvents,
+        activeUsers: activeUsers,
+        approvedEvents: approvedEvents,
+        pendingEvents: pendingEvents,
+        rejectedEvents: rejectedEvents,
+        totalRegistrations: totalRegistrations,
+        averageEventsPerMonth: averageEventsPerMonth,
+        topCategory: topCategory,
+        mostActiveOrganizer: mostActiveOrganizer,
+        recentActivities: recentActivities,
+      );
+
+      print('📊 Statistics loaded successfully:');
+      print('   - Total Events: $totalEvents');
+      print('   - Active Users: $activeUsers');
+      print('   - Approved Events: $approvedEvents');
+      print('   - Pending Events: $pendingEvents');
+      print('   - Rejected Events: $rejectedEvents');
+
+      _setLoading(false);
+      notifyListeners();
+    } catch (e) {
+      _setError(e.toString());
+      _setLoading(false);
+    }
   }
 
   void clearError() {

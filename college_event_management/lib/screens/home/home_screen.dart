@@ -3,14 +3,18 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/event_provider.dart';
+import '../../providers/notification_provider.dart';
 import '../../services/event_service.dart';
 import '../../services/registration_service.dart';
-import '../../models/registration_model.dart';
 import '../../models/event_model.dart';
+import '../../models/registration_model.dart';
+import '../../constants/app_colors.dart';
 import '../coorganizer/coorganizer_invitations_screen.dart';
+import '../../widgets/app_bottom_navigation_bar.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final int? initialTab;
+  const HomeScreen({super.key, this.initialTab});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -18,13 +22,25 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin {
-  int _currentIndex = 0;
+  late int _currentIndex;
   late TabController _eventsTabController;
 
   @override
   void initState() {
     super.initState();
+    _currentIndex = widget.initialTab ?? 0;
     _eventsTabController = TabController(length: 3, vsync: this);
+  }
+
+  @override
+  void didUpdateWidget(covariant HomeScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialTab != null &&
+        widget.initialTab != oldWidget.initialTab) {
+      setState(() {
+        _currentIndex = widget.initialTab!;
+      });
+    }
   }
 
   @override
@@ -35,276 +51,471 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFf9fafb),
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildHeader(),
-            Expanded(
-              child: IndexedStack(
-                index: _currentIndex,
-                children: [_buildEventsTab(), _buildMyEventsTab()],
-              ),
+    return SafeArea(
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text(
+            'Event Hub',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.25,
             ),
-            _buildBottomNavigation(),
-          ],
-        ),
-      ),
-      floatingActionButton: Consumer<AuthProvider>(
-        builder: (context, authProvider, _) {
-          if (authProvider.currentUser?.role == 'organizer' ||
-              authProvider.currentUser?.role == 'admin') {
-            return Container(
-              margin: const EdgeInsets.only(bottom: 100),
-              child: FloatingActionButton(
-                onPressed: () {
-                  context.go('/create-event');
-                },
-                backgroundColor: const Color(0xFF10b981),
-                child: const Icon(Icons.add, color: Colors.white),
-              ),
-            );
-          }
-          return const SizedBox.shrink();
-        },
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Color(0x14000000),
-            blurRadius: 4,
-            offset: Offset(0, 2),
           ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Consumer<AuthProvider>(
-              builder: (context, authProvider, _) {
-                final user = authProvider.currentUser;
-                final initials = user?.fullName != null
-                    ? user!.fullName
-                          .split(' ')
-                          .map((e) => e[0])
-                          .take(2)
-                          .join()
-                          .toUpperCase()
-                    : 'U';
-
-                return Row(
+          backgroundColor: AppColors.organizerPrimary,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          automaticallyImplyLeading: false,
+          actions: [
+            IconButton(
+              tooltip: 'Refresh Data',
+              icon: const Icon(Icons.refresh),
+              onPressed: () {
+                // Refresh all data
+                context.read<EventProvider>().loadEvents();
+                context.read<NotificationProvider>().refreshNotifications();
+              },
+            ),
+            Consumer<NotificationProvider>(
+              builder: (context, notificationProvider, child) {
+                final unreadCount = notificationProvider.unreadCount;
+                return Stack(
+                  clipBehavior: Clip.none,
                   children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Color(0xFF10b981), Color(0xFF34d399)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        shape: BoxShape.circle,
+                    IconButton(
+                      icon: const Icon(
+                        Icons.notifications_outlined,
+                        color: Colors.white,
+                        size: 28,
                       ),
-                      child: Center(
-                        child: Text(
-                          initials,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
+                      onPressed: () {
+                        context.go('/notifications');
+                      },
+                      tooltip: unreadCount > 0
+                          ? 'Notifications (${unreadCount > 99 ? "99+" : unreadCount})'
+                          : 'Notifications',
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Hello, ${user?.fullName ?? 'User'}',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14,
-                              color: Color(0xFF1f2937),
-                            ),
-                            overflow: TextOverflow.ellipsis,
+                    if (unreadCount > 0)
+                      Positioned(
+                        right: 6,
+                        top: 6,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
                           ),
-                          Text(
-                            _getUserRoleText(user?.role),
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: Color(0xFF10b981),
-                              fontWeight: FontWeight.w600,
-                            ),
-                            overflow: TextOverflow.ellipsis,
+                          decoration: BoxDecoration(
+                            color: AppColors.error,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.white, width: 1.5),
                           ),
-                        ],
+                          constraints: const BoxConstraints(
+                            minWidth: 18,
+                            minHeight: 18,
+                          ),
+                          child: Text(
+                            unreadCount > 99 ? '99+' : unreadCount.toString(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
                       ),
-                    ),
                   ],
                 );
               },
             ),
+            IconButton(
+              tooltip: 'Profile',
+              icon: const Icon(Icons.person_outline),
+              onPressed: () => context.go('/profile'),
+            ),
+          ],
+        ),
+        body: IndexedStack(
+          index: _currentIndex,
+          children: [
+            // Home Tab (index 0)
+            Consumer2<AuthProvider, EventProvider>(
+              builder: (context, authProvider, eventProvider, _) {
+                if (eventProvider.isLoading) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                return Container(
+                  color: AppColors.surfaceVariant,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      return SingleChildScrollView(
+                        padding: EdgeInsets.fromLTRB(
+                          constraints.maxWidth > 600 ? 24 : 16,
+                          20,
+                          constraints.maxWidth > 600 ? 24 : 16,
+                          40 + MediaQuery.of(context).padding.bottom,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildWelcomeSection(authProvider),
+                            const SizedBox(height: 24),
+                            _buildOverviewSection(authProvider),
+                            const SizedBox(height: 32),
+                            _buildRecentActivitySection(authProvider),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
+            // My Events Tab (index 1)
+            _buildMyEventsTab(),
+          ],
+        ),
+        bottomNavigationBar: AppBottomNavigationBar(
+          currentIndex: _currentIndex,
+        ),
+        floatingActionButton: Consumer<AuthProvider>(
+          builder: (context, authProvider, _) {
+            if (authProvider.currentUser?.role == 'organizer' ||
+                authProvider.currentUser?.role == 'admin') {
+              return Container(
+                margin: const EdgeInsets.only(bottom: 80),
+                child: FloatingActionButton(
+                  onPressed: () {
+                    context.go('/create-event');
+                  },
+                  backgroundColor: AppColors.organizerPrimary,
+                  child: const Icon(Icons.add, color: Colors.white),
+                ),
+              );
+            }
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWelcomeSection(AuthProvider authProvider) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [AppColors.organizerPrimary, AppColors.organizerSecondary],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.event_available,
+              color: Colors.white,
+              size: 28,
+            ),
           ),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Consumer<AuthProvider>(
-                builder: (context, authProvider, _) {
-                  final isAdmin = authProvider.currentUser?.role == 'admin';
-                  final isOrganizer =
-                      authProvider.currentUser?.role == 'organizer';
+          const SizedBox(height: 12),
+          Text(
+            'Welcome back, ${authProvider.currentUser?.fullName ?? 'User'}!',
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.25,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            authProvider.currentUser?.isOrganizer == true
+                ? 'Manage your events and track performance'
+                : 'Discover events and join the community',
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.9),
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-                  if (isAdmin) {
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 4),
-                      child: _buildHeaderButton(
-                        icon: Icons.admin_panel_settings,
-                        onTap: () => context.go('/admin-dashboard'),
-                      ),
-                    );
-                  } else if (isOrganizer) {
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 4),
-                      child: _buildHeaderButton(
-                        icon: Icons.event_note,
-                        onTap: () => context.go('/organizer-dashboard'),
-                      ),
-                    );
-                  }
+  Widget _buildRecentActivitySection(AuthProvider authProvider) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              'Recent Activity',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.25,
+                color: Color(0xFF111827),
+              ),
+            ),
+            const Spacer(),
+            TextButton.icon(
+              onPressed: () => setState(() => _currentIndex = 1),
+              icon: const Icon(Icons.visibility, size: 16),
+              label: const Text('View All'),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.organizerPrimary,
+                textStyle: const TextStyle(fontSize: 14),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        if (authProvider.currentUser?.isOrganizer == true)
+          _buildOrganizerRecentActivity(authProvider)
+        else
+          _buildStudentRecentActivity(),
+      ],
+    );
+  }
 
-                  return const SizedBox.shrink();
-                },
-              ),
-              _buildHeaderButton(
-                icon: Icons.qr_code_scanner,
-                onTap: () {
-                  context.go('/qr-scanner');
-                },
-              ),
-              const SizedBox(width: 4),
-              _buildHeaderButton(
-                icon: Icons.notifications,
-                onTap: () {
-                  // TODO: Navigate to notifications
-                },
-                badge: '5',
-              ),
-              const SizedBox(width: 4),
-              _buildHeaderButton(
-                icon: Icons.more_vert,
-                onTap: () {
-                  context.go('/profile');
-                },
+  Widget _buildOrganizerRecentActivity(AuthProvider authProvider) {
+    return StreamBuilder(
+      stream: EventService().getOrganizerEventsStream(
+        authProvider.currentUser!.id,
+      ),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.06),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: const Padding(
+              padding: EdgeInsets.all(32),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+          );
+        }
+
+        final events = snapshot.data as List<EventModel>;
+        final activeEvents = events.where((event) {
+          final now = DateTime.now();
+          return event.startDate.isBefore(now) && event.endDate.isAfter(now);
+        }).length;
+
+        final pendingEvents = events
+            .where(
+              (event) => event.status == 'pending' || event.status == 'draft',
+            )
+            .length;
+
+        final completedEvents = events
+            .where((event) => event.endDate.isBefore(DateTime.now()))
+            .length;
+
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.06),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeaderButton({
-    required IconData icon,
-    required VoidCallback onTap,
-    String? badge,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          color: const Color(0xFFf3f4f6),
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: Stack(
-          children: [
-            Center(child: Icon(icon, color: const Color(0xFF6b7280), size: 18)),
-            if (badge != null)
-              Positioned(
-                top: 4,
-                right: 4,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 4,
-                    vertical: 1,
-                  ),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFef4444),
-                    borderRadius: BorderRadius.all(Radius.circular(8)),
-                  ),
-                  child: Text(
-                    badge,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 8,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                _buildActivityItem(
+                  'Active Events',
+                  '$activeEvents events currently running',
+                  Icons.event_available,
+                  AppColors.statusApproved,
                 ),
-              ),
-          ],
-        ),
-      ),
+                const Divider(height: 24),
+                _buildActivityItem(
+                  'Pending Events',
+                  '$pendingEvents events waiting for approval',
+                  Icons.pending,
+                  AppColors.statusPending,
+                ),
+                const Divider(height: 24),
+                _buildActivityItem(
+                  'Completed Events',
+                  '$completedEvents events finished',
+                  Icons.check_circle,
+                  AppColors.organizerSecondary,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
-  String _getUserRoleText(String? role) {
-    switch (role) {
-      case 'admin':
-        return 'Administrator';
-      case 'organizer':
-        return 'Event Organizer';
-      case 'student':
-        return 'Student';
-      default:
-        return 'User';
-    }
+  Widget _buildStudentRecentActivity() {
+    return StreamBuilder<List<EventModel>>(
+      stream: EventService().getEventsStream(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.06),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: const Padding(
+              padding: EdgeInsets.all(32),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+          );
+        }
+
+        final events = snapshot.data!;
+        final upcomingEvents = events.where((event) {
+          return event.startDate.isAfter(DateTime.now());
+        }).length;
+
+        final availableEvents = events.length;
+
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.06),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                _buildActivityItem(
+                  'Available Events',
+                  '$availableEvents events you can join',
+                  Icons.event,
+                  AppColors.organizerPrimary,
+                ),
+                const Divider(height: 24),
+                _buildActivityItem(
+                  'Upcoming Events',
+                  '$upcomingEvents events coming soon',
+                  Icons.schedule,
+                  AppColors.statusPending,
+                ),
+                const Divider(height: 24),
+                _buildActivityItem(
+                  'Popular Events',
+                  'Most registered events this month',
+                  Icons.trending_up,
+                  AppColors.organizerPrimary,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
-  Widget _buildBottomNavigation() {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Color(0x14000000),
-            blurRadius: 4,
-            offset: Offset(0, -2),
+  Widget _buildOverviewSection(AuthProvider authProvider) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Overview',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.25,
+            color: Color(0xFF111827),
           ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        ),
+        const SizedBox(height: 16),
+        if (authProvider.currentUser?.isOrganizer == true)
+          _buildOrganizerOverviewCards(authProvider)
+        else
+          _buildStudentOverviewCards(),
+      ],
+    );
+  }
+
+  Widget _buildOrganizerOverviewCards(AuthProvider authProvider) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final crossAxisCount = 2;
+        return GridView.count(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisCount: crossAxisCount,
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 16,
+          childAspectRatio: 0.9,
           children: [
-            _buildNavItem(
-              icon: Icons.home,
-              label: 'Home',
-              isActive: _currentIndex == 0,
-              onTap: () => setState(() => _currentIndex = 0),
+            _buildOverviewCard(
+              title: 'Create Event',
+              subtitle: 'New event',
+              icon: Icons.add,
+              color: AppColors.organizerPrimary,
+              onTap: () => context.go('/create-event'),
             ),
-            _buildNavItem(
-              icon: Icons.event_note,
-              label: 'Events',
-              isActive: _currentIndex == 1,
+            _buildOverviewCard(
+              title: 'My Events',
+              subtitle: 'View list',
+              icon: Icons.event_available,
+              color: AppColors.organizerSecondary,
               onTap: () => setState(() => _currentIndex = 1),
             ),
-            _buildNavItem(
-              icon: Icons.mail_outline,
-              label: 'Invitations',
-              isActive: false,
+            _buildOverviewCard(
+              title: 'Co-organizers',
+              subtitle: 'Manage team',
+              icon: Icons.group,
+              color: AppColors.organizerAccent,
               onTap: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
@@ -313,458 +524,196 @@ class _HomeScreenState extends State<HomeScreen>
                 );
               },
             ),
-            _buildNavItem(
+            _buildOverviewCard(
+              title: 'Analytics',
+              subtitle: 'View insights',
               icon: Icons.analytics,
-              label: 'Reports',
-              isActive: false,
-              onTap: () {
-                // TODO: Navigate to analytics
-              },
-            ),
-            _buildNavItem(
-              icon: Icons.person,
-              label: 'Profile',
-              isActive: false,
-              onTap: () => context.go('/profile'),
+              color: AppColors.organizerSecondary,
+              onTap: () {},
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNavItem({
-    required IconData icon,
-    required String label,
-    required bool isActive,
-    required VoidCallback onTap,
-    String? badge,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-        decoration: BoxDecoration(
-          color: isActive
-              ? const Color(0xFF10b981).withOpacity(0.1)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Stack(
-          children: [
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  icon,
-                  color: isActive
-                      ? const Color(0xFF10b981)
-                      : const Color(0xFF9ca3af),
-                  size: 18,
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w600,
-                    color: isActive
-                        ? const Color(0xFF10b981)
-                        : const Color(0xFF9ca3af),
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-            if (badge != null)
-              Positioned(
-                top: 0,
-                right: 0,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 3,
-                    vertical: 1,
-                  ),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFef4444),
-                    borderRadius: BorderRadius.all(Radius.circular(6)),
-                  ),
-                  child: Text(
-                    badge,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 7,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEventsTab() {
-    return Consumer2<AuthProvider, EventProvider>(
-      builder: (context, authProvider, eventProvider, _) {
-        return SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildWelcomeSection(authProvider),
-              const SizedBox(height: 8),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: _buildStatsGrid(),
-              ),
-              const SizedBox(height: 16),
-            ],
-          ),
         );
       },
     );
   }
 
-  Widget _buildWelcomeSection(AuthProvider authProvider) {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF10b981), Color(0xFF34d399)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Welcome back, ${authProvider.currentUser?.fullName ?? 'User'}!',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
+  Widget _buildStudentOverviewCards() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final crossAxisCount = 2;
+        return GridView.count(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisCount: crossAxisCount,
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 16,
+          childAspectRatio: 0.9,
+          children: [
+            _buildOverviewCard(
+              title: 'Browse Events',
+              subtitle: 'Find events',
+              icon: Icons.search,
+              color: AppColors.organizerPrimary,
+              onTap: () => setState(() => _currentIndex = 1),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Manage your events and track performance',
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.9),
-              fontSize: 14,
+            _buildOverviewCard(
+              title: 'My Registrations',
+              subtitle: 'View registered',
+              icon: Icons.event_note,
+              color: AppColors.organizerSecondary,
+              onTap: () => setState(() => _currentIndex = 1),
             ),
-          ),
-          const SizedBox(height: 20),
-          StreamBuilder(
-            stream: authProvider.currentUser?.isOrganizer == true
-                ? EventService().getOrganizerEventsStream(
-                    authProvider.currentUser!.id,
-                  )
-                : null,
-            builder: (context, snapshot) {
-              if (snapshot.hasData &&
-                  authProvider.currentUser?.isOrganizer == true) {
-                final events = snapshot.data as List<EventModel>;
-                int totalParticipants = 0;
-                for (var event in events) {
-                  totalParticipants += event.currentParticipants;
-                }
-
-                return Row(
-                  children: [
-                    _buildQuickStat('${events.length}', 'My Events'),
-                    const SizedBox(width: 24),
-                    _buildQuickStat('$totalParticipants', 'Participants'),
-                    const SizedBox(width: 24),
-                    _buildQuickStat('4.8', 'Rating'),
-                  ],
-                );
-              } else {
-                return Row(
-                  children: [
-                    _buildQuickStat('0', 'My Events'),
-                    const SizedBox(width: 24),
-                    _buildQuickStat('0', 'Participants'),
-                    const SizedBox(width: 24),
-                    _buildQuickStat('4.8', 'Rating'),
-                  ],
-                );
-              }
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildQuickStat(String value, String label) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 12),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatsGrid() {
-    return Consumer<AuthProvider>(
-      builder: (context, authProvider, _) {
-        if (authProvider.currentUser?.isOrganizer == true) {
-          return StreamBuilder<List<EventModel>>(
-            stream: EventService().getOrganizerEventsStream(
-              authProvider.currentUser!.id,
+            _buildOverviewCard(
+              title: 'Notifications',
+              subtitle: 'Stay updated',
+              icon: Icons.notifications,
+              color: AppColors.statusPending,
+              onTap: () => context.go('/notifications'),
             ),
-            builder: (context, snapshot) {
-              if (snapshot.hasData) {
-                final events = snapshot.data!;
-                int totalEvents = events.length;
-                int totalParticipants = 0;
-                int pendingEvents = 0;
-                int completedEvents = 0;
-
-                for (var event in events) {
-                  totalParticipants += event.currentParticipants;
-                  if (event.status == 'pending') pendingEvents++;
-                  if (event.status == 'completed') completedEvents++;
-                }
-
-                double attendanceRate = totalEvents > 0
-                    ? (completedEvents / totalEvents * 100)
-                    : 0.0;
-
-                return GridView.count(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: 1.1,
-                  children: [
-                    _buildStatCard(
-                      icon: Icons.calendar_today,
-                      value: '$totalEvents',
-                      title: 'Total Events',
-                      color: const Color(0xFF6366f1),
-                    ),
-                    _buildStatCard(
-                      icon: Icons.people,
-                      value: '$totalParticipants',
-                      title: 'Total Participants',
-                      color: const Color(0xFF10b981),
-                    ),
-                    _buildStatCard(
-                      icon: Icons.schedule,
-                      value: '$pendingEvents',
-                      title: 'Pending Approval',
-                      color: const Color(0xFFf59e0b),
-                    ),
-                    _buildStatCard(
-                      icon: Icons.trending_up,
-                      value: '${attendanceRate.toStringAsFixed(0)}%',
-                      title: 'Completion Rate',
-                      color: const Color(0xFF3b82f6),
-                    ),
-                  ],
-                );
-              } else if (snapshot.hasError) {
-                return _buildErrorStats();
-              } else {
-                return _buildLoadingStats();
-              }
-            },
-          );
-        } else {
-          return StreamBuilder<List<EventModel>>(
-            stream: EventService().getEventsStream(),
-            builder: (context, snapshot) {
-              if (snapshot.hasData) {
-                final events = snapshot.data!;
-                int totalEvents = events.length;
-                int totalParticipants = 0;
-                int upcomingEvents = 0;
-
-                for (var event in events) {
-                  totalParticipants += event.currentParticipants;
-                  if (event.startDate.isAfter(DateTime.now())) upcomingEvents++;
-                }
-
-                return GridView.count(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: 1.1,
-                  children: [
-                    _buildStatCard(
-                      icon: Icons.calendar_today,
-                      value: '$totalEvents',
-                      title: 'Available Events',
-                      color: const Color(0xFF6366f1),
-                    ),
-                    _buildStatCard(
-                      icon: Icons.people,
-                      value: '$totalParticipants',
-                      title: 'Total Participants',
-                      color: const Color(0xFF10b981),
-                    ),
-                    _buildStatCard(
-                      icon: Icons.schedule,
-                      value: '$upcomingEvents',
-                      title: 'Upcoming Events',
-                      color: const Color(0xFFf59e0b),
-                    ),
-                    _buildStatCard(
-                      icon: Icons.trending_up,
-                      value: '4.8',
-                      title: 'App Rating',
-                      color: const Color(0xFF3b82f6),
-                    ),
-                  ],
-                );
-              } else if (snapshot.hasError) {
-                return _buildErrorStats();
-              } else {
-                return _buildLoadingStats();
-              }
-            },
-          );
-        }
+            _buildOverviewCard(
+              title: 'Profile',
+              subtitle: 'Manage account',
+              icon: Icons.person,
+              color: AppColors.organizerPrimary,
+              onTap: () => context.go('/profile'),
+            ),
+          ],
+        );
       },
     );
   }
 
-  Widget _buildLoadingStats() {
-    return GridView.count(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: 2,
-      crossAxisSpacing: 12,
-      mainAxisSpacing: 12,
-      childAspectRatio: 1.1,
-      children: List.generate(
-        4,
-        (index) => Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.08),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: const Center(child: CircularProgressIndicator()),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildErrorStats() {
-    return GridView.count(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: 2,
-      crossAxisSpacing: 12,
-      mainAxisSpacing: 12,
-      childAspectRatio: 1.1,
-      children: [
-        _buildStatCard(
-          icon: Icons.error_outline,
-          value: '--',
-          title: 'Error Loading',
-          color: const Color(0xFFef4444),
-        ),
-        _buildStatCard(
-          icon: Icons.error_outline,
-          value: '--',
-          title: 'Error Loading',
-          color: const Color(0xFFef4444),
-        ),
-        _buildStatCard(
-          icon: Icons.error_outline,
-          value: '--',
-          title: 'Error Loading',
-          color: const Color(0xFFef4444),
-        ),
-        _buildStatCard(
-          icon: Icons.error_outline,
-          value: '--',
-          title: 'Error Loading',
-          color: const Color(0xFFef4444),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatCard({
-    required IconData icon,
-    required String value,
+  Widget _buildOverviewCard({
     required String title,
+    required String subtitle,
+    required IconData icon,
     required Color color,
+    required VoidCallback onTap,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: color, size: 20),
+            ),
+            const SizedBox(height: 12),
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFF111827),
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFF6B7280),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Icon(
+              Icons.arrow_forward_ios,
+              size: 16,
+              color: Color(0xFF9CA3AF),
+            ),
+          ],
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    );
+  }
+
+  Widget _buildActivityItem(
+    String title,
+    String subtitle,
+    IconData icon,
+    Color color,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
         children: [
           Container(
             width: 40,
             height: 40,
             decoration: BoxDecoration(
               color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, color: color, size: 20),
           ),
-          const Spacer(),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF1f2937),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF111827),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 2),
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 12,
-              color: Color(0xFF6b7280),
-              fontWeight: FontWeight.w500,
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+          const Icon(
+            Icons.arrow_forward_ios,
+            size: 16,
+            color: Color(0xFF9CA3AF),
           ),
         ],
       ),
@@ -774,201 +723,108 @@ class _HomeScreenState extends State<HomeScreen>
   Widget _buildMyEventsTab() {
     return Consumer<AuthProvider>(
       builder: (context, authProvider, _) {
-        return Column(
-          children: [
-            // Header Section
-            Container(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Events',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF1f2937),
+        return Container(
+          color: AppColors.surfaceVariant,
+          child: Column(
+            children: [
+              // Header Section
+              Container(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'My Events',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF1f2937),
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          authProvider.currentUser?.isOrganizer == true
-                              ? 'Manage your events and discover new ones'
-                              : 'Discover and join events',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: Color(0xFF6b7280),
+                          const SizedBox(height: 4),
+                          Text(
+                            authProvider.currentUser?.isOrganizer == true
+                                ? 'Manage your events and discover new ones'
+                                : 'Discover and join events',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Color(0xFF6b7280),
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (authProvider.currentUser?.isOrganizer == true)
-                    ElevatedButton.icon(
-                      onPressed: () => context.go('/create-event'),
-                      icon: const Icon(Icons.add, size: 18),
-                      label: const Text('Create'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF10b981),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
+                        ],
                       ),
                     ),
-                ],
-              ),
-            ),
-
-            // Tab Bar
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFf3f4f6),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: TabBar(
-                controller: _eventsTabController,
-                indicator: BoxDecoration(
-                  color: const Color(0xFF10b981),
-                  borderRadius: BorderRadius.circular(12),
+                    if (authProvider.currentUser?.isOrganizer == true)
+                      ElevatedButton.icon(
+                        onPressed: () => context.go('/create-event'),
+                        icon: const Icon(Icons.add, size: 18),
+                        label: const Text('Create'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.organizerPrimary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
-                labelColor: Colors.white,
-                unselectedLabelColor: const Color(0xFF6b7280),
-                labelStyle: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
-                ),
-                unselectedLabelStyle: const TextStyle(
-                  fontWeight: FontWeight.w500,
-                  fontSize: 14,
-                ),
-                tabs: const [
-                  Tab(text: 'My Events'),
-                  Tab(text: 'All Events'),
-                  Tab(text: 'Co-Organizer'),
-                ],
               ),
-            ),
 
-            const SizedBox(height: 16),
+              // Events List
+              Expanded(
+                child: StreamBuilder(
+                  stream: authProvider.currentUser?.isOrganizer == true
+                      ? EventService().getMyEventsStream(
+                          authProvider.currentUser!.id,
+                        )
+                      : RegistrationService().getUserRegistrationsStream(
+                          authProvider.currentUser!.id,
+                        ),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(32),
+                          child: CircularProgressIndicator(),
+                        ),
+                      );
+                    }
 
-            // Tab Content
-            Expanded(
-              child: TabBarView(
-                controller: _eventsTabController,
-                children: [
-                  _buildMyEventsContent(authProvider),
-                  _buildAllEventsContent(authProvider),
-                  _buildCoOrganizerEventsContent(authProvider),
-                ],
+                    if (snapshot.hasError) {
+                      return _buildErrorState(snapshot.error.toString());
+                    }
+
+                    if (authProvider.currentUser?.isOrganizer == true) {
+                      final myEvents =
+                          (snapshot.data as List<EventModel>?) ?? [];
+                      if (myEvents.isEmpty) {
+                        return _buildEmptyState();
+                      }
+                      return _buildEventsList(myEvents);
+                    } else {
+                      final registrations =
+                          (snapshot.data as List?)?.cast<RegistrationModel>() ??
+                          [];
+                      if (registrations.isEmpty) {
+                        return _buildEmptyState();
+                      }
+                      return _buildRegistrationsList(registrations);
+                    }
+                  },
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         );
-      },
-    );
-  }
-
-  Widget _buildMyEventsContent(AuthProvider authProvider) {
-    return StreamBuilder(
-      stream: authProvider.currentUser?.isOrganizer == true
-          ? EventService().getMyEventsStream(authProvider.currentUser!.id)
-          : RegistrationService().getUserRegistrationsStream(
-              authProvider.currentUser!.id,
-            ),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: Padding(
-              padding: EdgeInsets.all(32),
-              child: CircularProgressIndicator(),
-            ),
-          );
-        }
-
-        if (snapshot.hasError) {
-          return _buildErrorState(snapshot.error.toString());
-        }
-
-        if (authProvider.currentUser?.isOrganizer == true) {
-          final myEvents = (snapshot.data as List<EventModel>?) ?? [];
-          if (myEvents.isEmpty) {
-            return _buildEmptyState();
-          }
-          return _buildEventsList(myEvents);
-        } else {
-          final registrations =
-              (snapshot.data as List?)?.cast<RegistrationModel>() ?? [];
-          if (registrations.isEmpty) {
-            return _buildEmptyState();
-          }
-          return _buildRegistrationsList(registrations);
-        }
-      },
-    );
-  }
-
-  Widget _buildCoOrganizerEventsContent(AuthProvider authProvider) {
-    return StreamBuilder<List<EventModel>>(
-      stream: EventService().getCoOrganizerEventsStream(
-        authProvider.currentUser!.id,
-      ),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: Padding(
-              padding: EdgeInsets.all(32),
-              child: CircularProgressIndicator(),
-            ),
-          );
-        }
-
-        if (snapshot.hasError) {
-          return _buildErrorState(snapshot.error.toString());
-        }
-
-        final events = snapshot.data ?? [];
-        if (events.isEmpty) {
-          return _buildEmptyState();
-        }
-        return _buildEventsList(events);
-      },
-    );
-  }
-
-  Widget _buildAllEventsContent(AuthProvider authProvider) {
-    return StreamBuilder<List<EventModel>>(
-      stream: authProvider.currentUser?.isOrganizer == true
-          ? EventService().getAllEventsStream()
-          : EventService().getEventsStream(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: Padding(
-              padding: EdgeInsets.all(32),
-              child: CircularProgressIndicator(),
-            ),
-          );
-        }
-
-        if (snapshot.hasError) {
-          return _buildErrorState(snapshot.error.toString());
-        }
-
-        final allEvents = snapshot.data ?? [];
-        if (allEvents.isEmpty) {
-          return _buildEmptyState();
-        }
-        return _buildEventsList(allEvents);
       },
     );
   }
@@ -1000,7 +856,7 @@ class _HomeScreenState extends State<HomeScreen>
               // Refresh the page
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF10b981),
+              backgroundColor: AppColors.organizerPrimary,
               foregroundColor: Colors.white,
             ),
             child: const Text('Try Again'),
@@ -1041,7 +897,7 @@ class _HomeScreenState extends State<HomeScreen>
             icon: const Icon(Icons.add),
             label: const Text('Create Event'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF10b981),
+              backgroundColor: AppColors.organizerPrimary,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               shape: RoundedRectangleBorder(
@@ -1055,45 +911,37 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Widget _buildEventsList(List<EventModel> events) {
-    return Padding(
+    return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: ListView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: events.length,
-        itemBuilder: (context, index) {
-          final event = events[index];
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: _buildModernEventCard(event),
-          );
-        },
-      ),
+      itemCount: events.length,
+      itemBuilder: (context, index) {
+        final event = events[index];
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: _buildModernEventCard(event),
+        );
+      },
     );
   }
 
   Widget _buildRegistrationsList(List<RegistrationModel> registrations) {
-    return Padding(
+    return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: ListView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: registrations.length,
-        itemBuilder: (context, index) {
-          final reg = registrations[index];
-          return FutureBuilder<EventModel?>(
-            future: EventService().getEventById(reg.eventId),
-            builder: (context, snap) {
-              if (!snap.hasData) return const SizedBox.shrink();
-              final event = snap.data!;
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: _buildModernEventCard(event),
-              );
-            },
-          );
-        },
-      ),
+      itemCount: registrations.length,
+      itemBuilder: (context, index) {
+        final reg = registrations[index];
+        return FutureBuilder<EventModel?>(
+          future: EventService().getEventById(reg.eventId),
+          builder: (context, snap) {
+            if (!snap.hasData) return const SizedBox.shrink();
+            final event = snap.data!;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: _buildModernEventCard(event),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -1223,7 +1071,7 @@ class _HomeScreenState extends State<HomeScreen>
                       ),
                       decoration: BoxDecoration(
                         color: event.isFree
-                            ? const Color(0xFF10b981).withOpacity(0.1)
+                            ? AppColors.organizerPrimary.withOpacity(0.1)
                             : const Color(0xFFf59e0b).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -1233,7 +1081,7 @@ class _HomeScreenState extends State<HomeScreen>
                             : '\$${event.price?.toStringAsFixed(0)}',
                         style: TextStyle(
                           color: event.isFree
-                              ? const Color(0xFF10b981)
+                              ? AppColors.organizerPrimary
                               : const Color(0xFFf59e0b),
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -1292,7 +1140,7 @@ class _HomeScreenState extends State<HomeScreen>
         return const Color(0xFFf59e0b);
       case 'approved':
       case 'published':
-        return const Color(0xFF10b981);
+        return AppColors.organizerPrimary;
       case 'live':
         return const Color(0xFF3b82f6);
       case 'done':

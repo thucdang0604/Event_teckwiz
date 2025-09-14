@@ -19,17 +19,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Cài đặt')),
+      appBar: AppBar(title: const Text('Settings')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           // Account Section
-          _buildSectionHeader('Tài khoản'),
+          _buildSectionHeader('Account'),
           _buildSettingsCard([
             _buildSettingsTile(
               icon: Icons.person,
-              title: 'Thông tin cá nhân',
-              subtitle: 'Chỉnh sửa thông tin tài khoản',
+              title: 'Personal Information',
+              subtitle: 'Edit account information',
               onTap: () {
                 // TODO: Navigate to edit profile
               },
@@ -47,23 +47,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 24),
 
           // App Settings Section
-          _buildSectionHeader('Ứng dụng'),
+          _buildSectionHeader('Application'),
           _buildSettingsCard([
-            _buildSwitchTile(
+            _buildSettingsTile(
               icon: Icons.notifications,
-              title: 'Thông báo',
-              subtitle: 'Nhận thông báo về sự kiện',
-              value: _notificationsEnabled,
-              onChanged: (value) {
-                setState(() {
-                  _notificationsEnabled = value;
-                });
+              title: 'Notifications',
+              subtitle: 'View notification history',
+              onTap: () {
+                Navigator.of(context).pushNamed('/notifications');
               },
             ),
             _buildSwitchTile(
               icon: Icons.dark_mode,
-              title: 'Chế độ tối',
-              subtitle: 'Sử dụng giao diện tối',
+              title: 'Dark Mode',
+              subtitle: 'Use dark interface',
               value: _darkModeEnabled,
               onChanged: (value) {
                 setState(() {
@@ -73,7 +70,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             _buildSettingsTile(
               icon: Icons.language,
-              title: 'Ngôn ngữ',
+              title: 'Language',
               subtitle: _getLanguageName(_selectedLanguage),
               onTap: () {
                 _showLanguageDialog();
@@ -127,8 +124,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             _buildSettingsTile(
               icon: Icons.info,
-              title: 'Về ứng dụng',
-              subtitle: 'Phiên bản 1.0.0',
+              title: 'About App',
+              subtitle: 'Version 1.0.0',
               onTap: () {
                 _showAboutDialog();
               },

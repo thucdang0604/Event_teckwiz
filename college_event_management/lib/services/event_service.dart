@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/event_model.dart';
 import '../constants/app_constants.dart';
+import '../services/notification_service.dart';
 
 class EventService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -109,9 +110,38 @@ class EventService {
   // Tạo sự kiện mới
   Future<String> createEvent(EventModel event) async {
     try {
+      // Tạo sự kiện với trạng thái pending (cần admin duyệt)
+      EventModel pendingEvent = event.copyWith(
+        status: AppConstants.eventPending,
+      );
+
       DocumentReference docRef = await _firestore
           .collection(AppConstants.eventsCollection)
-          .add(event.toFirestore());
+          .add(pendingEvent.toFirestore());
+
+      // Gửi notification cho admin về sự kiện mới cần duyệt
+      try {
+        await NotificationService.sendNotificationToAdmin(
+          title: 'Sự kiện mới cần duyệt',
+          body:
+              '${event.organizerName} đã tạo sự kiện "${event.title}" cần được duyệt',
+          type: NotificationType.eventCreated,
+          data: {
+            'type': 'event_pending_approval',
+            'eventId': docRef.id,
+            'eventTitle': event.title,
+            'organizerId': event.organizerId,
+            'organizerName': event.organizerName,
+          },
+        );
+
+        // Trigger notification refresh for admin
+        // Note: This would need to be handled by the NotificationProvider in the UI
+        print('Notification sent to admin for new event: ${event.title}');
+      } catch (e) {
+        print('Lỗi gửi notification cho admin khi tạo sự kiện: $e');
+        // Không throw error để không làm gián đoạn flow tạo sự kiện
+      }
 
       return docRef.id;
     } catch (e) {
@@ -128,6 +158,85 @@ class EventService {
           .update(event.toFirestore());
     } catch (e) {
       throw Exception('Lỗi cập nhật sự kiện: ${e.toString()}');
+    }
+  }
+
+  // Duyệt sự kiện
+  Future<void> approveEvent(String eventId, String approvedBy) async {
+    try {
+      await _firestore
+          .collection(AppConstants.eventsCollection)
+          .doc(eventId)
+          .update({
+            'status': AppConstants.eventPublished,
+            'approvedAt': Timestamp.fromDate(DateTime.now()),
+            'approvedBy': approvedBy,
+          });
+
+      // Gửi notification cho organizer về việc sự kiện được duyệt
+      try {
+        final event = await getEventById(eventId);
+        if (event != null) {
+          await NotificationService.sendNotificationToUser(
+            userId: event.organizerId,
+            title: 'Sự kiện được duyệt',
+            body: 'Sự kiện "${event.title}" của bạn đã được duyệt và xuất bản',
+            type: NotificationType.eventCreated,
+            data: {
+              'type': 'event_approved',
+              'eventId': eventId,
+              'eventTitle': event.title,
+            },
+          );
+        }
+      } catch (e) {
+        print('Lỗi gửi notification khi duyệt sự kiện: $e');
+      }
+    } catch (e) {
+      throw Exception('Lỗi duyệt sự kiện: ${e.toString()}');
+    }
+  }
+
+  // Từ chối sự kiện
+  Future<void> rejectEvent(
+    String eventId,
+    String rejectedBy,
+    String reason,
+  ) async {
+    try {
+      await _firestore
+          .collection(AppConstants.eventsCollection)
+          .doc(eventId)
+          .update({
+            'status': AppConstants.eventCancelled,
+            'approvedAt': Timestamp.fromDate(DateTime.now()),
+            'approvedBy': rejectedBy,
+            'rejectionReason': reason,
+          });
+
+      // Gửi notification cho organizer về việc sự kiện bị từ chối
+      try {
+        final event = await getEventById(eventId);
+        if (event != null) {
+          await NotificationService.sendNotificationToUser(
+            userId: event.organizerId,
+            title: 'Sự kiện bị từ chối',
+            body:
+                'Sự kiện "${event.title}" của bạn đã bị từ chối. Lý do: $reason',
+            type: NotificationType.eventCancelled,
+            data: {
+              'type': 'event_rejected',
+              'eventId': eventId,
+              'eventTitle': event.title,
+              'reason': reason,
+            },
+          );
+        }
+      } catch (e) {
+        print('Lỗi gửi notification khi từ chối sự kiện: $e');
+      }
+    } catch (e) {
+      throw Exception('Lỗi từ chối sự kiện: ${e.toString()}');
     }
   }
 

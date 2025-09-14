@@ -6,6 +6,15 @@ import '../../widgets/custom_text_field.dart';
 import '../../widgets/custom_button.dart';
 import '../../providers/auth_provider.dart';
 
+// Error types for better error handling
+enum LoginErrorType {
+  invalidCredentials,
+  accountBlocked,
+  accountNotApproved,
+  networkError,
+  unknownError,
+}
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -20,6 +29,8 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true;
   bool _isLoading = false;
   bool _rememberMe = false;
+  String? _currentErrorMessage;
+  LoginErrorType? _currentErrorType;
 
   @override
   void dispose() {
@@ -32,6 +43,8 @@ class _LoginScreenState extends State<LoginScreen> {
     if (_formKey.currentState!.validate()) {
       setState(() {
         _isLoading = true;
+        _currentErrorMessage = null;
+        _currentErrorType = null;
       });
 
       try {
@@ -47,33 +60,15 @@ class _LoginScreenState extends State<LoginScreen> {
           });
 
           if (success && authProvider.isAuthenticated) {
-            _emailController.clear();
-            _passwordController.clear();
-
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Signed in successfully'),
-                backgroundColor: AppColors.success,
-              ),
-            );
+            _clearForm();
+            _showSuccessMessage();
 
             final user = authProvider.currentUser;
             if (user != null) {
-              if (user.role == 'admin') {
-                context.go('/admin-dashboard');
-              } else if (user.isStudent) {
-                context.go('/student');
-              } else {
-                context.go('/home');
-              }
+              _navigateToAppropriateScreen(user);
             }
           } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(authProvider.errorMessage ?? 'Sign in failed'),
-                backgroundColor: AppColors.error,
-              ),
-            );
+            _handleLoginFailure(authProvider.errorMessage);
           }
         }
       } catch (e) {
@@ -81,24 +76,105 @@ class _LoginScreenState extends State<LoginScreen> {
           setState(() {
             _isLoading = false;
           });
-
-          // Kiểm tra nếu lỗi là do tài khoản bị block
-          if (e.toString().contains('BLOCKED_USER')) {
-            _showBlockedUserDialog();
-          }
-          // Kiểm tra nếu lỗi là do tài khoản chưa được duyệt
-          else if (e.toString().contains('chưa được duyệt')) {
-            _showContactAdminDialog();
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Sign in error: ${e.toString()}'),
-                backgroundColor: AppColors.error,
-              ),
-            );
-          }
+          _handleLoginException(e.toString());
         }
       }
+    }
+  }
+
+  void _clearForm() {
+    _emailController.clear();
+    _passwordController.clear();
+    setState(() {
+      _currentErrorMessage = null;
+      _currentErrorType = null;
+    });
+  }
+
+  void _showSuccessMessage() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Successfully signed in!'),
+        backgroundColor: AppColors.success,
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _navigateToAppropriateScreen(dynamic user) {
+    if (user.role == 'admin') {
+      context.go('/admin-dashboard');
+    } else if (user.isStudent) {
+      context.go('/student');
+    } else {
+      context.go('/home');
+    }
+  }
+
+  void _handleLoginFailure(String? errorMessage) {
+    final errorType = _determineErrorType(errorMessage ?? '');
+    setState(() {
+      _currentErrorMessage = _getErrorMessage(errorType);
+      _currentErrorType = errorType;
+    });
+
+    if (errorType == LoginErrorType.accountBlocked) {
+      _showBlockedUserDialog();
+    } else if (errorType == LoginErrorType.accountNotApproved) {
+      _showAccountNotApprovedDialog();
+    }
+  }
+
+  void _handleLoginException(String errorString) {
+    final errorType = _determineErrorType(errorString);
+    setState(() {
+      _currentErrorMessage = _getErrorMessage(errorType);
+      _currentErrorType = errorType;
+    });
+
+    if (errorType == LoginErrorType.accountBlocked) {
+      _showBlockedUserDialog();
+    } else if (errorType == LoginErrorType.accountNotApproved) {
+      _showAccountNotApprovedDialog();
+    }
+  }
+
+  LoginErrorType _determineErrorType(String errorMessage) {
+    final message = errorMessage.toLowerCase();
+
+    if (message.contains('blocked') || message.contains('block')) {
+      return LoginErrorType.accountBlocked;
+    } else if (message.contains('not approved') ||
+        message.contains('pending') ||
+        message.contains('chưa được duyệt') ||
+        message.contains('not verified')) {
+      return LoginErrorType.accountNotApproved;
+    } else if (message.contains('invalid') ||
+        message.contains('wrong') ||
+        message.contains('incorrect') ||
+        message.contains('credentials')) {
+      return LoginErrorType.invalidCredentials;
+    } else if (message.contains('network') ||
+        message.contains('connection') ||
+        message.contains('timeout')) {
+      return LoginErrorType.networkError;
+    } else {
+      return LoginErrorType.unknownError;
+    }
+  }
+
+  String _getErrorMessage(LoginErrorType errorType) {
+    switch (errorType) {
+      case LoginErrorType.invalidCredentials:
+        return 'Invalid email or password. Please check your credentials and try again.';
+      case LoginErrorType.accountBlocked:
+        return 'Your account has been blocked. Please contact administrator.';
+      case LoginErrorType.accountNotApproved:
+        return 'Your account is pending approval. Please contact administrator.';
+      case LoginErrorType.networkError:
+        return 'Network error. Please check your connection and try again.';
+      case LoginErrorType.unknownError:
+        return 'An error occurred during sign in. Please try again later.';
     }
   }
 
@@ -117,11 +193,22 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           title: Row(
             children: [
-              Icon(Icons.block, color: AppColors.error, size: 28),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.error.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(Icons.block, color: AppColors.error, size: 24),
+              ),
               const SizedBox(width: 12),
               const Text(
                 'Account Blocked',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
               ),
             ],
           ),
@@ -131,36 +218,70 @@ class _LoginScreenState extends State<LoginScreen> {
             children: [
               const Text(
                 'Your account has been blocked by the administrator.',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Please contact admin to resolve this issue and restore access to your account.',
-                style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.textPrimary,
+                  height: 1.4,
+                ),
               ),
               const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.error.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.error.withOpacity(0.3)),
+              const Text(
+                'This action may be due to violation of terms of service or security concerns. Please contact the administrator immediately to resolve this issue.',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppColors.textSecondary,
+                  height: 1.4,
                 ),
-                child: Row(
+              ),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.error.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppColors.error.withOpacity(0.2),
+                    width: 1.5,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      Icons.contact_support,
-                      color: AppColors.error,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    const Expanded(
-                      child: Text(
-                        'Contact admin: admin@fusionfiesta.com',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.contact_support_rounded,
+                          color: AppColors.error,
+                          size: 20,
                         ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Contact Information',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Email: admin@fusionfiesta.com',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Phone: +1 (555) 123-4567',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.textPrimary,
                       ),
                     ),
                   ],
@@ -170,11 +291,37 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           actions: [
             TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.textSecondary,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+              ),
+              child: const Text(
+                'Close',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+            ElevatedButton(
               onPressed: () {
                 Navigator.of(context).pop();
+                // You can add logic to open email app here
               },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: AppColors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
               child: const Text(
-                'Understood',
+                'Contact Admin',
                 style: TextStyle(fontWeight: FontWeight.w600),
               ),
             ),
@@ -184,7 +331,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  void _showContactAdminDialog() {
+  void _showAccountNotApprovedDialog() {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -195,15 +342,26 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           title: Row(
             children: [
-              Icon(
-                Icons.admin_panel_settings,
-                color: AppColors.error,
-                size: 28,
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.warning.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.pending_actions,
+                  color: AppColors.warning,
+                  size: 24,
+                ),
               ),
               const SizedBox(width: 12),
               const Text(
-                'Tài khoản chưa được duyệt',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                'Account Pending Approval',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
               ),
             ],
           ),
@@ -212,37 +370,71 @@ class _LoginScreenState extends State<LoginScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Tài khoản của bạn chưa được admin duyệt.',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Vui lòng liên hệ admin để được kích hoạt tài khoản trước khi sử dụng.',
-                style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+                'Your account registration is pending administrator approval.',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.textPrimary,
+                  height: 1.4,
+                ),
               ),
               const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.error.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.error.withOpacity(0.3)),
+              const Text(
+                'This process typically takes 1-2 business days. You will receive a notification once your account is approved. For urgent matters, please contact the administrator.',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppColors.textSecondary,
+                  height: 1.4,
                 ),
-                child: Row(
+              ),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.warning.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppColors.warning.withOpacity(0.2),
+                    width: 1.5,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      Icons.contact_support,
-                      color: AppColors.error,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    const Expanded(
-                      child: Text(
-                        'Liên hệ admin qua email: admin@fusionfiesta.com',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.contact_support_rounded,
+                          color: AppColors.warning,
+                          size: 20,
                         ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Contact Information',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Email: admin@fusionfiesta.com',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Phone: +1 (555) 123-4567',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.textPrimary,
                       ),
                     ),
                   ],
@@ -252,11 +444,37 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           actions: [
             TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.textSecondary,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+              ),
+              child: const Text(
+                'Close',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+            ElevatedButton(
               onPressed: () {
                 Navigator.of(context).pop();
+                // You can add logic to open email app here
               },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: AppColors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
               child: const Text(
-                'Đã hiểu',
+                'Contact Admin',
                 style: TextStyle(fontWeight: FontWeight.w600),
               ),
             ),
@@ -269,7 +487,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final gradient = const LinearGradient(
-      colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+      colors: [AppColors.adminPrimary, AppColors.adminSecondary],
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
     );
@@ -346,7 +564,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                                 child: Container(
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFF3F4F6),
+                                    color: AppColors.hoverBackground,
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   padding: const EdgeInsets.all(4),
@@ -387,19 +605,19 @@ class _LoginScreenState extends State<LoginScreen> {
                                     children: [
                                       CustomTextField(
                                         controller: _emailController,
-                                        label: 'Email',
-                                        hint: 'Enter your email',
+                                        label: 'Email Address',
+                                        hint: 'Enter your email address',
                                         keyboardType:
                                             TextInputType.emailAddress,
                                         prefixIcon: Icons.email_outlined,
                                         validator: (value) {
                                           if (value == null || value.isEmpty) {
-                                            return 'Vui lòng nhập email';
+                                            return 'Please enter your email address';
                                           }
                                           if (!RegExp(
                                             r'^[^@]+@[^@]+\.[^@]+',
                                           ).hasMatch(value)) {
-                                            return 'Email không hợp lệ';
+                                            return 'Please enter a valid email address';
                                           }
                                           return null;
                                         },
@@ -420,13 +638,14 @@ class _LoginScreenState extends State<LoginScreen> {
                                           },
                                           icon: Icon(
                                             _obscurePassword
-                                                ? Icons.visibility
-                                                : Icons.visibility_off,
+                                                ? Icons.visibility_off
+                                                : Icons.visibility,
+                                            color: AppColors.textHint,
                                           ),
                                         ),
                                         validator: (value) {
                                           if (value == null || value.isEmpty) {
-                                            return 'Please enter password';
+                                            return 'Please enter your password';
                                           }
                                           if (value.length < 6) {
                                             return 'Password must be at least 6 characters';
@@ -434,6 +653,103 @@ class _LoginScreenState extends State<LoginScreen> {
                                           return null;
                                         },
                                       ),
+
+                                      // Error message display
+                                      if (_currentErrorMessage != null)
+                                        Container(
+                                          margin: const EdgeInsets.only(
+                                            top: 12,
+                                          ),
+                                          padding: const EdgeInsets.all(12),
+                                          decoration: BoxDecoration(
+                                            color:
+                                                _currentErrorType ==
+                                                    LoginErrorType
+                                                        .accountBlocked
+                                                ? AppColors.error.withOpacity(
+                                                    0.1,
+                                                  )
+                                                : _currentErrorType ==
+                                                      LoginErrorType
+                                                          .accountNotApproved
+                                                ? AppColors.warning.withOpacity(
+                                                    0.1,
+                                                  )
+                                                : AppColors.error.withOpacity(
+                                                    0.1,
+                                                  ),
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                            border: Border.all(
+                                              color:
+                                                  _currentErrorType ==
+                                                      LoginErrorType
+                                                          .accountBlocked
+                                                  ? AppColors.error.withOpacity(
+                                                      0.3,
+                                                    )
+                                                  : _currentErrorType ==
+                                                        LoginErrorType
+                                                            .accountNotApproved
+                                                  ? AppColors.warning
+                                                        .withOpacity(0.3)
+                                                  : AppColors.error.withOpacity(
+                                                      0.3,
+                                                    ),
+                                              width: 1,
+                                            ),
+                                          ),
+                                          child: Row(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Icon(
+                                                _currentErrorType ==
+                                                        LoginErrorType
+                                                            .accountBlocked
+                                                    ? Icons.block
+                                                    : _currentErrorType ==
+                                                          LoginErrorType
+                                                              .accountNotApproved
+                                                    ? Icons.pending_actions
+                                                    : Icons.error_outline,
+                                                color:
+                                                    _currentErrorType ==
+                                                        LoginErrorType
+                                                            .accountBlocked
+                                                    ? AppColors.error
+                                                    : _currentErrorType ==
+                                                          LoginErrorType
+                                                              .accountNotApproved
+                                                    ? AppColors.warning
+                                                    : AppColors.error,
+                                                size: 20,
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Expanded(
+                                                child: Text(
+                                                  _currentErrorMessage!,
+                                                  style: TextStyle(
+                                                    color:
+                                                        _currentErrorType ==
+                                                            LoginErrorType
+                                                                .accountBlocked
+                                                        ? AppColors.error
+                                                        : _currentErrorType ==
+                                                              LoginErrorType
+                                                                  .accountNotApproved
+                                                        ? AppColors.warning
+                                                        : AppColors.error,
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.w500,
+                                                    height: 1.4,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
 
                                       const SizedBox(height: 12),
                                       Row(
@@ -453,7 +769,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                           const Text(
                                             'Remember Me',
                                             style: TextStyle(
-                                              color: Color(0xFF6B7280),
+                                              color: AppColors.textSecondary,
                                             ),
                                           ),
                                         ],
@@ -466,129 +782,76 @@ class _LoginScreenState extends State<LoginScreen> {
                                         isLoading: _isLoading,
                                       ),
 
-                                      const SizedBox(height: 12),
-                                      Row(
-                                        children: const [
-                                          Expanded(child: Divider()),
-                                          Padding(
-                                            padding: EdgeInsets.symmetric(
-                                              horizontal: 12,
-                                            ),
-                                            child: Text(
-                                              'or continue with',
-                                              style: TextStyle(
-                                                color: Color(0xFF9CA3AF),
+                                      const SizedBox(height: 8),
+                                      Align(
+                                        alignment: Alignment.centerRight,
+                                        child: TextButton(
+                                          onPressed: () {
+                                            // TODO: Navigate to forgot password screen
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              const SnackBar(
+                                                content: Text(
+                                                  'Forgot password feature coming soon',
+                                                ),
                                               ),
+                                            );
+                                          },
+                                          style: TextButton.styleFrom(
+                                            foregroundColor: AppColors.primary,
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 4,
                                             ),
                                           ),
-                                          Expanded(child: Divider()),
-                                        ],
-                                      ),
-
-                                      const SizedBox(height: 12),
-                                      OutlinedButton.icon(
-                                        onPressed: _isLoading
-                                            ? null
-                                            : () {
-                                                ScaffoldMessenger.of(
-                                                  context,
-                                                ).showSnackBar(
-                                                  const SnackBar(
-                                                    content: Text(
-                                                      'Google Sign-In not configured',
-                                                    ),
-                                                  ),
-                                                );
-                                              },
-                                        style: OutlinedButton.styleFrom(
-                                          padding: const EdgeInsets.symmetric(
-                                            vertical: 14,
-                                          ),
-                                          side: const BorderSide(
-                                            color: Color(0xFFE5E7EB),
-                                            width: 2,
-                                          ),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              12,
-                                            ),
-                                          ),
-                                          foregroundColor: const Color(
-                                            0xFF374151,
-                                          ),
-                                          backgroundColor: AppColors.white,
-                                        ),
-                                        icon: const Icon(
-                                          Icons.g_mobiledata,
-                                          size: 28,
-                                        ),
-                                        label: const Text(
-                                          'Sign in with Google',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ),
-
-                                      const SizedBox(height: 12),
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          _CircleIconButton(
-                                            icon: Icons.fingerprint,
-                                            onTap: () {
-                                              ScaffoldMessenger.of(
-                                                context,
-                                              ).showSnackBar(
-                                                const SnackBar(
-                                                  content: Text(
-                                                    'Biometric auth not configured',
-                                                  ),
-                                                ),
-                                              );
-                                            },
-                                          ),
-                                          const SizedBox(width: 12),
-                                          _CircleIconButton(
-                                            icon: Icons.face,
-                                            onTap: () {
-                                              ScaffoldMessenger.of(
-                                                context,
-                                              ).showSnackBar(
-                                                const SnackBar(
-                                                  content: Text(
-                                                    'Face ID not configured',
-                                                  ),
-                                                ),
-                                              );
-                                            },
-                                          ),
-                                        ],
-                                      ),
-
-                                      const SizedBox(height: 16),
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          const Text(
-                                            "Don't have an account? ",
+                                          child: const Text(
+                                            'Forgot Password?',
                                             style: TextStyle(
-                                              color: Color(0xFF6B7280),
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
                                             ),
                                           ),
-                                          GestureDetector(
-                                            onTap: _goToRegister,
-                                            child: const Text(
-                                              'Sign Up',
+                                        ),
+                                      ),
+
+                                      const SizedBox(height: 20),
+                                      Container(
+                                        padding: const EdgeInsets.all(16),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.surfaceVariant,
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                          border: Border.all(
+                                            color: AppColors.cardBorder,
+                                            width: 1,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            const Text(
+                                              "Don't have an account? ",
                                               style: TextStyle(
-                                                color: Color(0xFF6366F1),
-                                                fontWeight: FontWeight.w700,
+                                                color: AppColors.textSecondary,
+                                                fontSize: 15,
                                               ),
                                             ),
-                                          ),
-                                        ],
+                                            GestureDetector(
+                                              onTap: _goToRegister,
+                                              child: Text(
+                                                'Create Account',
+                                                style: TextStyle(
+                                                  color: AppColors.primary,
+                                                  fontWeight: FontWeight.w700,
+                                                  fontSize: 15,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
 
                                       const SizedBox(height: 6),
@@ -677,7 +940,7 @@ class _SegmentButton extends StatelessWidget {
           boxShadow: selected
               ? [
                   BoxShadow(
-                    color: const Color(0x1A000000),
+                    color: AppColors.cardShadow,
                     blurRadius: 4,
                     offset: const Offset(0, 2),
                   ),
@@ -688,34 +951,10 @@ class _SegmentButton extends StatelessWidget {
         child: Text(
           label,
           style: TextStyle(
-            color: selected ? const Color(0xFF6366F1) : const Color(0xFF6B7280),
+            color: selected ? AppColors.adminPrimary : AppColors.textSecondary,
             fontWeight: FontWeight.w700,
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _CircleIconButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-  const _CircleIconButton({required this.icon, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      customBorder: const CircleBorder(),
-      child: Container(
-        width: 50,
-        height: 50,
-        decoration: BoxDecoration(
-          color: AppColors.white,
-          shape: BoxShape.circle,
-          border: Border.all(color: const Color(0xFFE5E7EB), width: 2),
-        ),
-        child: Icon(icon, color: const Color(0xFF6B7280)),
       ),
     );
   }
