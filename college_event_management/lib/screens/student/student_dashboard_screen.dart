@@ -4,10 +4,12 @@ import 'package:go_router/go_router.dart';
 import '../../constants/app_colors.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/event_provider.dart';
+import '../../providers/notification_provider.dart';
 import '../../models/event_model.dart';
 import '../../models/registration_model.dart';
 import '../../models/support_registration_model.dart';
 import '../events/event_detail_screen.dart';
+import '../notifications/notifications_screen.dart';
 import '../../services/registration_service.dart';
 import '../../services/event_service.dart';
 import '../../services/coorganizer_invitation_service.dart';
@@ -36,10 +38,17 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
 
   void _loadData() async {
     try {
+      final authProvider = context.read<AuthProvider>();
+      final notificationProvider = context.read<NotificationProvider>();
+
       await Future.wait([
         context.read<EventProvider>().loadUpcomingEvents(),
         context.read<EventProvider>().loadEvents(),
       ]);
+
+      if (authProvider.currentUser != null) {
+        await notificationProvider.forceRefresh();
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -193,9 +202,76 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
               ],
             ),
           ),
+          _notificationIconButton(context),
+          const SizedBox(width: 8),
           _logoutIconButton(context),
         ],
       ),
+    );
+  }
+
+  Widget _notificationIconButton(BuildContext context) {
+    final authProvider = context.watch<AuthProvider>();
+
+    if (authProvider.currentUser == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Consumer<NotificationProvider>(
+      builder: (context, notificationProvider, child) {
+        return Stack(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(22),
+              ),
+              child: IconButton(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const NotificationsScreen(),
+                    ),
+                  );
+                },
+                icon: Icon(
+                  Icons.notifications_outlined,
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
+            if (notificationProvider.unreadCount > 0)
+              Positioned(
+                right: 0,
+                top: 0,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: AppColors.error,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  constraints: const BoxConstraints(
+                    minWidth: 20,
+                    minHeight: 20,
+                  ),
+                  child: Text(
+                    notificationProvider.unreadCount > 99
+                        ? '99+'
+                        : notificationProvider.unreadCount.toString(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 
@@ -607,7 +683,7 @@ class _EventsTabState extends State<_EventsTab> {
   }
 
   Widget _buildStatusFilter() {
-    return Container(
+    return SizedBox(
       height: 40,
       child: ListView(
         scrollDirection: Axis.horizontal,
@@ -1002,6 +1078,12 @@ class _EventsTabState extends State<_EventsTab> {
         icon = Icons.cancel;
         text = 'Rejected';
         break;
+      case 'cancelled':
+        bgColor = const Color(0xFF6B7280);
+        textColor = Colors.white;
+        icon = Icons.cancel_outlined;
+        text = 'Cancelled';
+        break;
       default:
         bgColor = const Color(0xFF6B7280);
         textColor = Colors.white;
@@ -1208,7 +1290,10 @@ class _TicketsTabState extends State<_TicketsTab>
 
               return Column(
                 children: registrations
-                    .where((reg) => reg.isApproved || reg.isPending)
+                    .where(
+                      (reg) =>
+                          reg.isApproved || reg.isPending || reg.isCancelled,
+                    )
                     .map((registration) => _ticketCard(registration))
                     .toList(),
               );
@@ -1319,7 +1404,10 @@ class _TicketsTabState extends State<_TicketsTab>
 
               return Column(
                 children: registrations
-                    .where((reg) => reg.isApproved || reg.isPending)
+                    .where(
+                      (reg) =>
+                          reg.isApproved || reg.isPending || reg.isCancelled,
+                    )
                     .map((registration) => _supportTicketCard(registration))
                     .toList(),
               );
@@ -1393,14 +1481,22 @@ class _TicketsTabState extends State<_TicketsTab>
                           decoration: BoxDecoration(
                             color: registration.isApproved
                                 ? AppColors.success.withOpacity(0.1)
+                                : registration.isCancelled
+                                ? AppColors.error.withOpacity(0.1)
                                 : AppColors.warning.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
-                            registration.isApproved ? 'Approved' : 'Pending',
+                            registration.isApproved
+                                ? 'Approved'
+                                : registration.isCancelled
+                                ? 'Cancelled'
+                                : 'Pending',
                             style: TextStyle(
                               color: registration.isApproved
                                   ? AppColors.success
+                                  : registration.isCancelled
+                                  ? AppColors.error
                                   : AppColors.warning,
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
@@ -1413,8 +1509,8 @@ class _TicketsTabState extends State<_TicketsTab>
                 ),
               ),
 
-              // QR Code Section
-              if (registration.isApproved) ...[
+              // Status Section
+              if (registration.isApproved && !registration.isCancelled) ...[
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -1478,6 +1574,68 @@ class _TicketsTabState extends State<_TicketsTab>
                           color: Color(0xFF6B7280),
                         ),
                         textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+              ] else if (registration.isCancelled) ...[
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF5F5),
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(16),
+                      bottomRight: Radius.circular(16),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.cancel_outlined,
+                        color: AppColors.error,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'Your registration has been cancelled',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFFDC2626),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ] else if (registration.isRejected) ...[
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF5F5),
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(16),
+                      bottomRight: Radius.circular(16),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.close_outlined,
+                        color: AppColors.error,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          registration.rejectionReason != null
+                              ? 'Registration rejected: ${registration.rejectionReason}'
+                              : 'Your registration has been rejected',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFFDC2626),
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -1583,14 +1741,22 @@ class _TicketsTabState extends State<_TicketsTab>
                           decoration: BoxDecoration(
                             color: registration.isApproved
                                 ? AppColors.success.withOpacity(0.1)
+                                : registration.isCancelled
+                                ? AppColors.error.withOpacity(0.1)
                                 : AppColors.warning.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
-                            registration.isApproved ? 'Approved' : 'Pending',
+                            registration.isApproved
+                                ? 'Approved'
+                                : registration.isCancelled
+                                ? 'Cancelled'
+                                : 'Pending',
                             style: TextStyle(
                               color: registration.isApproved
                                   ? AppColors.success
+                                  : registration.isCancelled
+                                  ? AppColors.error
                                   : AppColors.warning,
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
@@ -1633,8 +1799,8 @@ class _TicketsTabState extends State<_TicketsTab>
                 ),
               ),
 
-              // QR Code Section
-              if (registration.isApproved) ...[
+              // Status Section
+              if (registration.isApproved && !registration.isCancelled) ...[
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -1698,6 +1864,68 @@ class _TicketsTabState extends State<_TicketsTab>
                           color: Color(0xFF6B7280),
                         ),
                         textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+              ] else if (registration.isCancelled) ...[
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF5F5),
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(16),
+                      bottomRight: Radius.circular(16),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.cancel_outlined,
+                        color: AppColors.error,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'Your support registration has been cancelled',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFFDC2626),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ] else if (registration.isRejected) ...[
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF5F5),
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(16),
+                      bottomRight: Radius.circular(16),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.close_outlined,
+                        color: AppColors.error,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          registration.rejectionReason != null
+                              ? 'Support registration rejected: ${registration.rejectionReason}'
+                              : 'Your support registration has been rejected',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFFDC2626),
+                          ),
+                        ),
                       ),
                     ],
                   ),

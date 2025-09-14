@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import '../models/user_model.dart';
 import '../models/event_model.dart';
 import '../models/location_model.dart';
@@ -48,14 +49,14 @@ class AdminService {
 
   Future<List<EventModel>> getPendingEvents() async {
     try {
-      print('🔍 Đang tìm kiếm sự kiện pending...');
+      debugPrint('🔍 Đang tìm kiếm sự kiện pending...');
       QuerySnapshot snapshot = await _firestore
           .collection(AppConstants.eventsCollection)
           .where('status', isEqualTo: 'pending')
           .where('isActive', isEqualTo: true)
           .get();
 
-      print('📊 Tìm thấy ${snapshot.docs.length} sự kiện pending');
+      debugPrint('📊 Tìm thấy ${snapshot.docs.length} sự kiện pending');
       List<EventModel> events = snapshot.docs
           .map((doc) => EventModel.fromFirestore(doc))
           .toList();
@@ -82,26 +83,26 @@ class AdminService {
       events.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
       for (var event in events) {
-        print('📅 Sự kiện: ${event.title} - Status: ${event.status}');
+        debugPrint('📅 Sự kiện: ${event.title} - Status: ${event.status}');
       }
 
       return events;
     } catch (e) {
-      print('❌ Lỗi khi lấy sự kiện pending: $e');
+      debugPrint('❌ Lỗi khi lấy sự kiện pending: $e');
       throw Exception('Lỗi khi lấy danh sách sự kiện chờ duyệt: $e');
     }
   }
 
   Future<List<EventModel>> getAllEvents() async {
     try {
-      print('🔍 Đang tải tất cả sự kiện...');
+      debugPrint('🔍 Đang tải tất cả sự kiện...');
       // Lấy tất cả sự kiện active trước, sau đó sort trong code để tránh cần composite index
       QuerySnapshot snapshot = await _firestore
           .collection(AppConstants.eventsCollection)
           .where('isActive', isEqualTo: true)
           .get();
 
-      print('📊 Tìm thấy ${snapshot.docs.length} sự kiện active');
+      debugPrint('📊 Tìm thấy ${snapshot.docs.length} sự kiện active');
       List<EventModel> events = snapshot.docs
           .map((doc) => EventModel.fromFirestore(doc))
           .toList();
@@ -111,7 +112,7 @@ class AdminService {
 
       return events;
     } catch (e) {
-      print('❌ Lỗi khi lấy tất cả sự kiện: $e');
+      debugPrint('❌ Lỗi khi lấy tất cả sự kiện: $e');
       throw Exception('Lỗi khi lấy danh sách tất cả sự kiện: $e');
     }
   }
@@ -119,7 +120,7 @@ class AdminService {
   Future<void> approveEvent(String eventId) async {
     try {
       // Lấy thông tin admin hiện tại
-      final currentUser = await _auth.currentUser;
+      final currentUser = _auth.currentUser;
       if (currentUser == null) {
         throw Exception('Không tìm thấy thông tin admin');
       }
@@ -134,7 +135,7 @@ class AdminService {
   Future<void> rejectEvent(String eventId, String reason) async {
     try {
       // Lấy thông tin admin hiện tại
-      final currentUser = await _auth.currentUser;
+      final currentUser = _auth.currentUser;
       if (currentUser == null) {
         throw Exception('Không tìm thấy thông tin admin');
       }
@@ -214,7 +215,7 @@ class AdminService {
         return events;
       } catch (e) {
         // Fallback without composite index: query by location only, then filter/sort in memory
-        print(
+        debugPrint(
           '⚠️ Missing Firestore index for (location + isActive + startDate). '
           'Falling back to client-side filter/sort. Error: $e',
         );

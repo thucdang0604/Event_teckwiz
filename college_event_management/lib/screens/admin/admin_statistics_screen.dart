@@ -16,7 +16,7 @@ class AdminStatisticsScreen extends StatefulWidget {
 
 class _AdminStatisticsScreenState extends State<AdminStatisticsScreen>
     with TickerProviderStateMixin {
-  int _currentIndex = 2; // Statistics tab
+  final int _currentIndex = 2; // Statistics tab
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
   late AnimationController _slideController;

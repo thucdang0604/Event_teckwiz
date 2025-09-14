@@ -378,7 +378,7 @@ class AdminProvider with ChangeNotifier {
       // Find top category (simplified - just get most common)
       final categoryCount = <String, int>{};
       for (final event in allEvents) {
-        final category = event.category ?? 'Other';
+        final category = event.category;
         categoryCount[category] = (categoryCount[category] ?? 0) + 1;
       }
       final topCategory = categoryCount.isNotEmpty
@@ -390,7 +390,7 @@ class AdminProvider with ChangeNotifier {
       // Find most active organizer
       final organizerCount = <String, int>{};
       for (final event in allEvents) {
-        final organizer = event.organizerName ?? 'Unknown';
+        final organizer = event.organizerName;
         organizerCount[organizer] = (organizerCount[organizer] ?? 0) + 1;
       }
       final mostActiveOrganizer = organizerCount.isNotEmpty
@@ -401,12 +401,8 @@ class AdminProvider with ChangeNotifier {
 
       // Generate recent activities (simplified)
       final recentActivities = <String>[];
-      final recentEvents =
-          allEvents.where((event) => event.createdAt != null).toList()..sort(
-            (a, b) => (b.createdAt ?? DateTime.now()).compareTo(
-              a.createdAt ?? DateTime.now(),
-            ),
-          );
+      final recentEvents = allEvents.toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
       for (final event in recentEvents.take(5)) {
         recentActivities.add('${event.title} was ${event.status}');

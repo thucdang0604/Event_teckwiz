@@ -18,10 +18,10 @@ class AdminLocationsScreen extends StatefulWidget {
 
 class _AdminLocationsScreenState extends State<AdminLocationsScreen>
     with TickerProviderStateMixin {
-  int _currentIndex = 3; // Locations tab
+  final int _currentIndex = 3; // Locations tab
   String _searchQuery = '';
   String _sortBy = 'name_asc';
-  Set<String> _selectedLocations = {};
+  final Set<String> _selectedLocations = {};
   bool _isSelectionMode = false;
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;

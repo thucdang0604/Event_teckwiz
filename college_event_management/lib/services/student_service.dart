@@ -145,7 +145,7 @@ class StudentService {
       QuerySnapshot snapshot = await _firestore
           .collection(_collectionName)
           .where('fullName', isGreaterThanOrEqualTo: query)
-          .where('fullName', isLessThan: query + 'z')
+          .where('fullName', isLessThan: '${query}z')
           .orderBy('fullName')
           .get();
 
@@ -157,7 +157,7 @@ class StudentService {
         (await _firestore
                 .collection(_collectionName)
                 .where('studentId', isGreaterThanOrEqualTo: query)
-                .where('studentId', isLessThan: query + 'z')
+                .where('studentId', isLessThan: '${query}z')
                 .orderBy('studentId')
                 .get())
             .docs
@@ -169,7 +169,7 @@ class StudentService {
         (await _firestore
                 .collection(_collectionName)
                 .where('email', isGreaterThanOrEqualTo: query.toLowerCase())
-                .where('email', isLessThan: query.toLowerCase() + 'z')
+                .where('email', isLessThan: '${query.toLowerCase()}z')
                 .orderBy('email')
                 .get())
             .docs

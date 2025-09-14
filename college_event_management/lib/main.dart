@@ -16,6 +16,7 @@ import 'screens/home/home_screen.dart';
 import 'screens/events/event_detail_screen.dart';
 import 'screens/events/create_event_screen.dart';
 import 'screens/events/event_registrations_screen.dart';
+import 'screens/events/event_registration_screen.dart';
 import 'screens/qr/qr_scanner_screen.dart';
 import 'screens/chat/event_chat_screen.dart';
 import 'screens/profile/profile_screen.dart';
@@ -151,8 +152,16 @@ final GoRouter _router = GoRouter(
     GoRoute(
       path: '/event/:eventId/register',
       builder: (context, state) {
-        // This would need to be passed from the previous screen
-        return const SizedBox(); // Placeholder
+        final eventId = state.pathParameters['eventId']!;
+        return Consumer<EventProvider>(
+          builder: (context, eventProvider, child) {
+            final event = eventProvider.events.firstWhere(
+              (e) => e.id == eventId,
+              orElse: () => throw Exception('Event not found'),
+            );
+            return EventRegistrationScreen(event: event);
+          },
+        );
       },
     ),
     GoRoute(

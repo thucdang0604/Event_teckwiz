@@ -17,6 +17,16 @@ class RegistrationModel {
   final DateTime? attendedAt;
   final DateTime? checkedOutAt;
   final String? notes;
+  final bool isPaid;
+  final DateTime? paidAt;
+  final String? paymentId;
+  final String? paymentMethod;
+  final double? amountPaid;
+  final bool isRefunded;
+  final DateTime? refundedAt;
+  final String? refundId;
+  final String? refundMethod;
+  final double? refundAmount;
 
   RegistrationModel({
     required this.id,
@@ -35,6 +45,16 @@ class RegistrationModel {
     this.attendedAt,
     this.checkedOutAt,
     this.notes,
+    this.isPaid = false,
+    this.paidAt,
+    this.paymentId,
+    this.paymentMethod,
+    this.amountPaid,
+    this.isRefunded = false,
+    this.refundedAt,
+    this.refundId,
+    this.refundMethod,
+    this.refundAmount,
   });
 
   factory RegistrationModel.fromFirestore(DocumentSnapshot doc) {
@@ -64,6 +84,20 @@ class RegistrationModel {
           ? (data['checkedOutAt'] as Timestamp).toDate()
           : null,
       notes: data['notes'],
+      isPaid: data['isPaid'] ?? false,
+      paidAt: data['paidAt'] != null
+          ? (data['paidAt'] as Timestamp).toDate()
+          : null,
+      paymentId: data['paymentId'],
+      paymentMethod: data['paymentMethod'],
+      amountPaid: data['amountPaid']?.toDouble(),
+      isRefunded: data['isRefunded'] ?? false,
+      refundedAt: data['refundedAt'] != null
+          ? (data['refundedAt'] as Timestamp).toDate()
+          : null,
+      refundId: data['refundId'],
+      refundMethod: data['refundMethod'],
+      refundAmount: data['refundAmount']?.toDouble(),
     );
   }
 
@@ -86,6 +120,16 @@ class RegistrationModel {
           ? Timestamp.fromDate(checkedOutAt!)
           : null,
       'notes': notes,
+      'isPaid': isPaid,
+      'paidAt': paidAt != null ? Timestamp.fromDate(paidAt!) : null,
+      'paymentId': paymentId,
+      'paymentMethod': paymentMethod,
+      'amountPaid': amountPaid,
+      'isRefunded': isRefunded,
+      'refundedAt': refundedAt != null ? Timestamp.fromDate(refundedAt!) : null,
+      'refundId': refundId,
+      'refundMethod': refundMethod,
+      'refundAmount': refundAmount,
     };
   }
 
@@ -106,6 +150,16 @@ class RegistrationModel {
     DateTime? attendedAt,
     DateTime? checkedOutAt,
     String? notes,
+    bool? isPaid,
+    DateTime? paidAt,
+    String? paymentId,
+    String? paymentMethod,
+    double? amountPaid,
+    bool? isRefunded,
+    DateTime? refundedAt,
+    String? refundId,
+    String? refundMethod,
+    double? refundAmount,
   }) {
     return RegistrationModel(
       id: id ?? this.id,
@@ -124,6 +178,16 @@ class RegistrationModel {
       attendedAt: attendedAt ?? this.attendedAt,
       checkedOutAt: checkedOutAt ?? this.checkedOutAt,
       notes: notes ?? this.notes,
+      isPaid: isPaid ?? this.isPaid,
+      paidAt: paidAt ?? this.paidAt,
+      paymentId: paymentId ?? this.paymentId,
+      paymentMethod: paymentMethod ?? this.paymentMethod,
+      amountPaid: amountPaid ?? this.amountPaid,
+      isRefunded: isRefunded ?? this.isRefunded,
+      refundedAt: refundedAt ?? this.refundedAt,
+      refundId: refundId ?? this.refundId,
+      refundMethod: refundMethod ?? this.refundMethod,
+      refundAmount: refundAmount ?? this.refundAmount,
     );
   }
 
@@ -131,4 +195,6 @@ class RegistrationModel {
   bool get isApproved => status == 'approved';
   bool get isRejected => status == 'rejected';
   bool get isCancelled => status == 'cancelled';
+  bool get isPaidStatus => isPaid;
+  bool get hasRefund => isRefunded;
 }

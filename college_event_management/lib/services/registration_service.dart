@@ -1,10 +1,15 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/registration_model.dart';
 import '../models/support_registration_model.dart';
+import '../models/event_model.dart';
 import '../constants/app_constants.dart';
+import 'notification_service.dart';
+import 'event_service.dart';
+import 'payment_service.dart';
 
 class RegistrationService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final PaymentService _paymentService = PaymentService();
 
   // Đăng ký tham gia sự kiện
   Future<String> registerForEvent({
@@ -15,11 +20,19 @@ class RegistrationService {
     Map<String, dynamic>? additionalInfo,
   }) async {
     try {
-      // Kiểm tra xem đã đăng ký chưa
+      // Kiểm tra xem đã đăng ký chưa (chỉ kiểm tra đăng ký active)
       bool alreadyRegistered = await isUserRegisteredForEvent(eventId, userId);
       if (alreadyRegistered) {
         throw Exception('Bạn đã đăng ký sự kiện này rồi');
       }
+
+      // Kiểm tra xem có đăng ký cancelled không (đơn giản hóa để tránh lỗi index)
+      QuerySnapshot cancelledRegistrations = await _firestore
+          .collection(AppConstants.registrationsCollection)
+          .where('eventId', isEqualTo: eventId)
+          .where('userId', isEqualTo: userId)
+          .where('status', isEqualTo: AppConstants.registrationCancelled)
+          .get();
 
       // Tạo mã QR cho đăng ký
       String qrCode =
@@ -47,9 +60,138 @@ class RegistrationService {
     }
   }
 
+  // Đăng ký tham gia sự kiện với thanh toán
+  Future<String> registerForEventWithPayment({
+    required String eventId,
+    required String userId,
+    required String userEmail,
+    required String userName,
+    required String paymentMethod,
+    Map<String, dynamic>? additionalInfo,
+  }) async {
+    try {
+      // Lấy thông tin sự kiện để kiểm tra phíR=
+      EventModel? event = await EventService().getEventById(eventId);
+      if (event == null) {
+        throw Exception('Sự kiện không tồn tại');
+      }
+
+      // Kiểm tra xem đã đăng ký chưa (chỉ kiểm tra đăng ký active)
+      bool alreadyRegistered = await isUserRegisteredForEvent(eventId, userId);
+      if (alreadyRegistered) {
+        throw Exception('Bạn đã đăng ký sự kiện này rồi');
+      }
+
+      // Kiểm tra xem có đăng ký cancelled không (đơn giản hóa để tránh lỗi index)
+      QuerySnapshot cancelledRegistrations = await _firestore
+          .collection(AppConstants.registrationsCollection)
+          .where('eventId', isEqualTo: eventId)
+          .where('userId', isEqualTo: userId)
+          .where('status', isEqualTo: AppConstants.registrationCancelled)
+          .get();
+
+      if (cancelledRegistrations.docs.isNotEmpty) {
+        // Chỉ kiểm tra đăng ký cancelled gần đây nhất
+        var latestCancelled = cancelledRegistrations.docs.first;
+        var data = latestCancelled.data() as Map<String, dynamic>;
+        if (data['updatedAt'] != null) {
+          DateTime updatedAt = (data['updatedAt'] as Timestamp).toDate();
+          if (updatedAt.isAfter(
+            DateTime.now().subtract(const Duration(minutes: 1)),
+          )) {
+            throw Exception(
+              'Bạn vừa hủy đăng ký. Vui lòng đợi 1 phút trước khi đăng ký lại',
+            );
+          }
+        }
+      }
+
+      // Tạo mã QR cho đăng ký
+      String qrCode =
+          'EVENT_${eventId}_USER_${userId}_${DateTime.now().millisecondsSinceEpoch}';
+
+      // Xử lý thanh toán nếu sự kiện có phí
+      String? paymentId;
+      DateTime? paidAt;
+      double? amountPaid;
+
+      if (_paymentService.requiresPayment(event)) {
+        Map<String, dynamic> paymentResult = await _paymentService
+            .processMockPayment(
+              eventId: eventId,
+              userId: userId,
+              userEmail: userEmail,
+              userName: userName,
+              amount: event.price!,
+              paymentMethod: paymentMethod,
+            );
+
+        if (!paymentResult['success']) {
+          throw Exception('Thanh toán thất bại');
+        }
+
+        paymentId = paymentResult['paymentId'];
+        paidAt = paymentResult['paidAt'];
+        amountPaid = paymentResult['amount'];
+      }
+
+      // Tự động approve nếu đã thanh toán
+      String registrationStatus = paymentId != null
+          ? AppConstants.registrationApproved
+          : AppConstants.registrationPending;
+
+      RegistrationModel registration = RegistrationModel(
+        id: '', // Sẽ được tạo tự động
+        eventId: eventId,
+        userId: userId,
+        userEmail: userEmail,
+        userName: userName,
+        status: registrationStatus,
+        registeredAt: DateTime.now(),
+        additionalInfo: additionalInfo,
+        qrCode: qrCode,
+        isPaid: paymentId != null,
+        paidAt: paidAt,
+        paymentId: paymentId,
+        paymentMethod: paymentId != null ? paymentMethod : null,
+        amountPaid: amountPaid,
+        // Tự động set thời gian approve nếu đã thanh toán
+        approvedAt: paymentId != null ? DateTime.now() : null,
+        approvedBy: paymentId != null ? 'system' : null,
+      );
+
+      DocumentReference docRef = await _firestore
+          .collection(AppConstants.registrationsCollection)
+          .add(registration.toFirestore());
+
+      return docRef.id;
+    } catch (e) {
+      throw Exception('Lỗi đăng ký sự kiện: ${e.toString()}');
+    }
+  }
+
   // Hủy đăng ký
   Future<void> cancelRegistration(String registrationId) async {
     try {
+      // Lấy thông tin đăng ký trước khi hủy
+      DocumentSnapshot registrationDoc = await _firestore
+          .collection(AppConstants.registrationsCollection)
+          .doc(registrationId)
+          .get();
+
+      if (!registrationDoc.exists) {
+        throw Exception('Đăng ký không tồn tại');
+      }
+
+      Map<String, dynamic> registrationData =
+          registrationDoc.data() as Map<String, dynamic>;
+      String userId = registrationData['userId'] ?? '';
+      String eventId = registrationData['eventId'] ?? '';
+
+      // Lấy thông tin sự kiện để xác định điều kiện hoàn tiền
+      EventModel? event = await EventService().getEventById(eventId);
+
+      // Cập nhật trạng thái đăng ký
       await _firestore
           .collection(AppConstants.registrationsCollection)
           .doc(registrationId)
@@ -57,6 +199,75 @@ class RegistrationService {
             'status': AppConstants.registrationCancelled,
             'updatedAt': Timestamp.fromDate(DateTime.now()),
           });
+
+      // Xử lý hoàn tiền nếu đã thanh toán và sự kiện chưa bắt đầu và chưa tham dự
+      if ((registrationData['isPaid'] == true) &&
+          (registrationData['attended'] != true)) {
+        final DateTime now = DateTime.now();
+        final bool eventNotStarted = event == null
+            ? true
+            : now.isBefore(event.startDate);
+        if (eventNotStarted) {
+          try {
+            final double amount = (registrationData['amountPaid'] ?? 0)
+                .toDouble();
+            final String paymentId = registrationData['paymentId'] ?? '';
+            if (amount > 0 && paymentId.isNotEmpty) {
+              final refund = await _paymentService.processMockRefund(
+                paymentId: paymentId,
+                amount: amount,
+                method: registrationData['paymentMethod'] ?? 'bank_transfer',
+              );
+              await _firestore
+                  .collection(AppConstants.registrationsCollection)
+                  .doc(registrationId)
+                  .update({
+                    'isRefunded': true,
+                    'refundedAt': Timestamp.fromDate(refund['refundedAt']),
+                    'refundId': refund['refundId'],
+                    'refundMethod': refund['refundMethod'],
+                    'refundAmount': refund['refundAmount'],
+                  });
+            }
+          } catch (e) {
+            print('Refund error: $e');
+          }
+        }
+      }
+
+      // Lấy thông tin sự kiện để gửi thông báo
+      try {
+        if (event != null) {
+          // Gửi thông báo đến user
+          await NotificationService.sendNotificationToUser(
+            userId: userId,
+            title: 'Đăng ký sự kiện đã được hủy',
+            body: 'Bạn đã hủy đăng ký sự kiện "${event.title}" thành công.',
+            type: NotificationType.registrationCancelled,
+            data: {
+              'eventId': eventId,
+              'registrationId': registrationId,
+              'eventTitle': event.title,
+            },
+          );
+
+          // Gửi thông báo đến admin
+          await NotificationService.sendNotificationToAdmin(
+            title: 'Sinh viên hủy đăng ký sự kiện',
+            body: 'Một sinh viên đã hủy đăng ký sự kiện "${event.title}"',
+            type: NotificationType.registrationCancelled,
+            data: {
+              'eventId': eventId,
+              'registrationId': registrationId,
+              'eventTitle': event.title,
+              'userId': userId,
+            },
+          );
+        }
+      } catch (notificationError) {
+        print('Error sending notification: $notificationError');
+        // Không throw error vì việc hủy đăng ký đã thành công
+      }
     } catch (e) {
       throw Exception('Lỗi hủy đăng ký: ${e.toString()}');
     }
@@ -84,21 +295,32 @@ class RegistrationService {
     }
   }
 
-  // Lấy đăng ký của người dùng cho một sự kiện
+  // Lấy đăng ký của người dùng cho một sự kiện (ưu tiên đăng ký active)
   Future<RegistrationModel?> getUserRegistrationForEvent(
     String eventId,
     String userId,
   ) async {
     try {
+      // Tránh yêu cầu composite index: bỏ orderBy và xử lý sort phía client
       QuerySnapshot snapshot = await _firestore
           .collection(AppConstants.registrationsCollection)
           .where('eventId', isEqualTo: eventId)
           .where('userId', isEqualTo: userId)
-          .limit(1)
           .get();
 
       if (snapshot.docs.isNotEmpty) {
-        return RegistrationModel.fromFirestore(snapshot.docs.first);
+        // Map về model và sắp xếp theo registeredAt mới nhất
+        final list = snapshot.docs
+            .map((doc) => RegistrationModel.fromFirestore(doc))
+            .toList();
+        list.sort((a, b) => b.registeredAt.compareTo(a.registeredAt));
+
+        // Ưu tiên registration không bị huỷ
+        final active = list.firstWhere(
+          (r) => r.status != AppConstants.registrationCancelled,
+          orElse: () => list.first,
+        );
+        return active;
       }
       return null;
     } catch (e) {
@@ -106,12 +328,19 @@ class RegistrationService {
     }
   }
 
-  // Lấy danh sách đăng ký của người dùng
+  // Lấy danh sách đăng ký của người dùng (chỉ đăng ký active)
   Future<List<RegistrationModel>> getUserRegistrations(String userId) async {
     try {
       QuerySnapshot snapshot = await _firestore
           .collection(AppConstants.registrationsCollection)
           .where('userId', isEqualTo: userId)
+          .where(
+            'status',
+            whereIn: [
+              AppConstants.registrationPending,
+              AppConstants.registrationApproved,
+            ],
+          )
           .get();
 
       final registrations = snapshot.docs
@@ -124,11 +353,18 @@ class RegistrationService {
     }
   }
 
-  // Stream đăng ký của người dùng
+  // Stream đăng ký của người dùng (chỉ đăng ký active)
   Stream<List<RegistrationModel>> getUserRegistrationsStream(String userId) {
     return _firestore
         .collection(AppConstants.registrationsCollection)
         .where('userId', isEqualTo: userId)
+        .where(
+          'status',
+          whereIn: [
+            AppConstants.registrationPending,
+            AppConstants.registrationApproved,
+          ],
+        )
         .snapshots()
         .map((snapshot) {
           final registrations = snapshot.docs
@@ -139,6 +375,24 @@ class RegistrationService {
           );
           return registrations;
         });
+  }
+
+  // Lấy tất cả đăng ký của người dùng (bao gồm cancelled) - dành cho admin
+  Future<List<RegistrationModel>> getAllUserRegistrations(String userId) async {
+    try {
+      QuerySnapshot snapshot = await _firestore
+          .collection(AppConstants.registrationsCollection)
+          .where('userId', isEqualTo: userId)
+          .get();
+
+      final registrations = snapshot.docs
+          .map((doc) => RegistrationModel.fromFirestore(doc))
+          .toList();
+      registrations.sort((a, b) => b.registeredAt.compareTo(a.registeredAt));
+      return registrations;
+    } catch (e) {
+      throw Exception('Lỗi lấy tất cả đăng ký: ${e.toString()}');
+    }
   }
 
   // Lấy danh sách đăng ký của một sự kiện
@@ -339,6 +593,22 @@ class RegistrationService {
   // Hủy đăng ký hỗ trợ
   Future<void> cancelSupportRegistration(String registrationId) async {
     try {
+      // Lấy thông tin đăng ký hỗ trợ trước khi hủy
+      DocumentSnapshot registrationDoc = await _firestore
+          .collection('support_registrations')
+          .doc(registrationId)
+          .get();
+
+      if (!registrationDoc.exists) {
+        throw Exception('Đăng ký hỗ trợ không tồn tại');
+      }
+
+      Map<String, dynamic> registrationData =
+          registrationDoc.data() as Map<String, dynamic>;
+      String userId = registrationData['userId'] ?? '';
+      String eventId = registrationData['eventId'] ?? '';
+
+      // Cập nhật trạng thái đăng ký hỗ trợ
       await _firestore
           .collection('support_registrations')
           .doc(registrationId)
@@ -346,6 +616,45 @@ class RegistrationService {
             'status': AppConstants.registrationCancelled,
             'updatedAt': Timestamp.fromDate(DateTime.now()),
           });
+
+      // Lấy thông tin sự kiện để gửi thông báo
+      try {
+        EventModel? event = await EventService().getEventById(eventId);
+        if (event != null) {
+          // Gửi thông báo đến user
+          await NotificationService.sendNotificationToUser(
+            userId: userId,
+            title: 'Đăng ký hỗ trợ đã được hủy',
+            body:
+                'Bạn đã hủy đăng ký hỗ trợ sự kiện "${event.title}" thành công.',
+            type: NotificationType.registrationCancelled,
+            data: {
+              'eventId': eventId,
+              'registrationId': registrationId,
+              'eventTitle': event.title,
+              'isSupport': true,
+            },
+          );
+
+          // Gửi thông báo đến admin
+          await NotificationService.sendNotificationToAdmin(
+            title: 'Sinh viên hủy đăng ký hỗ trợ',
+            body:
+                'Một sinh viên đã hủy đăng ký hỗ trợ sự kiện "${event.title}"',
+            type: NotificationType.registrationCancelled,
+            data: {
+              'eventId': eventId,
+              'registrationId': registrationId,
+              'eventTitle': event.title,
+              'userId': userId,
+              'isSupport': true,
+            },
+          );
+        }
+      } catch (notificationError) {
+        print('Error sending notification: $notificationError');
+        // Không throw error vì việc hủy đăng ký đã thành công
+      }
     } catch (e) {
       throw Exception('Error cancelling support registration: ${e.toString()}');
     }

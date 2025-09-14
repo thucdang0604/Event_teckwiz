@@ -86,8 +86,9 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
   }
 
   Future<void> _markAttendance() async {
-    if (_scannedRegistration == null && _scannedSupportRegistration == null)
+    if (_scannedRegistration == null && _scannedSupportRegistration == null) {
       return;
+    }
 
     setState(() {
       _isLoading = true;

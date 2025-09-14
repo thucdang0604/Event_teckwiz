@@ -72,20 +72,12 @@ class CategoryFilter extends StatelessWidget {
 
   Color _getCategoryColor(String category) {
     switch (category) {
-      case 'Học thuật':
+      case 'Technology':
         return AppColors.academicColor;
-      case 'Thể thao':
+      case 'Sports':
         return AppColors.sportsColor;
-      case 'Văn hóa - Nghệ thuật':
+      case 'Culture':
         return AppColors.cultureColor;
-      case 'Tình nguyện':
-        return AppColors.volunteerColor;
-      case 'Kỹ năng mềm':
-        return AppColors.skillsColor;
-      case 'Hội thảo':
-        return AppColors.workshopColor;
-      case 'Triển lãm':
-        return AppColors.exhibitionColor;
       default:
         return AppColors.otherColor;
     }

@@ -35,14 +35,10 @@ class AppConstants {
 
   // Event Categories
   static const List<String> eventCategories = [
-    'Học thuật',
-    'Thể thao',
-    'Văn hóa - Nghệ thuật',
-    'Tình nguyện',
-    'Kỹ năng mềm',
-    'Hội thảo',
-    'Triển lãm',
-    'Khác',
+    'Technology',
+    'Culture',
+    'Sports',
+
   ];
 
   // UI Constants

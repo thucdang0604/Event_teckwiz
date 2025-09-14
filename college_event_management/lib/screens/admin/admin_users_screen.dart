@@ -17,12 +17,12 @@ class AdminUsersScreen extends StatefulWidget {
 
 class _AdminUsersScreenState extends State<AdminUsersScreen>
     with TickerProviderStateMixin {
-  int _currentIndex = 3; // Users tab
+  final int _currentIndex = 3; // Users tab
   String _searchQuery = '';
   String _roleFilter = 'all';
   String _statusFilter = 'all';
   String _approvalFilter = 'all';
-  Set<String> _selectedUsers = {};
+  final Set<String> _selectedUsers = {};
   bool _isSelectionMode = false;
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;

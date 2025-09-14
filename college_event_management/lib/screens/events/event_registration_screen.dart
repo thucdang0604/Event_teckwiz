@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:qr_flutter/qr_flutter.dart' as qr;
 import '../../providers/auth_provider.dart';
 import '../../providers/admin_provider.dart';
+import '../../providers/notification_provider.dart';
 import '../../services/registration_service.dart';
+import '../../services/payment_service.dart';
 import '../../models/event_model.dart';
 import '../../models/registration_model.dart';
 import '../../models/support_registration_model.dart';
@@ -27,11 +30,13 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
   final _formKey = GlobalKey<FormState>();
   final _additionalInfoController = TextEditingController();
   final _registrationService = RegistrationService();
+  final PaymentService _paymentService = PaymentService();
   bool _isLoading = false;
   String? _errorMessage;
   String _registrationType = 'participant'; // 'participant' or 'support'
   RegistrationModel? _myRegistration;
   SupportRegistrationModel? _mySupportRegistration;
+  String _selectedPaymentMethod = 'bank_transfer';
 
   @override
   void initState() {
@@ -97,16 +102,27 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
         final selectedLocationName = widget.event.location;
 
         if (_registrationType == 'participant') {
-          await _registrationService.registerForEvent(
-            eventId: widget.event.id,
-            userId: authProvider.currentUser!.id,
-            userEmail: authProvider.currentUser!.email,
-            userName: authProvider.currentUser!.fullName,
-            additionalInfo: {
-              'note': _additionalInfoController.text.trim(),
-              'location': selectedLocationName,
-            },
-          );
+          // Kiểm tra xem sự kiện có cần thanh toán không
+          if (_paymentService.requiresPayment(widget.event)) {
+            // Hiển thị dialog chọn phương thức thanh toán
+            setState(() {
+              _isLoading = false;
+            });
+            _showPaymentMethodDialog();
+            return;
+          } else {
+            // Đăng ký miễn phí
+            await _registrationService.registerForEvent(
+              eventId: widget.event.id,
+              userId: authProvider.currentUser!.id,
+              userEmail: authProvider.currentUser!.email,
+              userName: authProvider.currentUser!.fullName,
+              additionalInfo: {
+                'note': _additionalInfoController.text.trim(),
+                'location': selectedLocationName,
+              },
+            );
+          }
         } else {
           await _registrationService.registerForSupportStaff(
             eventId: widget.event.id,
@@ -131,6 +147,8 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
               backgroundColor: AppColors.success,
             ),
           );
+          // Delay một chút để đảm bảo data đã được lưu
+          await Future.delayed(const Duration(milliseconds: 500));
           await _loadMyRegistrations();
           context.pop();
         }
@@ -140,6 +158,54 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
           _isLoading = false;
         });
       }
+    }
+  }
+
+  void _showPaymentMethodDialog() {
+    showDialog(context: context, builder: (context) => _buildPaymentDialog());
+  }
+
+  void _processPayment() async {
+    setState(() {
+      _isLoading = true;
+    });
+    Navigator.of(context).pop(); // Đóng dialog
+
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final selectedLocationName = widget.event.location;
+
+      await _registrationService.registerForEventWithPayment(
+        eventId: widget.event.id,
+        userId: authProvider.currentUser!.id,
+        userEmail: authProvider.currentUser!.email,
+        userName: authProvider.currentUser!.fullName,
+        paymentMethod: _selectedPaymentMethod,
+        additionalInfo: {
+          'note': _additionalInfoController.text.trim(),
+          'location': selectedLocationName,
+        },
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Đăng ký và thanh toán thành công! Đã được tự động duyệt.',
+            ),
+            backgroundColor: AppColors.success,
+          ),
+        );
+        // Delay một chút để đảm bảo data đã được lưu
+        await Future.delayed(const Duration(milliseconds: 500));
+        await _loadMyRegistrations();
+        Navigator.of(context).pop();
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
     }
   }
 
@@ -165,6 +231,13 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
           ),
         );
         await _loadMyRegistrations();
+
+        // Refresh notification provider
+        final notificationProvider = Provider.of<NotificationProvider>(
+          context,
+          listen: false,
+        );
+        await notificationProvider.forceRefresh();
       }
     } catch (e) {
       setState(() {
@@ -175,6 +248,218 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  void _showQRCode() {
+    if (_myRegistration != null) {
+      _showQRCodeDialog(
+        _myRegistration!,
+        'Participant QR Code',
+        'Registration',
+      );
+    } else if (_mySupportRegistration != null) {
+      _showQRCodeDialog(
+        _mySupportRegistration!,
+        'Support Staff QR Code',
+        'Support',
+      );
+    }
+  }
+
+  void _showQRCodeDialog(dynamic registration, String title, String type) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE5E7EB), width: 1),
+              ),
+              child: Column(
+                children: [
+                  // QR Code Widget
+                  SizedBox(
+                    width: 120,
+                    height: 120,
+                    child: qr.QrImageView(
+                      data: registration.qrCode ?? '',
+                      version: qr.QrVersions.auto,
+                      size: 120,
+                      backgroundColor: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '$type ID: ${registration.id.substring(0, 8)}...',
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: Color(0xFF9CA3AF),
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Show this QR code at the event for check-in',
+              style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPaymentDialog() {
+    return AlertDialog(
+      title: Row(
+        children: [
+          Icon(Icons.account_balance, color: AppColors.primary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Thanh toán qua ngân hàng',
+              style: const TextStyle(fontSize: 18),
+            ),
+          ),
+        ],
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    const Text('🏦', style: TextStyle(fontSize: 24)),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Chuyển khoản ngân hàng',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const Text(
+                            'Thanh toán qua chuyển khoản ngân hàng',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Column(
+                    children: [
+                      const Text(
+                        'Số tiền cần thanh toán:',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        NumberFormat.currency(
+                          locale: 'vi_VN',
+                          symbol: '₫',
+                        ).format(widget.event.price),
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.info.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.info, color: AppColors.info, size: 16),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Đây là thanh toán giả lập. Sau khi thanh toán thành công, đăng ký sẽ được tự động duyệt.',
+                          style: TextStyle(fontSize: 12, color: AppColors.info),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            Navigator.of(context).pop();
+          },
+          child: const Text('Hủy'),
+        ),
+        ElevatedButton(
+          onPressed: _isLoading ? null : _processPayment,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+          ),
+          child: _isLoading
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                )
+              : const Text('Xác nhận thanh toán'),
+        ),
+      ],
+    );
   }
 
   @override
@@ -211,9 +496,11 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
       );
     }
 
-    // Check if user already has any registration
+    // Check if user already has any active registration (not cancelled)
     final bool hasAnyRegistration =
-        _myRegistration != null || _mySupportRegistration != null;
+        (_myRegistration != null && !_myRegistration!.isCancelled) ||
+        (_mySupportRegistration != null &&
+            !_mySupportRegistration!.isCancelled);
     final bool canRegister =
         widget.event.isRegistrationOpen && !hasAnyRegistration;
 
@@ -239,6 +526,9 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
                             _myRegistration?.isApproved == true ||
                                 _mySupportRegistration?.isApproved == true
                             ? AppColors.success.withOpacity(0.1)
+                            : _myRegistration?.isCancelled == true ||
+                                  _mySupportRegistration?.isCancelled == true
+                            ? AppColors.error.withOpacity(0.1)
                             : AppColors.warning.withOpacity(0.1),
                         child: Padding(
                           padding: const EdgeInsets.all(16),
@@ -253,6 +543,12 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
                                                     ?.isApproved ==
                                                 true
                                         ? Icons.check_circle
+                                        : _myRegistration?.isCancelled ==
+                                                  true ||
+                                              _mySupportRegistration
+                                                      ?.isCancelled ==
+                                                  true
+                                        ? Icons.cancel_outlined
                                         : Icons.schedule,
                                     color:
                                         _myRegistration?.isApproved == true ||
@@ -260,6 +556,12 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
                                                     ?.isApproved ==
                                                 true
                                         ? AppColors.success
+                                        : _myRegistration?.isCancelled ==
+                                                  true ||
+                                              _mySupportRegistration
+                                                      ?.isCancelled ==
+                                                  true
+                                        ? AppColors.error
                                         : AppColors.warning,
                                   ),
                                   const SizedBox(width: 8),
@@ -279,28 +581,54 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
                                 _myRegistration?.isApproved == true ||
                                         _mySupportRegistration?.isApproved ==
                                             true
-                                    ? 'Your registration has been approved!'
-                                    : 'Your registration is pending approval.',
+                                    ? _myRegistration?.isPaid == true
+                                          ? 'Đăng ký đã được duyệt! (Đã thanh toán)'
+                                          : 'Đăng ký đã được duyệt!'
+                                    : _myRegistration?.isCancelled == true ||
+                                          _mySupportRegistration?.isCancelled ==
+                                              true
+                                    ? 'Đăng ký đã bị hủy.'
+                                    : 'Đăng ký đang chờ duyệt.',
                                 style: const TextStyle(fontSize: 14),
                               ),
-                              const SizedBox(height: 12),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: ElevatedButton.icon(
-                                      onPressed: _isLoading
-                                          ? null
-                                          : _cancelRegistration,
-                                      icon: const Icon(Icons.cancel),
-                                      label: const Text('Cancel Registration'),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: AppColors.error,
-                                        foregroundColor: AppColors.white,
+                              if (!(_myRegistration?.isCancelled == true ||
+                                  _mySupportRegistration?.isCancelled ==
+                                      true)) ...[
+                                const SizedBox(height: 12),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: ElevatedButton.icon(
+                                        onPressed: _isLoading
+                                            ? null
+                                            : _cancelRegistration,
+                                        icon: const Icon(Icons.cancel),
+                                        label: const Text(
+                                          'Cancel Registration',
+                                        ),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: AppColors.error,
+                                          foregroundColor: AppColors.white,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                ],
-                              ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: ElevatedButton.icon(
+                                        onPressed: _isLoading
+                                            ? null
+                                            : _showQRCode,
+                                        icon: const Icon(Icons.qr_code),
+                                        label: const Text('Show QR'),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: AppColors.primary,
+                                          foregroundColor: AppColors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ],
                           ),
                         ),
@@ -467,6 +795,29 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
                                   ],
                                 ),
                                 const SizedBox(height: 8),
+                                // Hiển thị giá sự kiện
+                                if (!widget.event.isFree &&
+                                    widget.event.price != null) ...[
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Icons.attach_money,
+                                        size: 16,
+                                        color: AppColors.primary,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'Phí tham gia: ${NumberFormat.currency(locale: 'vi_VN', symbol: '₫').format(widget.event.price)}',
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          color: AppColors.primary,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                ],
                                 Row(
                                   children: [
                                     Icon(

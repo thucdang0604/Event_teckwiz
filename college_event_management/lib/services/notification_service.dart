@@ -9,6 +9,7 @@ enum NotificationType {
   eventCancelled,
   registrationConfirmed,
   registrationRejected,
+  registrationCancelled,
   eventReminder,
   systemAnnouncement,
   chatMessage,

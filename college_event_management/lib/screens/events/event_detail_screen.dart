@@ -103,6 +103,9 @@ class _EventDetailScreenState extends State<EventDetailScreen>
     final user = Provider.of<AuthProvider>(context, listen: false).currentUser;
     if (user == null || _event == null) return;
     try {
+      // Delay một chút để đảm bảo data đã được cập nhật
+      await Future.delayed(const Duration(milliseconds: 500));
+
       final participantReg = await _registrationService
           .getUserRegistrationForEvent(_event!.id, user.id);
       final supportReg = await _registrationService
@@ -234,10 +237,12 @@ class _EventDetailScreenState extends State<EventDetailScreen>
         !(isAdmin || isOrganizerRole || isEventOrganizer);
     final bool hasActiveRegistration =
         (_myRegistration != null &&
-            (_myRegistration!.isPending || _myRegistration!.isApproved)) ||
+            (_myRegistration!.isPending || _myRegistration!.isApproved) &&
+            !_myRegistration!.isCancelled) ||
         (_mySupportRegistration != null &&
             (_mySupportRegistration!.isPending ||
-                _mySupportRegistration!.isApproved));
+                _mySupportRegistration!.isApproved) &&
+            !_mySupportRegistration!.isCancelled);
     final bool canRegister = canRegisterBase && !hasActiveRegistration;
 
     return Scaffold(
@@ -890,6 +895,8 @@ class _EventDetailScreenState extends State<EventDetailScreen>
     final isEventHost = _event!.organizerId == currentUser?.id;
     final isCoOrganizer = _event!.coOrganizers.contains(currentUser?.id);
     final isEventOrganizer = isEventHost || isCoOrganizer;
+    final bool showQrButton =
+        _myRegistration?.isApproved == true && !isEventOrganizer;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -936,6 +943,46 @@ class _EventDetailScreenState extends State<EventDetailScreen>
                   },
                 ),
               ),
+
+              // View QR when approved (for student)
+              if (showQrButton) ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildActionButton(
+                    icon: Icons.qr_code,
+                    label: 'View\nQR Code',
+                    color: AppColors.success,
+                    onPressed: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) {
+                          return AlertDialog(
+                            title: const Text('Check-in QR Code'),
+                            content: SizedBox(
+                              width: 240,
+                              height: 240,
+                              child: Center(
+                                child: _myRegistration?.qrCode != null
+                                    ? qr.QrImageView(
+                                        data: _myRegistration!.qrCode!,
+                                        version: qr.QrVersions.auto,
+                                      )
+                                    : const Text('No QR Code'),
+                              ),
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text('Close'),
+                              ),
+                            ],
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
 
               if (isEventOrganizer) ...[
                 const SizedBox(width: 8),
@@ -1085,20 +1132,13 @@ class _EventDetailScreenState extends State<EventDetailScreen>
 
   Color _getCategoryColor(String category) {
     switch (category) {
-      case 'Học thuật':
+      case 'Technology':
         return AppColors.academicColor;
-      case 'Thể thao':
+      case 'Sports':
         return AppColors.sportsColor;
-      case 'Văn hóa - Nghệ thuật':
+      case 'Culture':
         return AppColors.cultureColor;
-      case 'Tình nguyện':
-        return AppColors.volunteerColor;
-      case 'Kỹ năng mềm':
-        return AppColors.skillsColor;
-      case 'Hội thảo':
-        return AppColors.workshopColor;
-      case 'Triển lãm':
-        return AppColors.exhibitionColor;
+
       default:
         return AppColors.otherColor;
     }
@@ -1169,111 +1209,76 @@ class _EventDetailScreenState extends State<EventDetailScreen>
   Widget? _buildFloatingActionButton({
     required bool isAdmin,
     required bool isOrganizerRole,
-    required bool
-    isEventHost, // Note: this now includes both organizer and co-organizer
+    required bool isEventHost,
     required bool canRegister,
     required bool hasActiveRegistration,
   }) {
     if (_event == null) return null;
     if (isAdmin || isOrganizerRole || isEventHost) return null;
 
-    // If approved registration exists, show View QR button
-    if (_myRegistration != null && _myRegistration!.isApproved) {
-      return FloatingActionButton.extended(
-        onPressed: () {
-          showDialog(
-            context: context,
-            builder: (context) {
-              return AlertDialog(
-                title: const Text('Check-in QR Code'),
-                content: SizedBox(
-                  width: 240,
-                  height: 240,
-                  child: Center(
-                    child: _myRegistration!.qrCode != null
-                        ? qr.QrImageView(
-                            data: _myRegistration!.qrCode!,
-                            version: qr.QrVersions.auto,
-                          )
-                        : const Text('No QR Code'),
-                  ),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Close'),
-                  ),
-                ],
-              );
-            },
-          );
-        },
-        backgroundColor: AppColors.success,
-        icon: const Icon(Icons.qr_code, color: AppColors.white),
-        label: const Text(
-          'View QR Code',
-          style: TextStyle(color: AppColors.white),
-        ),
-      );
-    }
-
-    // Show registration options or status
-    // Only allow registration for published events
     if (_event!.isRegistrationOpen) {
       if (hasActiveRegistration) {
-        // Show current registration status
         String buttonText = '';
         Color buttonColor = AppColors.warning;
         IconData buttonIcon = Icons.hourglass_top;
+        bool canCancel = false;
 
         if (_myRegistration != null) {
           if (_myRegistration!.isPending) {
             buttonText = 'Participant Registration Pending';
             buttonColor = AppColors.warning;
             buttonIcon = Icons.hourglass_top;
+            canCancel = true;
           } else if (_myRegistration!.isApproved) {
             buttonText = 'Participant Registration Approved';
             buttonColor = AppColors.success;
             buttonIcon = Icons.check_circle;
+            canCancel = true;
           } else if (_myRegistration!.isRejected) {
             buttonText = 'Participant Registration Rejected';
             buttonColor = AppColors.error;
             buttonIcon = Icons.cancel;
+            canCancel = false;
           }
         } else if (_mySupportRegistration != null) {
           if (_mySupportRegistration!.isPending) {
             buttonText = 'Support Staff Registration Pending';
             buttonColor = AppColors.warning;
             buttonIcon = Icons.hourglass_top;
+            canCancel = true;
           } else if (_mySupportRegistration!.isApproved) {
             buttonText = 'Support Staff Registration Approved';
             buttonColor = AppColors.success;
             buttonIcon = Icons.check_circle;
+            canCancel = true;
           } else if (_mySupportRegistration!.isRejected) {
             buttonText = 'Support Staff Registration Rejected';
             buttonColor = AppColors.error;
             buttonIcon = Icons.cancel;
+            canCancel = false;
           }
         }
 
         return FloatingActionButton.extended(
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => EventRegistrationScreen(event: _event!),
-              ),
-            ).then((_) => _loadMyRegistrationIfNeeded());
-          },
+          onPressed: canCancel
+              ? () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          EventRegistrationScreen(event: _event!),
+                    ),
+                  ).then((_) => _loadMyRegistrationIfNeeded());
+                }
+              : null,
           backgroundColor: buttonColor,
           icon: Icon(buttonIcon, color: AppColors.white),
           label: Text(
-            buttonText,
+            canCancel ? 'Cancel Registration' : buttonText,
             style: const TextStyle(color: AppColors.white),
           ),
         );
       } else {
-        // Show registration options
         return FloatingActionButton.extended(
           onPressed: canRegister
               ? () {
