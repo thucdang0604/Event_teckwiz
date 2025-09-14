@@ -17,6 +17,13 @@ class RegistrationModel {
   final DateTime? attendedAt;
   final DateTime? checkedOutAt;
   final String? notes;
+  final bool isPaid;
+  final double? amountPaid;
+  final DateTime? paidAt;
+  final String? paymentMethod;
+  final String? paymentId;
+  final bool isInQueue;
+  final int? queuePosition;
 
   RegistrationModel({
     required this.id,
@@ -35,6 +42,13 @@ class RegistrationModel {
     this.attendedAt,
     this.checkedOutAt,
     this.notes,
+    this.isPaid = false,
+    this.amountPaid,
+    this.paidAt,
+    this.paymentMethod,
+    this.paymentId,
+    this.isInQueue = false,
+    this.queuePosition,
   });
 
   factory RegistrationModel.fromFirestore(DocumentSnapshot doc) {
@@ -64,6 +78,15 @@ class RegistrationModel {
           ? (data['checkedOutAt'] as Timestamp).toDate()
           : null,
       notes: data['notes'],
+      isPaid: data['isPaid'] ?? false,
+      amountPaid: data['amountPaid']?.toDouble(),
+      paidAt: data['paidAt'] != null
+          ? (data['paidAt'] as Timestamp).toDate()
+          : null,
+      paymentMethod: data['paymentMethod'],
+      paymentId: data['paymentId'],
+      isInQueue: data['isInQueue'] ?? false,
+      queuePosition: data['queuePosition'],
     );
   }
 
@@ -86,6 +109,13 @@ class RegistrationModel {
           ? Timestamp.fromDate(checkedOutAt!)
           : null,
       'notes': notes,
+      'isPaid': isPaid,
+      'amountPaid': amountPaid,
+      'paidAt': paidAt != null ? Timestamp.fromDate(paidAt!) : null,
+      'paymentMethod': paymentMethod,
+      'paymentId': paymentId,
+      'isInQueue': isInQueue,
+      'queuePosition': queuePosition,
     };
   }
 
@@ -106,6 +136,13 @@ class RegistrationModel {
     DateTime? attendedAt,
     DateTime? checkedOutAt,
     String? notes,
+    bool? isPaid,
+    double? amountPaid,
+    DateTime? paidAt,
+    String? paymentMethod,
+    String? paymentId,
+    bool? isInQueue,
+    int? queuePosition,
   }) {
     return RegistrationModel(
       id: id ?? this.id,
@@ -124,6 +161,13 @@ class RegistrationModel {
       attendedAt: attendedAt ?? this.attendedAt,
       checkedOutAt: checkedOutAt ?? this.checkedOutAt,
       notes: notes ?? this.notes,
+      isPaid: isPaid ?? this.isPaid,
+      amountPaid: amountPaid ?? this.amountPaid,
+      paidAt: paidAt ?? this.paidAt,
+      paymentMethod: paymentMethod ?? this.paymentMethod,
+      paymentId: paymentId ?? this.paymentId,
+      isInQueue: isInQueue ?? this.isInQueue,
+      queuePosition: queuePosition ?? this.queuePosition,
     );
   }
 
@@ -131,4 +175,5 @@ class RegistrationModel {
   bool get isApproved => status == 'approved';
   bool get isRejected => status == 'rejected';
   bool get isCancelled => status == 'cancelled';
+  bool get isInWaitingList => isInQueue;
 }

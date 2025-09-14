@@ -13,6 +13,10 @@ class RegistrationService {
     required String userEmail,
     required String userName,
     Map<String, dynamic>? additionalInfo,
+    bool isPaid = false,
+    double? amountPaid,
+    String? paymentMethod,
+    String? paymentId,
   }) async {
     try {
       // Kiểm tra xem đã đăng ký chưa
@@ -21,9 +25,38 @@ class RegistrationService {
         throw Exception('Bạn đã đăng ký sự kiện này rồi');
       }
 
+      // Lấy thông tin sự kiện để kiểm tra số lượng và giá
+      DocumentSnapshot eventDoc = await _firestore
+          .collection(AppConstants.eventsCollection)
+          .doc(eventId)
+          .get();
+
+      if (!eventDoc.exists) {
+        throw Exception('Sự kiện không tồn tại');
+      }
+
+      Map<String, dynamic> eventData = eventDoc.data() as Map<String, dynamic>;
+      int maxParticipants = eventData['maxParticipants'] ?? 0;
+      int currentParticipants = eventData['currentParticipants'] ?? 0;
+
       // Tạo mã QR cho đăng ký
       String qrCode =
           'EVENT_${eventId}_USER_${userId}_${DateTime.now().millisecondsSinceEpoch}';
+
+      // Xác định trạng thái đăng ký
+      String status;
+      bool isInQueue = false;
+      int? queuePosition;
+
+      if (currentParticipants < maxParticipants) {
+        // Còn chỗ trống - tự động chấp nhận
+        status = AppConstants.registrationApproved;
+      } else {
+        // Hết chỗ - chuyển vào hàng đợi
+        status = AppConstants.registrationInQueue;
+        isInQueue = true;
+        queuePosition = await _getNextQueuePosition(eventId);
+      }
 
       RegistrationModel registration = RegistrationModel(
         id: '', // Sẽ được tạo tự động
@@ -31,15 +64,26 @@ class RegistrationService {
         userId: userId,
         userEmail: userEmail,
         userName: userName,
-        status: AppConstants.registrationPending,
+        status: status,
         registeredAt: DateTime.now(),
         additionalInfo: additionalInfo,
         qrCode: qrCode,
+        isPaid: isPaid,
+        amountPaid: amountPaid,
+        paymentMethod: paymentMethod,
+        paymentId: paymentId,
+        isInQueue: isInQueue,
+        queuePosition: queuePosition,
       );
 
       DocumentReference docRef = await _firestore
           .collection(AppConstants.registrationsCollection)
           .add(registration.toFirestore());
+
+      // Cập nhật số lượng người tham gia nếu được chấp nhận
+      if (status == AppConstants.registrationApproved) {
+        await _updateEventParticipantCount(eventId);
+      }
 
       return docRef.id;
     } catch (e) {
@@ -50,6 +94,21 @@ class RegistrationService {
   // Hủy đăng ký
   Future<void> cancelRegistration(String registrationId) async {
     try {
+      // Lấy thông tin đăng ký để biết eventId
+      DocumentSnapshot regDoc = await _firestore
+          .collection(AppConstants.registrationsCollection)
+          .doc(registrationId)
+          .get();
+
+      if (!regDoc.exists) {
+        throw Exception('Không tìm thấy đăng ký');
+      }
+
+      Map<String, dynamic> regData = regDoc.data() as Map<String, dynamic>;
+      String eventId = regData['eventId'] ?? '';
+      String currentStatus = regData['status'] ?? '';
+
+      // Cập nhật trạng thái đăng ký
       await _firestore
           .collection(AppConstants.registrationsCollection)
           .doc(registrationId)
@@ -57,8 +116,72 @@ class RegistrationService {
             'status': AppConstants.registrationCancelled,
             'updatedAt': Timestamp.fromDate(DateTime.now()),
           });
+
+      // Cập nhật số lượng người tham gia nếu đăng ký đã được chấp nhận hoặc đã thanh toán
+      if ((currentStatus == AppConstants.registrationApproved ||
+              currentStatus == AppConstants.registrationPaid) &&
+          eventId.isNotEmpty) {
+        await _updateEventParticipantCount(eventId);
+      }
+
+      print('Registration $registrationId cancelled successfully');
     } catch (e) {
+      print('Error cancelling registration: $e');
       throw Exception('Lỗi hủy đăng ký: ${e.toString()}');
+    }
+  }
+
+  // Hoàn tiền đăng ký
+  Future<void> refundRegistration(String registrationId) async {
+    try {
+      // Lấy thông tin đăng ký
+      DocumentSnapshot regDoc = await _firestore
+          .collection(AppConstants.registrationsCollection)
+          .doc(registrationId)
+          .get();
+
+      if (!regDoc.exists) {
+        throw Exception('Không tìm thấy đăng ký');
+      }
+
+      Map<String, dynamic> regData = regDoc.data() as Map<String, dynamic>;
+      String eventId = regData['eventId'] ?? '';
+      String currentStatus = regData['status'] ?? '';
+      double amountPaid = (regData['amountPaid'] ?? 0.0).toDouble();
+
+      // Kiểm tra xem đăng ký có thể hoàn tiền không
+      if (currentStatus != AppConstants.registrationPaid &&
+          currentStatus != AppConstants.registrationApproved) {
+        throw Exception('Chỉ có thể hoàn tiền cho đăng ký đã thanh toán');
+      }
+
+      if (amountPaid <= 0) {
+        throw Exception('Không có tiền để hoàn');
+      }
+
+      // Cập nhật trạng thái đăng ký thành hoàn tiền
+      await _firestore
+          .collection(AppConstants.registrationsCollection)
+          .doc(registrationId)
+          .update({
+            'status': AppConstants.registrationCancelled,
+            'refundedAt': Timestamp.fromDate(DateTime.now()),
+            'refundAmount': amountPaid,
+            'refundStatus': 'pending', // pending, completed, failed
+            'updatedAt': Timestamp.fromDate(DateTime.now()),
+          });
+
+      // Cập nhật số lượng người tham gia
+      if (eventId.isNotEmpty) {
+        await _updateEventParticipantCount(eventId);
+      }
+
+      print(
+        'Registration $registrationId refunded successfully - Amount: $amountPaid VNĐ',
+      );
+    } catch (e) {
+      print('Error refunding registration: $e');
+      throw Exception('Lỗi hoàn tiền: ${e.toString()}');
     }
   }
 
@@ -74,6 +197,8 @@ class RegistrationService {
             whereIn: [
               AppConstants.registrationPending,
               AppConstants.registrationApproved,
+              AppConstants.registrationPaid,
+              AppConstants.registrationInQueue,
             ],
           )
           .get();
@@ -84,21 +209,62 @@ class RegistrationService {
     }
   }
 
+  // Lấy đăng ký theo ID
+  Future<RegistrationModel?> getRegistrationById(String registrationId) async {
+    try {
+      DocumentSnapshot doc = await _firestore
+          .collection(AppConstants.registrationsCollection)
+          .doc(registrationId)
+          .get();
+
+      if (doc.exists) {
+        return RegistrationModel.fromFirestore(doc);
+      }
+      return null;
+    } catch (e) {
+      throw Exception('Lỗi lấy thông tin đăng ký: ${e.toString()}');
+    }
+  }
+
   // Lấy đăng ký của người dùng cho một sự kiện
   Future<RegistrationModel?> getUserRegistrationForEvent(
     String eventId,
     String userId,
   ) async {
     try {
+      // Query đơn giản hơn để tránh lỗi index
       QuerySnapshot snapshot = await _firestore
           .collection(AppConstants.registrationsCollection)
           .where('eventId', isEqualTo: eventId)
           .where('userId', isEqualTo: userId)
-          .limit(1)
           .get();
 
       if (snapshot.docs.isNotEmpty) {
-        return RegistrationModel.fromFirestore(snapshot.docs.first);
+        // Lọc và sắp xếp trong code thay vì database
+        List<QueryDocumentSnapshot> docs = snapshot.docs;
+
+        // Lọc theo status active
+        docs = docs.where((doc) {
+          Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+          String status = data['status'] ?? '';
+          return status == AppConstants.registrationPending ||
+              status == AppConstants.registrationApproved ||
+              status == AppConstants.registrationPaid ||
+              status == AppConstants.registrationInQueue;
+        }).toList();
+
+        // Sắp xếp theo registeredAt
+        docs.sort((a, b) {
+          Map<String, dynamic> aData = a.data() as Map<String, dynamic>;
+          Map<String, dynamic> bData = b.data() as Map<String, dynamic>;
+          Timestamp aTime = aData['registeredAt'] ?? Timestamp.now();
+          Timestamp bTime = bData['registeredAt'] ?? Timestamp.now();
+          return bTime.compareTo(aTime);
+        });
+
+        if (docs.isNotEmpty) {
+          return RegistrationModel.fromFirestore(docs.first);
+        }
       }
       return null;
     } catch (e) {
@@ -320,15 +486,37 @@ class RegistrationService {
     String userId,
   ) async {
     try {
+      // Query đơn giản hơn để tránh lỗi index
       QuerySnapshot snapshot = await _firestore
           .collection('support_registrations')
           .where('eventId', isEqualTo: eventId)
           .where('userId', isEqualTo: userId)
-          .limit(1)
           .get();
 
       if (snapshot.docs.isNotEmpty) {
-        return SupportRegistrationModel.fromFirestore(snapshot.docs.first);
+        // Lọc và sắp xếp trong code thay vì database
+        List<QueryDocumentSnapshot> docs = snapshot.docs;
+
+        // Lọc theo status active
+        docs = docs.where((doc) {
+          Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+          String status = data['status'] ?? '';
+          return status == AppConstants.registrationPending ||
+              status == AppConstants.registrationApproved;
+        }).toList();
+
+        // Sắp xếp theo registeredAt
+        docs.sort((a, b) {
+          Map<String, dynamic> aData = a.data() as Map<String, dynamic>;
+          Map<String, dynamic> bData = b.data() as Map<String, dynamic>;
+          Timestamp aTime = aData['registeredAt'] ?? Timestamp.now();
+          Timestamp bTime = bData['registeredAt'] ?? Timestamp.now();
+          return bTime.compareTo(aTime);
+        });
+
+        if (docs.isNotEmpty) {
+          return SupportRegistrationModel.fromFirestore(docs.first);
+        }
       }
       return null;
     } catch (e) {
@@ -497,5 +685,182 @@ class RegistrationService {
               .map((doc) => SupportRegistrationModel.fromFirestore(doc))
               .toList();
         });
+  }
+
+  // Lấy vị trí tiếp theo trong hàng đợi
+  Future<int> _getNextQueuePosition(String eventId) async {
+    try {
+      QuerySnapshot snapshot = await _firestore
+          .collection(AppConstants.registrationsCollection)
+          .where('eventId', isEqualTo: eventId)
+          .where('isInQueue', isEqualTo: true)
+          .get();
+
+      return snapshot.docs.length + 1;
+    } catch (e) {
+      return 1;
+    }
+  }
+
+  // Cập nhật số lượng người tham gia trong sự kiện (public method)
+  Future<void> updateEventParticipantCount(String eventId) async {
+    await _updateEventParticipantCount(eventId);
+  }
+
+  // Cập nhật số lượng người tham gia trong sự kiện (private method)
+  Future<void> _updateEventParticipantCount(String eventId) async {
+    try {
+      QuerySnapshot approvedSnapshot = await _firestore
+          .collection(AppConstants.registrationsCollection)
+          .where('eventId', isEqualTo: eventId)
+          .where(
+            'status',
+            whereIn: [
+              AppConstants.registrationApproved,
+              AppConstants.registrationPaid,
+            ],
+          )
+          .get();
+
+      int approvedCount = approvedSnapshot.docs.length;
+
+      await _firestore
+          .collection(AppConstants.eventsCollection)
+          .doc(eventId)
+          .update({
+            'currentParticipants': approvedCount,
+            'updatedAt': Timestamp.fromDate(DateTime.now()),
+          });
+
+      print('Updated participant count for event $eventId: $approvedCount');
+    } catch (e) {
+      print('Error updating participant count: $e');
+      throw Exception('Lỗi cập nhật số lượng người tham gia: ${e.toString()}');
+    }
+  }
+
+  // Xử lý thanh toán cho đăng ký
+  Future<void> processPayment({
+    required String registrationId,
+    required double amount,
+    required String paymentMethod,
+    required String paymentId,
+  }) async {
+    try {
+      // Lấy thông tin đăng ký để biết eventId
+      DocumentSnapshot regDoc = await _firestore
+          .collection(AppConstants.registrationsCollection)
+          .doc(registrationId)
+          .get();
+
+      if (!regDoc.exists) {
+        throw Exception('Không tìm thấy đăng ký');
+      }
+
+      Map<String, dynamic> regData = regDoc.data() as Map<String, dynamic>;
+      String eventId = regData['eventId'] ?? '';
+
+      if (eventId.isEmpty) {
+        throw Exception('Không tìm thấy ID sự kiện');
+      }
+
+      // Cập nhật trạng thái thanh toán
+      await _firestore
+          .collection(AppConstants.registrationsCollection)
+          .doc(registrationId)
+          .update({
+            'isPaid': true,
+            'amountPaid': amount,
+            'paidAt': Timestamp.fromDate(DateTime.now()),
+            'paymentMethod': paymentMethod,
+            'paymentId': paymentId,
+            'status': AppConstants
+                .registrationApproved, // Chuyển sang approved sau khi thanh toán
+          });
+
+      // Cập nhật số lượng người tham gia
+      await _updateEventParticipantCount(eventId);
+
+      print('Payment processed successfully for registration $registrationId');
+    } catch (e) {
+      print('Error processing payment: $e');
+      throw Exception('Lỗi xử lý thanh toán: ${e.toString()}');
+    }
+  }
+
+  // Chuyển từ hàng đợi sang chấp nhận khi có chỗ trống
+  Future<void> promoteFromQueue(String eventId) async {
+    try {
+      // Lấy đăng ký đầu tiên trong hàng đợi
+      QuerySnapshot queueSnapshot = await _firestore
+          .collection(AppConstants.registrationsCollection)
+          .where('eventId', isEqualTo: eventId)
+          .where('isInQueue', isEqualTo: true)
+          .orderBy('registeredAt')
+          .limit(1)
+          .get();
+
+      if (queueSnapshot.docs.isNotEmpty) {
+        String registrationId = queueSnapshot.docs.first.id;
+
+        // Cập nhật trạng thái
+        await _firestore
+            .collection(AppConstants.registrationsCollection)
+            .doc(registrationId)
+            .update({
+              'status': AppConstants.registrationApproved,
+              'isInQueue': false,
+              'queuePosition': null,
+              'approvedAt': Timestamp.fromDate(DateTime.now()),
+            });
+
+        // Cập nhật số lượng người tham gia
+        await _updateEventParticipantCount(eventId);
+
+        // Cập nhật vị trí hàng đợi cho các đăng ký còn lại
+        await _updateQueuePositions(eventId);
+      }
+    } catch (e) {
+      print('Error promoting from queue: $e');
+    }
+  }
+
+  // Cập nhật vị trí hàng đợi
+  Future<void> _updateQueuePositions(String eventId) async {
+    try {
+      QuerySnapshot queueSnapshot = await _firestore
+          .collection(AppConstants.registrationsCollection)
+          .where('eventId', isEqualTo: eventId)
+          .where('isInQueue', isEqualTo: true)
+          .orderBy('registeredAt')
+          .get();
+
+      for (int i = 0; i < queueSnapshot.docs.length; i++) {
+        await _firestore
+            .collection(AppConstants.registrationsCollection)
+            .doc(queueSnapshot.docs[i].id)
+            .update({'queuePosition': i + 1});
+      }
+    } catch (e) {
+      print('Error updating queue positions: $e');
+    }
+  }
+
+  // Lấy danh sách đăng ký trong hàng đợi
+  Future<List<RegistrationModel>> getQueueRegistrations(String eventId) async {
+    try {
+      QuerySnapshot snapshot = await _firestore
+          .collection(AppConstants.registrationsCollection)
+          .where('eventId', isEqualTo: eventId)
+          .where('isInQueue', isEqualTo: true)
+          .orderBy('registeredAt')
+          .get();
+
+      return snapshot.docs
+          .map((doc) => RegistrationModel.fromFirestore(doc))
+          .toList();
+    } catch (e) {
+      throw Exception('Lỗi lấy danh sách hàng đợi: ${e.toString()}');
+    }
   }
 }

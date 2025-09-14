@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/event_provider.dart';
+import '../../providers/notification_provider.dart';
 import '../../services/event_service.dart';
 import '../../services/registration_service.dart';
 import '../../models/registration_model.dart';
@@ -25,6 +26,26 @@ class _HomeScreenState extends State<HomeScreen>
   void initState() {
     super.initState();
     _eventsTabController = TabController(length: 3, vsync: this);
+    _loadNotifications();
+  }
+
+  void _loadNotifications() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final notificationProvider = Provider.of<NotificationProvider>(
+        context,
+        listen: false,
+      );
+
+      print(
+        'DEBUG HomeScreen: Loading notifications for user: ${authProvider.currentUser?.id}',
+      );
+      if (authProvider.currentUser != null) {
+        notificationProvider.loadNotifications(authProvider.currentUser!.id);
+      } else {
+        print('DEBUG HomeScreen: No current user found');
+      }
+    });
   }
 
   @override
@@ -73,6 +94,7 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Widget _buildHeader() {
+    print('DEBUG HomeScreen: Building header with notification bell');
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       decoration: const BoxDecoration(
@@ -192,12 +214,19 @@ class _HomeScreenState extends State<HomeScreen>
                 },
               ),
               const SizedBox(width: 4),
-              _buildHeaderButton(
-                icon: Icons.notifications,
-                onTap: () {
-                  // TODO: Navigate to notifications
+              // Debug print for notification bell
+              Builder(
+                builder: (context) {
+                  print('DEBUG HomeScreen: Rendering notification bell');
+                  return _buildHeaderButton(
+                    icon: Icons.notifications,
+                    onTap: () {
+                      print('DEBUG HomeScreen: Tapping notification bell');
+                      context.go('/notifications');
+                    },
+                    badge: '5', // Test badge
+                  );
                 },
-                badge: '5',
               ),
               const SizedBox(width: 4),
               _buildHeaderButton(

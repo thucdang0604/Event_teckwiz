@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/admin_provider.dart';
+import '../../providers/event_provider.dart';
+import '../../providers/notification_provider.dart';
 import '../../services/registration_service.dart';
 import '../../models/event_model.dart';
 import '../../models/registration_model.dart';
@@ -12,6 +14,7 @@ import '../../constants/app_colors.dart';
 import '../../constants/app_constants.dart';
 import '../../widgets/custom_text_field.dart';
 import '../../widgets/custom_button.dart';
+import '../../widgets/payment_popup.dart';
 
 class EventRegistrationScreen extends StatefulWidget {
   final EventModel event;
@@ -67,11 +70,24 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
             authProvider.currentUser!.id,
           );
 
+      // Debug logging
+      print('DEBUG: Loading registrations for event: ${widget.event.id}');
+      print('DEBUG: User ID: ${authProvider.currentUser!.id}');
+      print('DEBUG: participantReg = $participantReg');
+      print('DEBUG: supportReg = $supportReg');
+
+      if (participantReg != null) {
+        print(
+          'Registration found - Status: ${participantReg.status}, isApproved: ${participantReg.isApproved}, isPaid: ${participantReg.isPaid}',
+        );
+      }
+
       setState(() {
         _myRegistration = participantReg;
         _mySupportRegistration = supportReg;
       });
     } catch (e) {
+      print('Error loading registrations: $e');
       // Handle error silently
     }
   }
@@ -97,16 +113,16 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
         final selectedLocationName = widget.event.location;
 
         if (_registrationType == 'participant') {
-          await _registrationService.registerForEvent(
-            eventId: widget.event.id,
-            userId: authProvider.currentUser!.id,
-            userEmail: authProvider.currentUser!.email,
-            userName: authProvider.currentUser!.fullName,
-            additionalInfo: {
-              'note': _additionalInfoController.text.trim(),
-              'location': selectedLocationName,
-            },
-          );
+          // Kiểm tra xem sự kiện có phí không
+          if (!widget.event.isFree &&
+              widget.event.price != null &&
+              widget.event.price! > 0) {
+            // Hiển thị popup thanh toán cho sự kiện có phí
+            _showPaymentDialog();
+          } else {
+            // Đăng ký miễn phí
+            await _processRegistration();
+          }
         } else {
           await _registrationService.registerForSupportStaff(
             eventId: widget.event.id,
@@ -118,21 +134,31 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
               'location': selectedLocationName,
             },
           );
-        }
 
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                _registrationType == 'participant'
-                    ? 'Registration successful! Please wait for approval.'
-                    : 'Support staff registration successful! Please wait for approval.',
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Support staff registration successful! Please wait for approval.',
+                ),
+                backgroundColor: AppColors.success,
               ),
-              backgroundColor: AppColors.success,
-            ),
-          );
-          await _loadMyRegistrations();
-          context.pop();
+            );
+
+            // Gửi thông báo đăng ký support staff thành công
+            final notificationProvider = Provider.of<NotificationProvider>(
+              context,
+              listen: false,
+            );
+            await notificationProvider.sendRegistrationSuccessNotification(
+              userId: authProvider.currentUser!.id,
+              eventTitle: widget.event.title,
+              eventId: widget.event.id,
+            );
+
+            await _loadMyRegistrations();
+            context.pop();
+          }
         }
       } catch (e) {
         setState(() {
@@ -143,14 +169,195 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
     }
   }
 
+  void _showPaymentDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => PaymentPopup(
+        amount: widget.event.price!,
+        eventTitle: widget.event.title,
+        onPaymentComplete: (success, paymentId) async {
+          if (success) {
+            await _processRegistration(
+              isPaid: true,
+              amountPaid: widget.event.price!,
+              paymentMethod: 'card',
+              paymentId: paymentId,
+            );
+          } else {
+            setState(() {
+              _isLoading = false;
+            });
+          }
+        },
+      ),
+    );
+  }
+
+  Future<void> _processRegistration({
+    bool isPaid = false,
+    double? amountPaid,
+    String? paymentMethod,
+    String? paymentId,
+  }) async {
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final selectedLocationName = widget.event.location;
+
+      String registrationId = await _registrationService.registerForEvent(
+        eventId: widget.event.id,
+        userId: authProvider.currentUser!.id,
+        userEmail: authProvider.currentUser!.email,
+        userName: authProvider.currentUser!.fullName,
+        additionalInfo: {
+          'note': _additionalInfoController.text.trim(),
+          'location': selectedLocationName,
+        },
+        isPaid: isPaid,
+        amountPaid: amountPaid,
+        paymentMethod: paymentMethod,
+        paymentId: paymentId,
+      );
+
+      // Nếu đã thanh toán, cập nhật trạng thái thanh toán
+      if (isPaid && paymentId != null) {
+        await _registrationService.processPayment(
+          registrationId: registrationId,
+          amount: amountPaid!,
+          paymentMethod: paymentMethod!,
+          paymentId: paymentId,
+        );
+      } else {
+        // Nếu không thanh toán, vẫn cần cập nhật số lượng người tham gia
+        await _registrationService.updateEventParticipantCount(widget.event.id);
+      }
+
+      if (mounted) {
+        // Lấy thông tin đăng ký mới tạo để hiển thị mã QR
+        RegistrationModel? newRegistration = await _registrationService
+            .getRegistrationById(registrationId);
+
+        String message = 'Đăng ký thành công!';
+        if (isPaid) {
+          message += ' Thanh toán đã được xử lý.';
+        }
+
+        if (newRegistration != null && newRegistration.qrCode != null) {
+          message += ' Mã QR đã được tạo.';
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message), backgroundColor: AppColors.success),
+        );
+
+        // Gửi thông báo đăng ký thành công
+        final notificationProvider = Provider.of<NotificationProvider>(
+          context,
+          listen: false,
+        );
+        await notificationProvider.sendRegistrationSuccessNotification(
+          userId: authProvider.currentUser!.id,
+          eventTitle: widget.event.title,
+          eventId: widget.event.id,
+        );
+
+        // Nếu đã thanh toán, gửi thông báo thanh toán thành công
+        if (isPaid && amountPaid != null) {
+          await notificationProvider.sendPaymentSuccessNotification(
+            userId: authProvider.currentUser!.id,
+            eventTitle: widget.event.title,
+            amount: amountPaid,
+            eventId: widget.event.id,
+          );
+        }
+
+        await _loadMyRegistrations();
+
+        // Refresh event data để cập nhật số lượng người tham gia
+        final eventProvider = Provider.of<EventProvider>(
+          context,
+          listen: false,
+        );
+        await eventProvider.getEventById(widget.event.id);
+
+        context.pop();
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  String _getRegistrationStatusText() {
+    if (_myRegistration != null) {
+      if (_myRegistration!.isApproved ||
+          _myRegistration!.status == AppConstants.registrationPaid) {
+        if (_myRegistration!.isPaid) {
+          return 'Đăng ký đã được chấp nhận và thanh toán thành công!';
+        } else {
+          return 'Đăng ký đã được chấp nhận!';
+        }
+      } else if (_myRegistration!.isInQueue) {
+        return 'Bạn đang trong hàng đợi (vị trí ${_myRegistration!.queuePosition}). Sẽ được thông báo khi có chỗ trống.';
+      } else {
+        return 'Đăng ký đang chờ duyệt.';
+      }
+    } else if (_mySupportRegistration != null) {
+      if (_mySupportRegistration!.isApproved) {
+        return 'Đăng ký hỗ trợ đã được chấp nhận!';
+      } else {
+        return 'Đăng ký hỗ trợ đang chờ duyệt.';
+      }
+    }
+    return '';
+  }
+
+  String _getRegisterButtonText() {
+    if (_registrationType == 'participant') {
+      if (!widget.event.isFree &&
+          widget.event.price != null &&
+          widget.event.price! > 0) {
+        return 'Đăng ký và thanh toán (${widget.event.price!.toStringAsFixed(0)} VNĐ)';
+      } else {
+        return 'Đăng ký tham gia';
+      }
+    } else {
+      return 'Đăng ký hỗ trợ';
+    }
+  }
+
+  String _getTermsText() {
+    if (_registrationType == 'participant') {
+      if (!widget.event.isFree &&
+          widget.event.price != null &&
+          widget.event.price! > 0) {
+        return 'Bằng cách đăng ký, bạn đồng ý với điều khoản sự kiện. Đăng ký sẽ được tự động chấp nhận sau khi thanh toán thành công.';
+      } else {
+        return 'Bằng cách đăng ký, bạn đồng ý với điều khoản sự kiện. Đăng ký sẽ được tự động chấp nhận.';
+      }
+    } else {
+      return 'Bằng cách đăng ký hỗ trợ, bạn đồng ý giúp tổ chức sự kiện. Đăng ký sẽ được xem xét bởi người tổ chức.';
+    }
+  }
+
   void _cancelRegistration() async {
+    // Kiểm tra xem có cần xác nhận hủy đăng ký không
+    bool shouldCancel = await _showCancelConfirmationDialog();
+    if (!shouldCancel) return;
+
     setState(() {
       _isLoading = true;
     });
 
     try {
       if (_myRegistration != null) {
-        await _registrationService.cancelRegistration(_myRegistration!.id);
+        // Nếu đã thanh toán, tự động hoàn tiền
+        if (_myRegistration!.isPaid) {
+          await _registrationService.refundRegistration(_myRegistration!.id);
+        } else {
+          await _registrationService.cancelRegistration(_myRegistration!.id);
+        }
       } else if (_mySupportRegistration != null) {
         await _registrationService.cancelSupportRegistration(
           _mySupportRegistration!.id,
@@ -158,13 +365,44 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
       }
 
       if (mounted) {
+        String message = _myRegistration?.isPaid == true
+            ? 'Hủy đăng ký và hoàn tiền thành công! Số tiền ${_myRegistration?.amountPaid?.toStringAsFixed(0) ?? '0'} VNĐ sẽ được hoàn về tài khoản của bạn trong vòng 3-5 ngày làm việc.'
+            : 'Hủy đăng ký thành công!';
+
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Registration cancelled successfully'),
+          SnackBar(
+            content: Text(message),
             backgroundColor: AppColors.success,
+            duration: Duration(
+              seconds: _myRegistration?.isPaid == true ? 5 : 3,
+            ),
           ),
         );
+
+        // Gửi thông báo hủy đăng ký
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        final notificationProvider = Provider.of<NotificationProvider>(
+          context,
+          listen: false,
+        );
+        if (authProvider.currentUser != null) {
+          await notificationProvider.sendCancellationNotification(
+            userId: authProvider.currentUser!.id,
+            eventTitle: widget.event.title,
+            eventId: widget.event.id,
+            isRefund: _myRegistration?.isPaid == true,
+            refundAmount: _myRegistration?.amountPaid,
+          );
+        }
+
         await _loadMyRegistrations();
+
+        // Refresh event data để cập nhật số lượng người tham gia
+        final eventProvider = Provider.of<EventProvider>(
+          context,
+          listen: false,
+        );
+        await eventProvider.getEventById(widget.event.id);
       }
     } catch (e) {
       setState(() {
@@ -175,6 +413,40 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  Future<bool> _showCancelConfirmationDialog() async {
+    bool isPaid = _myRegistration?.isPaid ?? false;
+    String title = isPaid ? 'Hủy đăng ký và hoàn tiền' : 'Hủy đăng ký';
+    String content = isPaid
+        ? 'Bạn đã thanh toán cho sự kiện này. Việc hủy đăng ký sẽ tự động hoàn tiền ${_myRegistration?.amountPaid?.toStringAsFixed(0) ?? '0'} VNĐ về tài khoản của bạn trong vòng 3-5 ngày làm việc. Bạn có chắc chắn muốn hủy?'
+        : 'Bạn có chắc chắn muốn hủy đăng ký sự kiện này?';
+
+    return await showDialog<bool>(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: Text(title),
+              content: Text(content),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Không'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: Text(
+                    isPaid ? 'Có, hủy và hoàn tiền' : 'Có, hủy đăng ký',
+                    style: TextStyle(
+                      color: isPaid ? AppColors.warning : AppColors.error,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ) ??
+        false;
   }
 
   @override
@@ -211,11 +483,17 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
       );
     }
 
-    // Check if user already has any registration
-    final bool hasAnyRegistration =
+    // Check if user already has any active registration
+    final bool hasAnyActiveRegistration =
         _myRegistration != null || _mySupportRegistration != null;
     final bool canRegister =
-        widget.event.isRegistrationOpen && !hasAnyRegistration;
+        widget.event.isRegistrationOpen && !hasAnyActiveRegistration;
+
+    // Debug logging
+    print('DEBUG: _myRegistration = $_myRegistration');
+    print('DEBUG: _mySupportRegistration = $_mySupportRegistration');
+    print('DEBUG: hasAnyActiveRegistration = $hasAnyActiveRegistration');
+    print('DEBUG: canRegister = $canRegister');
 
     return Scaffold(
       appBar: AppBar(title: const Text('Event Registration')),
@@ -233,11 +511,15 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Registration Status Card
-                    if (hasAnyRegistration) ...[
+                    if (hasAnyActiveRegistration) ...[
+                      // Debug logging
+                      Text('DEBUG: Showing registration status card'),
                       Card(
                         color:
-                            _myRegistration?.isApproved == true ||
-                                _mySupportRegistration?.isApproved == true
+                            (_myRegistration?.isApproved == true ||
+                                _myRegistration?.status ==
+                                    AppConstants.registrationPaid ||
+                                _mySupportRegistration?.isApproved == true)
                             ? AppColors.success.withOpacity(0.1)
                             : AppColors.warning.withOpacity(0.1),
                         child: Padding(
@@ -248,17 +530,21 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
                               Row(
                                 children: [
                                   Icon(
-                                    _myRegistration?.isApproved == true ||
+                                    (_myRegistration?.isApproved == true ||
+                                            _myRegistration?.status ==
+                                                AppConstants.registrationPaid ||
                                             _mySupportRegistration
                                                     ?.isApproved ==
-                                                true
+                                                true)
                                         ? Icons.check_circle
                                         : Icons.schedule,
                                     color:
-                                        _myRegistration?.isApproved == true ||
+                                        (_myRegistration?.isApproved == true ||
+                                            _myRegistration?.status ==
+                                                AppConstants.registrationPaid ||
                                             _mySupportRegistration
                                                     ?.isApproved ==
-                                                true
+                                                true)
                                         ? AppColors.success
                                         : AppColors.warning,
                                   ),
@@ -276,25 +562,33 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                _myRegistration?.isApproved == true ||
-                                        _mySupportRegistration?.isApproved ==
-                                            true
-                                    ? 'Your registration has been approved!'
-                                    : 'Your registration is pending approval.',
+                                _getRegistrationStatusText(),
                                 style: const TextStyle(fontSize: 14),
                               ),
                               const SizedBox(height: 12),
                               Row(
                                 children: [
+                                  // Nút hủy đăng ký (tự động hoàn tiền nếu đã thanh toán)
                                   Expanded(
                                     child: ElevatedButton.icon(
                                       onPressed: _isLoading
                                           ? null
                                           : _cancelRegistration,
-                                      icon: const Icon(Icons.cancel),
-                                      label: const Text('Cancel Registration'),
+                                      icon: Icon(
+                                        _myRegistration?.isPaid == true
+                                            ? Icons.money_off
+                                            : Icons.cancel,
+                                      ),
+                                      label: Text(
+                                        _myRegistration?.isPaid == true
+                                            ? 'Hủy đăng ký và hoàn tiền'
+                                            : 'Hủy đăng ký',
+                                      ),
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: AppColors.error,
+                                        backgroundColor:
+                                            _myRegistration?.isPaid == true
+                                            ? AppColors.warning
+                                            : AppColors.error,
                                         foregroundColor: AppColors.white,
                                       ),
                                     ),
@@ -307,6 +601,8 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
                       ),
                       const SizedBox(height: 16),
                     ] else if (!canRegister) ...[
+                      // Debug logging
+                      Text('DEBUG: Showing cannot register message'),
                       Card(
                         color: AppColors.error.withOpacity(0.1),
                         child: Padding(
@@ -329,6 +625,8 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
                       ),
                       const SizedBox(height: 16),
                     ] else ...[
+                      // Debug logging
+                      Text('DEBUG: Showing registration form'),
                       // Registration Type Selection
                       Card(
                         child: Padding(
@@ -428,6 +726,40 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
                               overflow: TextOverflow.ellipsis,
                             ),
                             const SizedBox(height: 12),
+                            // Price information
+                            if (!widget.event.isFree &&
+                                widget.event.price != null &&
+                                widget.event.price! > 0) ...[
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: AppColors.primary.withOpacity(0.3),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.payment,
+                                      size: 20,
+                                      color: AppColors.primary,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Phí tham gia: ${widget.event.price!.toStringAsFixed(0)} VNĐ',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                            ],
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -678,9 +1010,7 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
 
                       // Register Button
                       CustomButton(
-                        text: _registrationType == 'participant'
-                            ? 'Register as Participant'
-                            : 'Register as Support Staff',
+                        text: _getRegisterButtonText(),
                         onPressed: _isLoading ? null : _registerForEvent,
                         isLoading: _isLoading,
                       ),
@@ -695,9 +1025,7 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
-                          _registrationType == 'participant'
-                              ? 'By registering, you agree to the event terms and conditions. Your registration will be reviewed by the organizer.'
-                              : 'By registering as support staff, you agree to help organize the event. Your registration will be reviewed by the organizer.',
+                          _getTermsText(),
                           style: const TextStyle(
                             fontSize: 12,
                             color: AppColors.textSecondary,

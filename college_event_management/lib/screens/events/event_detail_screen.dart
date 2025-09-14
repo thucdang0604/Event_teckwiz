@@ -19,7 +19,6 @@ import '../../services/registration_service.dart';
 import '../../services/auth_service.dart';
 import '../../models/registration_model.dart';
 import '../../models/support_registration_model.dart';
-import 'package:qr_flutter/qr_flutter.dart' as qr;
 import 'package:url_launcher/url_launcher.dart';
 
 class EventDetailScreen extends StatefulWidget {
@@ -69,34 +68,43 @@ class _EventDetailScreenState extends State<EventDetailScreen>
     final eventProvider = Provider.of<EventProvider>(context, listen: false);
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
-    try {
-      EventModel? event = await eventProvider.getEventById(widget.eventId);
+    // Sử dụng addPostFrameCallback để tránh setState during build
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      try {
+        EventModel? event = await eventProvider.getEventById(widget.eventId);
 
-      // Kiểm tra quyền truy cập: sinh viên chỉ có thể xem sự kiện đã được duyệt
-      if (event != null &&
-          authProvider.currentUser?.role == 'student' &&
-          event.status != 'published') {
-        setState(() {
-          _errorMessage = 'Sự kiện này chưa được duyệt hoặc không tồn tại';
-          _isLoading = false;
-        });
-        return;
+        // Kiểm tra quyền truy cập: sinh viên chỉ có thể xem sự kiện đã được duyệt
+        if (event != null &&
+            authProvider.currentUser?.role == 'student' &&
+            event.status != 'published') {
+          if (mounted) {
+            setState(() {
+              _errorMessage = 'Sự kiện này chưa được duyệt hoặc không tồn tại';
+              _isLoading = false;
+            });
+          }
+          return;
+        }
+
+        if (mounted) {
+          setState(() {
+            _event = event;
+            _isLoading = false;
+          });
+          await _loadMyRegistrationIfNeeded();
+          await _loadOrganizerSummaryIfNeeded();
+          await _loadParticipantCount();
+          await _loadCoOrganizerNames();
+        }
+      } catch (e) {
+        if (mounted) {
+          setState(() {
+            _errorMessage = e.toString();
+            _isLoading = false;
+          });
+        }
       }
-
-      setState(() {
-        _event = event;
-        _isLoading = false;
-      });
-      await _loadMyRegistrationIfNeeded();
-      await _loadOrganizerSummaryIfNeeded();
-      await _loadParticipantCount();
-      await _loadCoOrganizerNames();
-    } catch (e) {
-      setState(() {
-        _errorMessage = e.toString();
-        _isLoading = false;
-      });
-    }
+    });
   }
 
   Future<void> _loadMyRegistrationIfNeeded() async {
@@ -234,11 +242,22 @@ class _EventDetailScreenState extends State<EventDetailScreen>
         !(isAdmin || isOrganizerRole || isEventOrganizer);
     final bool hasActiveRegistration =
         (_myRegistration != null &&
-            (_myRegistration!.isPending || _myRegistration!.isApproved)) ||
+            (_myRegistration!.isPending ||
+                _myRegistration!.isApproved ||
+                _myRegistration!.isPaid ||
+                _myRegistration!.status == AppConstants.registrationPaid)) ||
         (_mySupportRegistration != null &&
             (_mySupportRegistration!.isPending ||
                 _mySupportRegistration!.isApproved));
     final bool canRegister = canRegisterBase && !hasActiveRegistration;
+
+    // Debug logging
+    print('DEBUG EventDetail: _myRegistration = $_myRegistration');
+    print(
+      'DEBUG EventDetail: _mySupportRegistration = $_mySupportRegistration',
+    );
+    print('DEBUG EventDetail: hasActiveRegistration = $hasActiveRegistration');
+    print('DEBUG EventDetail: canRegister = $canRegister');
 
     return Scaffold(
       body: CustomScrollView(
@@ -1177,45 +1196,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
     if (_event == null) return null;
     if (isAdmin || isOrganizerRole || isEventHost) return null;
 
-    // If approved registration exists, show View QR button
-    if (_myRegistration != null && _myRegistration!.isApproved) {
-      return FloatingActionButton.extended(
-        onPressed: () {
-          showDialog(
-            context: context,
-            builder: (context) {
-              return AlertDialog(
-                title: const Text('Check-in QR Code'),
-                content: SizedBox(
-                  width: 240,
-                  height: 240,
-                  child: Center(
-                    child: _myRegistration!.qrCode != null
-                        ? qr.QrImageView(
-                            data: _myRegistration!.qrCode!,
-                            version: qr.QrVersions.auto,
-                          )
-                        : const Text('No QR Code'),
-                  ),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Close'),
-                  ),
-                ],
-              );
-            },
-          );
-        },
-        backgroundColor: AppColors.success,
-        icon: const Icon(Icons.qr_code, color: AppColors.white),
-        label: const Text(
-          'View QR Code',
-          style: TextStyle(color: AppColors.white),
-        ),
-      );
-    }
+    // QR Code is now shown in Tickets screen, so we don't need it here
 
     // Show registration options or status
     // Only allow registration for published events
@@ -1235,6 +1216,11 @@ class _EventDetailScreenState extends State<EventDetailScreen>
             buttonText = 'Participant Registration Approved';
             buttonColor = AppColors.success;
             buttonIcon = Icons.check_circle;
+          } else if (_myRegistration!.isPaid ||
+              _myRegistration!.status == AppConstants.registrationPaid) {
+            buttonText = 'Participant Registration Paid';
+            buttonColor = AppColors.success;
+            buttonIcon = Icons.payment;
           } else if (_myRegistration!.isRejected) {
             buttonText = 'Participant Registration Rejected';
             buttonColor = AppColors.error;

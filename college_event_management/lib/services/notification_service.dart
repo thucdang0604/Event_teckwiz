@@ -1,162 +1,319 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class NotificationService {
-  static final FlutterLocalNotificationsPlugin _notifications =
-      FlutterLocalNotificationsPlugin();
+  static final NotificationService _instance = NotificationService._internal();
+  factory NotificationService() => _instance;
+  NotificationService._internal();
 
-  static Future<void> initialize() async {
+  final FlutterLocalNotificationsPlugin _localNotifications =
+      FlutterLocalNotificationsPlugin();
+  final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  Future<void> initialize() async {
+    // Khởi tạo local notifications
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher');
 
-    const DarwinInitializationSettings initializationSettingsIOS =
-        DarwinInitializationSettings(
-          requestAlertPermission: true,
-          requestBadgePermission: true,
-          requestSoundPermission: true,
-        );
-
     const InitializationSettings initializationSettings =
-        InitializationSettings(
-          android: initializationSettingsAndroid,
-          iOS: initializationSettingsIOS,
-        );
+        InitializationSettings(android: initializationSettingsAndroid);
 
-    await _notifications.initialize(
+    await _localNotifications.initialize(
       initializationSettings,
       onDidReceiveNotificationResponse: _onNotificationTapped,
     );
 
-    // Request permission for iOS
-    await _notifications
-        .resolvePlatformSpecificImplementation<
-          IOSFlutterLocalNotificationsPlugin
-        >()
-        ?.requestPermissions(alert: true, badge: true, sound: true);
+    // Cấu hình Firebase Messaging
+    await _firebaseMessaging.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
 
-    // Initialize Firebase Messaging
-    await _initializeFirebaseMessaging();
+    // Lắng nghe thông báo từ Firebase
+    FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
+    FirebaseMessaging.onMessageOpenedApp.listen(_handleBackgroundMessage);
   }
 
-  static void _onNotificationTapped(NotificationResponse response) {
-    // Handle notification tap
+  void _onNotificationTapped(NotificationResponse response) {
+    // Xử lý khi người dùng tap vào thông báo
     print('Notification tapped: ${response.payload}');
   }
 
-  static Future<void> _initializeFirebaseMessaging() async {
-    try {
-      // Request permission
-      NotificationSettings settings = await FirebaseMessaging.instance
-          .requestPermission(alert: true, badge: true, sound: true);
-
-      if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-        print('User granted permission');
-      } else {
-        print('User declined or has not accepted permission');
-      }
-    } catch (e) {
-      print('Error initializing Firebase Messaging: $e');
-      return;
-    }
-
-    try {
-      // Handle foreground messages
-      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-        print('Got a message whilst in the foreground!');
-        print('Message data: ${message.data}');
-
-        if (message.notification != null) {
-          print(
-            'Message also contained a notification: ${message.notification}',
-          );
-          _showLocalNotification(
-            message.notification!.title ?? 'Thông báo',
-            message.notification!.body ?? '',
-          );
-        }
-      });
-
-      // Handle background messages
-      FirebaseMessaging.onBackgroundMessage(
-        _firebaseMessagingBackgroundHandler,
-      );
-    } catch (e) {
-      print('Error setting up Firebase Messaging listeners: $e');
-    }
+  void _handleForegroundMessage(RemoteMessage message) {
+    // Hiển thị thông báo khi app đang chạy
+    _showLocalNotification(
+      message.notification?.title ?? 'Thông báo mới',
+      message.notification?.body ?? 'Bạn có thông báo mới',
+      message.data,
+    );
   }
 
-  static Future<void> _showLocalNotification(String title, String body) async {
-    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+  void _handleBackgroundMessage(RemoteMessage message) {
+    // Xử lý thông báo khi app ở background
+    print('Background message: ${message.data}');
+  }
+
+  Future<void> _showLocalNotification(
+    String title,
+    String body,
+    Map<String, dynamic>? data,
+  ) async {
+    const AndroidNotificationDetails androidDetails =
         AndroidNotificationDetails(
-          'event_channel',
+          'event_notifications',
           'Event Notifications',
-          channelDescription: 'Notifications for events',
-          importance: Importance.max,
+          channelDescription: 'Thông báo về sự kiện và đăng ký',
+          importance: Importance.high,
           priority: Priority.high,
+          showWhen: true,
+          icon: '@mipmap/ic_launcher',
         );
 
-    const DarwinNotificationDetails iOSPlatformChannelSpecifics =
-        DarwinNotificationDetails();
-
-    const NotificationDetails platformChannelSpecifics = NotificationDetails(
-      android: androidPlatformChannelSpecifics,
-      iOS: iOSPlatformChannelSpecifics,
+    const NotificationDetails notificationDetails = NotificationDetails(
+      android: androidDetails,
     );
 
-    await _notifications.show(
-      DateTime.now().millisecondsSinceEpoch ~/ 1000,
+    await _localNotifications.show(
+      DateTime.now().millisecondsSinceEpoch.remainder(100000),
       title,
       body,
-      platformChannelSpecifics,
+      notificationDetails,
+      payload: data?.toString(),
     );
   }
 
-  static Future<void> showNotification({
-    required int id,
+  // Gửi thông báo đăng ký thành công
+  Future<void> sendRegistrationSuccessNotification({
+    required String userId,
+    required String eventTitle,
+    required String eventId,
+  }) async {
+    String title = 'Đăng ký thành công! 🎉';
+    String body = 'Bạn đã đăng ký thành công sự kiện "$eventTitle"';
+
+    await _showLocalNotification(title, body, {
+      'type': 'registration_success',
+      'eventId': eventId,
+    });
+
+    // Lưu vào database để hiển thị trong app
+    await _saveNotificationToDatabase(
+      userId: userId,
+      title: title,
+      body: body,
+      type: 'registration_success',
+      eventId: eventId,
+    );
+  }
+
+  // Gửi thông báo thanh toán thành công
+  Future<void> sendPaymentSuccessNotification({
+    required String userId,
+    required String eventTitle,
+    required double amount,
+    required String eventId,
+  }) async {
+    String title = 'Thanh toán thành công! 💰';
+    String body =
+        'Bạn đã thanh toán ${amount.toStringAsFixed(0)} VNĐ cho sự kiện "$eventTitle"';
+
+    await _showLocalNotification(title, body, {
+      'type': 'payment_success',
+      'eventId': eventId,
+      'amount': amount.toString(),
+    });
+
+    await _saveNotificationToDatabase(
+      userId: userId,
+      title: title,
+      body: body,
+      type: 'payment_success',
+      eventId: eventId,
+    );
+  }
+
+  // Gửi thông báo được duyệt làm tình nguyện
+  Future<void> sendSupportApprovalNotification({
+    required String userId,
+    required String eventTitle,
+    required String eventId,
+  }) async {
+    String title = 'Được duyệt làm tình nguyện! 🤝';
+    String body = 'Bạn đã được duyệt làm tình nguyện cho sự kiện "$eventTitle"';
+
+    await _showLocalNotification(title, body, {
+      'type': 'support_approval',
+      'eventId': eventId,
+    });
+
+    await _saveNotificationToDatabase(
+      userId: userId,
+      title: title,
+      body: body,
+      type: 'support_approval',
+      eventId: eventId,
+    );
+  }
+
+  // Gửi thông báo hủy đăng ký
+  Future<void> sendCancellationNotification({
+    required String userId,
+    required String eventTitle,
+    required String eventId,
+    required bool isRefund,
+    double? refundAmount,
+  }) async {
+    String title = isRefund ? 'Hủy đăng ký và hoàn tiền! 💸' : 'Hủy đăng ký! ❌';
+    String body = isRefund
+        ? 'Bạn đã hủy đăng ký sự kiện "$eventTitle" và sẽ được hoàn ${refundAmount?.toStringAsFixed(0) ?? '0'} VNĐ'
+        : 'Bạn đã hủy đăng ký sự kiện "$eventTitle"';
+
+    await _showLocalNotification(title, body, {
+      'type': 'cancellation',
+      'eventId': eventId,
+      'isRefund': isRefund.toString(),
+      'refundAmount': refundAmount?.toString(),
+    });
+
+    await _saveNotificationToDatabase(
+      userId: userId,
+      title: title,
+      body: body,
+      type: 'cancellation',
+      eventId: eventId,
+    );
+  }
+
+  // Lưu thông báo vào database
+  Future<void> _saveNotificationToDatabase({
+    required String userId,
     required String title,
     required String body,
-    String? payload,
+    required String type,
+    required String eventId,
   }) async {
-    const AndroidNotificationDetails androidPlatformChannelSpecifics =
-        AndroidNotificationDetails(
-          'event_channel',
-          'Event Notifications',
-          channelDescription: 'Notifications for events',
-          importance: Importance.max,
-          priority: Priority.high,
-        );
-
-    const DarwinNotificationDetails iOSPlatformChannelSpecifics =
-        DarwinNotificationDetails();
-
-    const NotificationDetails platformChannelSpecifics = NotificationDetails(
-      android: androidPlatformChannelSpecifics,
-      iOS: iOSPlatformChannelSpecifics,
-    );
-
-    await _notifications.show(
-      id,
-      title,
-      body,
-      platformChannelSpecifics,
-      payload: payload,
-    );
+    try {
+      await _firestore.collection('notifications').add({
+        'userId': userId,
+        'title': title,
+        'body': body,
+        'type': type,
+        'eventId': eventId,
+        'isRead': false,
+        'createdAt': Timestamp.now(),
+      });
+    } catch (e) {
+      print('Error saving notification to database: $e');
+    }
   }
 
-  static Future<String?> getToken() async {
-    return await FirebaseMessaging.instance.getToken();
+  // Lấy danh sách thông báo của user
+  Future<List<Map<String, dynamic>>> getUserNotifications(String userId) async {
+    try {
+      // Query đơn giản hơn để tránh lỗi index
+      QuerySnapshot snapshot = await _firestore
+          .collection('notifications')
+          .where('userId', isEqualTo: userId)
+          .get();
+
+      if (snapshot.docs.isNotEmpty) {
+        // Sắp xếp trong code thay vì database
+        List<QueryDocumentSnapshot> docs = snapshot.docs;
+
+        // Sắp xếp theo createdAt
+        docs.sort((a, b) {
+          Map<String, dynamic> aData = a.data() as Map<String, dynamic>;
+          Map<String, dynamic> bData = b.data() as Map<String, dynamic>;
+          Timestamp aTime = aData['createdAt'] ?? Timestamp.now();
+          Timestamp bTime = bData['createdAt'] ?? Timestamp.now();
+          return bTime.compareTo(aTime);
+        });
+
+        // Giới hạn 50 thông báo
+        docs = docs.take(50).toList();
+
+        return docs.map((doc) {
+          Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+          data['id'] = doc.id;
+          return data;
+        }).toList();
+      }
+
+      return [];
+    } catch (e) {
+      print('Error getting user notifications: $e');
+      return [];
+    }
   }
 
-  static Future<void> subscribeToTopic(String topic) async {
-    await FirebaseMessaging.instance.subscribeToTopic(topic);
+  // Đánh dấu thông báo đã đọc
+  Future<void> markNotificationAsRead(String notificationId) async {
+    try {
+      await _firestore.collection('notifications').doc(notificationId).update({
+        'isRead': true,
+      });
+    } catch (e) {
+      print('Error marking notification as read: $e');
+    }
   }
 
-  static Future<void> unsubscribeFromTopic(String topic) async {
-    await FirebaseMessaging.instance.unsubscribeFromTopic(topic);
-  }
-}
+  // Đánh dấu tất cả thông báo đã đọc
+  Future<void> markAllNotificationsAsRead(String userId) async {
+    try {
+      // Query đơn giản hơn để tránh lỗi index
+      QuerySnapshot snapshot = await _firestore
+          .collection('notifications')
+          .where('userId', isEqualTo: userId)
+          .get();
 
-@pragma('vm:entry-point')
-Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  print('Handling a background message: ${message.messageId}');
+      if (snapshot.docs.isNotEmpty) {
+        WriteBatch batch = _firestore.batch();
+
+        // Lọc trong code thay vì database
+        for (QueryDocumentSnapshot doc in snapshot.docs) {
+          Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+          bool isRead = data['isRead'] ?? false;
+          if (!isRead) {
+            batch.update(doc.reference, {'isRead': true});
+          }
+        }
+
+        await batch.commit();
+      }
+    } catch (e) {
+      print('Error marking all notifications as read: $e');
+    }
+  }
+
+  // Lấy số lượng thông báo chưa đọc
+  Future<int> getUnreadNotificationCount(String userId) async {
+    try {
+      // Query đơn giản hơn để tránh lỗi index
+      QuerySnapshot snapshot = await _firestore
+          .collection('notifications')
+          .where('userId', isEqualTo: userId)
+          .get();
+
+      if (snapshot.docs.isNotEmpty) {
+        // Lọc trong code thay vì database
+        int unreadCount = 0;
+        for (var doc in snapshot.docs) {
+          Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+          bool isRead = data['isRead'] ?? false;
+          if (!isRead) {
+            unreadCount++;
+          }
+        }
+        return unreadCount;
+      }
+
+      return 0;
+    } catch (e) {
+      print('Error getting unread notification count: $e');
+      return 0;
+    }
+  }
 }

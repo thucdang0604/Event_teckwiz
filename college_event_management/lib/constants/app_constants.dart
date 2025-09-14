@@ -31,6 +31,8 @@ class AppConstants {
   static const String registrationApproved = 'approved';
   static const String registrationRejected = 'rejected';
   static const String registrationCancelled = 'cancelled';
+  static const String registrationInQueue = 'in_queue';
+  static const String registrationPaid = 'paid';
 
   // Event Categories
   static const List<String> eventCategories = [
