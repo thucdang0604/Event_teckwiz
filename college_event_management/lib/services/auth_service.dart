@@ -192,6 +192,20 @@ class AuthService {
     }
   }
 
+  // Đổi mật khẩu
+  Future<void> changePassword(String newPassword) async {
+    try {
+      User? user = _auth.currentUser;
+      if (user != null) {
+        await user.updatePassword(newPassword);
+      } else {
+        throw Exception('Không tìm thấy người dùng hiện tại');
+      }
+    } catch (e) {
+      throw Exception('Lỗi đổi mật khẩu: ${e.toString()}');
+    }
+  }
+
   // Lấy người dùng hiện tại
   User? get currentUser => _auth.currentUser;
 

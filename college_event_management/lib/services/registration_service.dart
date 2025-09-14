@@ -27,7 +27,7 @@ class RegistrationService {
       }
 
       // Kiểm tra xem có đăng ký cancelled không (đơn giản hóa để tránh lỗi index)
-      QuerySnapshot cancelledRegistrations = await _firestore
+      await _firestore
           .collection(AppConstants.registrationsCollection)
           .where('eventId', isEqualTo: eventId)
           .where('userId', isEqualTo: userId)
@@ -164,6 +164,13 @@ class RegistrationService {
           .collection(AppConstants.registrationsCollection)
           .add(registration.toFirestore());
 
+      // If auto-approved, refresh event participant count
+      if (paymentId != null) {
+        try {
+          await _updateEventParticipantCountByEvent(eventId);
+        } catch (_) {}
+      }
+
       return docRef.id;
     } catch (e) {
       throw Exception('Lỗi đăng ký sự kiện: ${e.toString()}');
@@ -199,6 +206,11 @@ class RegistrationService {
             'status': AppConstants.registrationCancelled,
             'updatedAt': Timestamp.fromDate(DateTime.now()),
           });
+
+      // Update event participant count after cancellation
+      if (eventId.isNotEmpty) {
+        await _updateEventParticipantCountByEvent(eventId);
+      }
 
       // Xử lý hoàn tiền nếu đã thanh toán và sự kiện chưa bắt đầu và chưa tham dự
       if ((registrationData['isPaid'] == true) &&
@@ -427,6 +439,19 @@ class RegistrationService {
             'approvedAt': Timestamp.fromDate(DateTime.now()),
             'approvedBy': approvedBy,
           });
+
+      // Update event participant count based on approved registrations
+      try {
+        final regDoc = await _firestore
+            .collection(AppConstants.registrationsCollection)
+            .doc(registrationId)
+            .get();
+        final data = regDoc.data() as Map<String, dynamic>?;
+        final String eventId = data?['eventId'] ?? '';
+        if (eventId.isNotEmpty) {
+          await _updateEventParticipantCountByEvent(eventId);
+        }
+      } catch (_) {}
     } catch (e) {
       throw Exception('Lỗi duyệt đăng ký: ${e.toString()}');
     }
@@ -448,6 +473,19 @@ class RegistrationService {
             'approvedBy': rejectedBy,
             'rejectionReason': reason,
           });
+
+      // Recalculate participant count in case a previously approved reg is changed
+      try {
+        final regDoc = await _firestore
+            .collection(AppConstants.registrationsCollection)
+            .doc(registrationId)
+            .get();
+        final data = regDoc.data() as Map<String, dynamic>?;
+        final String eventId = data?['eventId'] ?? '';
+        if (eventId.isNotEmpty) {
+          await _updateEventParticipantCountByEvent(eventId);
+        }
+      } catch (_) {}
     } catch (e) {
       throw Exception('Lỗi từ chối đăng ký: ${e.toString()}');
     }
@@ -475,8 +513,40 @@ class RegistrationService {
           .collection(AppConstants.registrationsCollection)
           .doc(registrationId)
           .update({'checkedOutAt': Timestamp.fromDate(DateTime.now())});
+
+      // Ensure participant count remains consistent (no change on checkout)
+      try {
+        final regDoc = await _firestore
+            .collection(AppConstants.registrationsCollection)
+            .doc(registrationId)
+            .get();
+        final data = regDoc.data() as Map<String, dynamic>?;
+        final String eventId = data?['eventId'] ?? '';
+        if (eventId.isNotEmpty) {
+          await _updateEventParticipantCountByEvent(eventId);
+        }
+      } catch (_) {}
     } catch (e) {
       throw Exception('Lỗi checkout: ${e.toString()}');
+    }
+  }
+
+  // Helper: recalculate and update event.currentParticipants by counting approved registrations
+  Future<void> _updateEventParticipantCountByEvent(String eventId) async {
+    try {
+      final approvedSnapshot = await _firestore
+          .collection(AppConstants.registrationsCollection)
+          .where('eventId', isEqualTo: eventId)
+          .where('status', isEqualTo: AppConstants.registrationApproved)
+          .get();
+
+      final int count = approvedSnapshot.docs.length;
+      await _firestore
+          .collection(AppConstants.eventsCollection)
+          .doc(eventId)
+          .update({'currentParticipants': count});
+    } catch (e) {
+      // ignore errors
     }
   }
 

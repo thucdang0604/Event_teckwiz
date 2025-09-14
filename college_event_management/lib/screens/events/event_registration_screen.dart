@@ -5,7 +5,6 @@ import 'package:intl/intl.dart';
 import 'package:qr_flutter/qr_flutter.dart' as qr;
 import '../../providers/auth_provider.dart';
 import '../../providers/admin_provider.dart';
-import '../../providers/notification_provider.dart';
 import '../../services/registration_service.dart';
 import '../../services/payment_service.dart';
 import '../../models/event_model.dart';
@@ -204,47 +203,6 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
     } catch (e) {
       setState(() {
         _errorMessage = e.toString();
-        _isLoading = false;
-      });
-    }
-  }
-
-  void _cancelRegistration() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      if (_myRegistration != null) {
-        await _registrationService.cancelRegistration(_myRegistration!.id);
-      } else if (_mySupportRegistration != null) {
-        await _registrationService.cancelSupportRegistration(
-          _mySupportRegistration!.id,
-        );
-      }
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Registration cancelled successfully'),
-            backgroundColor: AppColors.success,
-          ),
-        );
-        await _loadMyRegistrations();
-
-        // Refresh notification provider
-        final notificationProvider = Provider.of<NotificationProvider>(
-          context,
-          listen: false,
-        );
-        await notificationProvider.forceRefresh();
-      }
-    } catch (e) {
-      setState(() {
-        _errorMessage = e.toString();
-      });
-    } finally {
-      setState(() {
         _isLoading = false;
       });
     }
@@ -591,42 +549,25 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
                                     : 'Đăng ký đang chờ duyệt.',
                                 style: const TextStyle(fontSize: 14),
                               ),
-                              if (!(_myRegistration?.isCancelled == true ||
-                                  _mySupportRegistration?.isCancelled ==
-                                      true)) ...[
+                              // Disabled cancel functionality - only show QR if approved
+                              if (_myRegistration?.isApproved == true ||
+                                  _mySupportRegistration?.isApproved ==
+                                      true) ...[
                                 const SizedBox(height: 12),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: ElevatedButton.icon(
-                                        onPressed: _isLoading
-                                            ? null
-                                            : _cancelRegistration,
-                                        icon: const Icon(Icons.cancel),
-                                        label: const Text(
-                                          'Cancel Registration',
-                                        ),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: AppColors.error,
-                                          foregroundColor: AppColors.white,
-                                        ),
+                                Center(
+                                  child: ElevatedButton.icon(
+                                    onPressed: _isLoading ? null : _showQRCode,
+                                    icon: const Icon(Icons.qr_code),
+                                    label: const Text('Show QR Code'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppColors.primary,
+                                      foregroundColor: AppColors.white,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 24,
+                                        vertical: 12,
                                       ),
                                     ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: ElevatedButton.icon(
-                                        onPressed: _isLoading
-                                            ? null
-                                            : _showQRCode,
-                                        icon: const Icon(Icons.qr_code),
-                                        label: const Text('Show QR'),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: AppColors.primary,
-                                          foregroundColor: AppColors.white,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+                                  ),
                                 ),
                               ],
                             ],

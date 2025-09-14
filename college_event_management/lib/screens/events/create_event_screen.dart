@@ -1185,7 +1185,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     if (_selectedLocationId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Vui lòng chọn địa điểm trước'),
+          content: Text('Please select a location first'),
           backgroundColor: AppColors.warning,
         ),
       );
@@ -1217,7 +1217,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                       Row(
                         children: [
                           const Text(
-                            'Chọn thời gian sự kiện',
+                            'Select Event Time',
                             style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
@@ -1923,7 +1923,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                     child: Column(
                                       children: [
                                         const Text(
-                                          'Bắt đầu',
+                                          'Start',
                                           style: TextStyle(
                                             fontSize: 12,
                                             color: AppColors.textSecondary,
@@ -1955,7 +1955,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                     child: Column(
                                       children: [
                                         const Text(
-                                          'Kết thúc',
+                                          'End',
                                           style: TextStyle(
                                             fontSize: 12,
                                             color: AppColors.textSecondary,

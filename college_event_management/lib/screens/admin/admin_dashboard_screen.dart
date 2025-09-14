@@ -56,25 +56,34 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 context.read<AdminProvider>().loadLocations();
               },
             ),
+
             Consumer<NotificationProvider>(
               builder: (context, notificationProvider, child) {
                 final unreadCount = notificationProvider.unreadCount;
                 return Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    IconButton(
+                    PopupMenuButton<String>(
                       icon: const Icon(
                         Icons.notifications_outlined,
                         color: Colors.white,
                         size: 28,
                       ),
-                      onPressed: () {
-                        print('Notification button tapped!');
-                        context.go('/admin/notifications');
-                      },
                       tooltip: unreadCount > 0
                           ? 'Notifications (${unreadCount > 99 ? "99+" : unreadCount})'
                           : 'Notifications',
+                      itemBuilder: (BuildContext context) => [
+                        PopupMenuItem<String>(
+                          enabled: false,
+                          child: Text(
+                            'Recent notifications will appear here',
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     if (unreadCount > 0)
                       Positioned(
@@ -202,7 +211,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       context.go('/admin/locations');
                       break;
                     case 4:
-                      context.go('/admin/notifications');
+                      context.go('/admin/statistics');
                       break;
                   }
                 },
@@ -228,9 +237,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     label: 'Locations',
                   ),
                   BottomNavigationBarItem(
-                    icon: Icon(Icons.notifications_outlined),
-                    activeIcon: Icon(Icons.notifications),
-                    label: 'Notifications',
+                    icon: Icon(Icons.bar_chart_outlined),
+                    activeIcon: Icon(Icons.bar_chart),
+                    label: 'Statistics',
                   ),
                 ],
               );
@@ -242,53 +251,58 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _buildHeaderSection() {
-    return Container(
-      padding: const EdgeInsets.all(AppDesign.spacing16),
-      decoration: AppDesign.elevatedCardDecoration.copyWith(
-        gradient: LinearGradient(
-          colors: [AppColors.adminPrimary, AppColors.adminSecondary],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 720),
+        child: Container(
+          padding: const EdgeInsets.all(AppDesign.spacing16),
+          decoration: AppDesign.elevatedCardDecoration.copyWith(
+            gradient: LinearGradient(
+              colors: [AppColors.adminPrimary, AppColors.adminSecondary],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(AppDesign.radius12),
+                ),
+                child: const Icon(
+                  Icons.admin_panel_settings,
+                  color: Colors.white,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(height: AppDesign.spacing12),
+              Text(
+                'Welcome back, Admin!',
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: AppDesign.heading2.copyWith(
+                  color: Colors.white,
+                  fontSize: 20,
+                ),
+              ),
+              const SizedBox(height: AppDesign.spacing4),
+              Text(
+                'Manage events, users and locations efficiently',
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: AppDesign.bodyMedium.copyWith(
+                  color: Colors.white.withOpacity(0.9),
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(AppDesign.radius12),
-            ),
-            child: const Icon(
-              Icons.admin_panel_settings,
-              color: Colors.white,
-              size: 28,
-            ),
-          ),
-          const SizedBox(height: AppDesign.spacing12),
-          Text(
-            'Welcome back, Admin!',
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: AppDesign.heading2.copyWith(
-              color: Colors.white,
-              fontSize: 20,
-            ),
-          ),
-          const SizedBox(height: AppDesign.spacing4),
-          Text(
-            'Manage events, users and locations efficiently',
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: AppDesign.bodyMedium.copyWith(
-              color: Colors.white.withOpacity(0.9),
-            ),
-          ),
-        ],
       ),
     );
   }

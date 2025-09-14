@@ -158,15 +158,20 @@ class _OrganizerDashboardScreenState extends State<OrganizerDashboardScreen> {
                       constraints.maxWidth > 600 ? 24 : 16,
                       40 + MediaQuery.of(context).padding.bottom,
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildHeaderSection(user?.fullName ?? 'Organizer'),
-                        const SizedBox(height: 24),
-                        _buildOverviewAndActions(myEvents),
-                        const SizedBox(height: 32),
-                        _buildRecentActivity(),
-                      ],
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 800),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _buildHeaderSection(user?.fullName ?? 'Organizer'),
+                            const SizedBox(height: 24),
+                            _buildOverviewAndActions(myEvents),
+                            const SizedBox(height: 32),
+                            _buildRecentActivity(),
+                          ],
+                        ),
+                      ),
                     ),
                   );
                 },
@@ -233,13 +238,14 @@ class _OrganizerDashboardScreenState extends State<OrganizerDashboardScreen> {
 
   Widget _buildOverviewAndActions(List myEvents) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Text(
           'Overview',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: AppDesign.heading2.copyWith(color: const Color(0xFF111827)),
+          textAlign: TextAlign.center,
         ),
         const SizedBox(height: 16),
         LayoutBuilder(
@@ -280,11 +286,11 @@ class _OrganizerDashboardScreenState extends State<OrganizerDashboardScreen> {
                   subtitle: 'Manage team',
                 ),
                 _buildActionCard(
-                  'Analytics',
-                  Icons.analytics,
+                  'Invitations',
+                  Icons.mark_email_unread,
                   AppColors.accent,
-                  () => context.go('/organizer/analytics'),
-                  subtitle: 'View insights',
+                  () => context.go('/coorganizer-invitations'),
+                  subtitle: 'Co-organizer invites',
                 ),
               ],
             );
