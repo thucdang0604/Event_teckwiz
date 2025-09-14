@@ -1,9 +1,43 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 import '../../constants/app_colors.dart';
 import '../../providers/notification_provider.dart';
 import '../../providers/auth_provider.dart';
+
+// Định nghĩa NotificationType nếu chưa có
+enum NotificationType {
+  eventCreated,
+  eventUpdated,
+  eventCancelled,
+  registrationConfirmed,
+  registrationRejected,
+  eventReminder,
+  chatMessage,
+  unknown,
+}
+
+// Định nghĩa NotificationModel nếu chưa có
+class NotificationModel {
+  final String id;
+  final String title;
+  final String body;
+  final DateTime timestamp;
+  final bool isRead;
+  final NotificationType type;
+  final Map<String, dynamic>? data;
+
+  NotificationModel({
+    required this.id,
+    required this.title,
+    required this.body,
+    required this.timestamp,
+    required this.isRead,
+    required this.type,
+    this.data,
+  });
+}
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -16,206 +50,358 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   @override
   void initState() {
     super.initState();
-    _loadNotifications();
-  }
-
-  void _loadNotifications() {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final notificationProvider = Provider.of<NotificationProvider>(
-      context,
-      listen: false,
-    );
-
-    if (authProvider.currentUser != null) {
-      notificationProvider.loadNotifications(authProvider.currentUser!.id);
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final authProvider = context.read<AuthProvider>();
+      final notificationProvider = context.read<NotificationProvider>();
+      final user = authProvider.currentUser;
+      if (user != null) {
+        await notificationProvider.loadNotifications(user.id);
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Thông báo'),
-        backgroundColor: AppColors.primary,
-        foregroundColor: AppColors.white,
-        elevation: 0,
-        actions: [
-          Consumer<NotificationProvider>(
-            builder: (context, notificationProvider, child) {
-              return TextButton(
-                onPressed: () async {
-                  final authProvider = Provider.of<AuthProvider>(
-                    context,
-                    listen: false,
-                  );
-                  if (authProvider.currentUser != null) {
-                    await notificationProvider.markAllAsRead(
-                      authProvider.currentUser!.id,
-                    );
-                  }
-                },
-                child: const Text(
-                  'Đánh dấu tất cả đã đọc',
-                  style: TextStyle(color: AppColors.white),
-                ),
-              );
-            },
+    final role = context.watch<AuthProvider>().currentUser?.role;
+    return SafeArea(
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text(
+            'Notifications',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.25,
+            ),
           ),
-        ],
-      ),
-      body: Consumer<NotificationProvider>(
-        builder: (context, notificationProvider, child) {
-          if (notificationProvider.isLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (notificationProvider.notifications.isEmpty) {
-            return const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.notifications_none,
-                    size: 64,
-                    color: AppColors.grey,
-                  ),
-                  SizedBox(height: 16),
-                  Text(
-                    'Chưa có thông báo nào',
-                    style: TextStyle(fontSize: 18, color: AppColors.grey),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          return RefreshIndicator(
-            onRefresh: () async {
-              _loadNotifications();
-            },
-            child: ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: notificationProvider.notifications.length,
-              itemBuilder: (context, index) {
-                final notification = notificationProvider.notifications[index];
-                return _buildNotificationCard(
-                  notification,
-                  notificationProvider,
-                );
+          backgroundColor: role == 'admin'
+              ? AppColors.adminPrimary
+              : AppColors.primary,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          automaticallyImplyLeading: true,
+          actions: [
+            Consumer<NotificationProvider>(
+              builder: (context, provider, child) {
+                if (provider.unreadCount > 0) {
+                  return IconButton(
+                    icon: const Icon(Icons.done_all),
+                    onPressed: () => _showMarkAllReadDialog(context),
+                    tooltip: 'Mark all as read',
+                  );
+                }
+                return const SizedBox.shrink();
               },
             ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildNotificationCard(
-    Map<String, dynamic> notification,
-    NotificationProvider notificationProvider,
-  ) {
-    final bool isRead = notification['isRead'] ?? false;
-    final String type = notification['type'] ?? '';
-    final String title = notification['title'] ?? '';
-    final String body = notification['body'] ?? '';
-    final DateTime createdAt = (notification['createdAt'] as Timestamp)
-        .toDate();
-
-    IconData icon;
-    Color iconColor;
-
-    switch (type) {
-      case 'registration_success':
-        icon = Icons.check_circle;
-        iconColor = AppColors.success;
-        break;
-      case 'payment_success':
-        icon = Icons.payment;
-        iconColor = AppColors.primary;
-        break;
-      case 'support_approval':
-        icon = Icons.volunteer_activism;
-        iconColor = AppColors.warning;
-        break;
-      case 'cancellation':
-        icon = Icons.cancel;
-        iconColor = AppColors.error;
-        break;
-      default:
-        icon = Icons.notifications;
-        iconColor = AppColors.grey;
-    }
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: isRead ? 1 : 3,
-      color: isRead ? AppColors.white : AppColors.primary.withOpacity(0.05),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: iconColor.withOpacity(0.1),
-          child: Icon(icon, color: iconColor, size: 24),
-        ),
-        title: Text(
-          title,
-          style: TextStyle(
-            fontWeight: isRead ? FontWeight.normal : FontWeight.bold,
-            color: isRead ? AppColors.grey : AppColors.black,
-          ),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 4),
-            Text(
-              body,
-              style: TextStyle(
-                color: isRead ? AppColors.grey : AppColors.black,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _formatDateTime(createdAt),
-              style: const TextStyle(fontSize: 12, color: AppColors.grey),
+            IconButton(
+              icon: const Icon(Icons.clear_all),
+              onPressed: () => _showClearAllDialog(context),
+              tooltip: 'Clear all',
             ),
           ],
         ),
-        trailing: isRead
-            ? null
-            : Container(
-                width: 8,
-                height: 8,
-                decoration: const BoxDecoration(
-                  color: AppColors.primary,
-                  shape: BoxShape.circle,
+        body: Consumer<NotificationProvider>(
+          builder: (context, provider, child) {
+            if (provider.isLoading) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            final notifications = provider.notifications;
+
+            if (notifications.isEmpty) {
+              return _buildEmptyState();
+            }
+
+            return Container(
+              color: AppColors.surfaceVariant,
+              child: RefreshIndicator(
+                onRefresh: () async {
+                  final authProvider = context.read<AuthProvider>();
+                  final user = authProvider.currentUser;
+                  if (user != null) {
+                    await provider.loadNotifications(user.id);
+                  }
+                },
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: notifications.length,
+                  itemBuilder: (context, index) {
+                    final notification = notifications[index];
+                    return _buildNotificationItem(
+                      notification as NotificationModel,
+                      provider,
+                    );
+                  },
                 ),
               ),
-        onTap: () async {
-          if (!isRead) {
-            await notificationProvider.markAsRead(notification['id']);
-          }
-
-          // Có thể thêm navigation đến event detail nếu cần
-          final String? eventId = notification['eventId'];
-          if (eventId != null) {
-            // Navigator.push(context, MaterialPageRoute(...));
-          }
-        },
+            );
+          },
+        ),
+        // Xóa bottomNavigationBar vì AppBottomNavigationBar không tồn tại hoặc lỗi import
       ),
     );
   }
 
-  String _formatDateTime(DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.notifications_none, size: 80, color: Colors.grey[400]),
+          const SizedBox(height: 16),
+          Text(
+            'No notifications yet',
+            style: TextStyle(
+              fontSize: 18,
+              color: Colors.grey[600],
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Your notifications will appear here',
+            style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+          ),
+        ],
+      ),
+    );
+  }
 
-    if (difference.inDays > 0) {
-      return '${difference.inDays} ngày trước';
-    } else if (difference.inHours > 0) {
-      return '${difference.inHours} giờ trước';
-    } else if (difference.inMinutes > 0) {
-      return '${difference.inMinutes} phút trước';
-    } else {
-      return 'Vừa xong';
+  Widget _buildNotificationItem(
+    NotificationModel notification,
+    NotificationProvider provider,
+  ) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      elevation: notification.isRead ? 1 : 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () {
+          if (!notification.isRead) {
+            provider.markAsRead(notification.id);
+          }
+          _handleNotificationTap(notification);
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildNotificationIcon(notification.type),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            notification.title,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: notification.isRead
+                                  ? FontWeight.w500
+                                  : FontWeight.w600,
+                              color: notification.isRead
+                                  ? Colors.grey[700]
+                                  : Colors.black,
+                            ),
+                          ),
+                        ),
+                        if (!notification.isRead)
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: const BoxDecoration(
+                              color: AppColors.primary,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      notification.body,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[600],
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _formatTimestamp(notification.timestamp),
+                      style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNotificationIcon(NotificationType type) {
+    IconData iconData;
+    Color iconColor;
+
+    switch (type) {
+      case NotificationType.eventCreated:
+        iconData = Icons.event_available;
+        iconColor = Colors.green;
+        break;
+      case NotificationType.eventUpdated:
+        iconData = Icons.event_note;
+        iconColor = Colors.blue;
+        break;
+      case NotificationType.eventCancelled:
+        iconData = Icons.event_busy;
+        iconColor = Colors.red;
+        break;
+      case NotificationType.registrationConfirmed:
+        iconData = Icons.check_circle;
+        iconColor = Colors.green;
+        break;
+      case NotificationType.registrationRejected:
+        iconData = Icons.cancel;
+        iconColor = Colors.red;
+        break;
+      case NotificationType.eventReminder:
+        iconData = Icons.alarm;
+        iconColor = Colors.orange;
+        break;
+      case NotificationType.chatMessage:
+        iconData = Icons.chat;
+        iconColor = Colors.purple;
+        break;
+      default:
+        iconData = Icons.notifications;
+        iconColor = Colors.grey;
+        break;
     }
+
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: iconColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Icon(iconData, color: iconColor, size: 20),
+    );
+  }
+
+  String _formatTimestamp(DateTime timestamp) {
+    final now = DateTime.now();
+    final difference = now.difference(timestamp);
+
+    if (difference.inDays == 0) {
+      if (difference.inHours == 0) {
+        return '${difference.inMinutes} minutes ago';
+      } else {
+        return '${difference.inHours} hours ago';
+      }
+    } else if (difference.inDays == 1) {
+      return 'Yesterday';
+    } else if (difference.inDays < 7) {
+      return '${difference.inDays} days ago';
+    } else {
+      return DateFormat('dd/MM/yyyy').format(timestamp);
+    }
+  }
+
+  void _handleNotificationTap(NotificationModel notification) {
+    switch (notification.type) {
+      case NotificationType.eventCreated:
+      case NotificationType.eventUpdated:
+      case NotificationType.eventCancelled:
+        if (notification.data != null &&
+            notification.data!['eventId'] != null) {
+          context.go('/event-detail/${notification.data!['eventId']}');
+        }
+        break;
+      case NotificationType.registrationConfirmed:
+      case NotificationType.registrationRejected:
+        context.go('/profile');
+        break;
+      case NotificationType.chatMessage:
+        if (notification.data != null &&
+            notification.data!['eventId'] != null) {
+          context.go('/event/${notification.data!['eventId']}/chat');
+        }
+        break;
+      default:
+        break;
+    }
+  }
+
+  void _showMarkAllReadDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Mark All as Read'),
+          content: const Text(
+            'Are you sure you want to mark all notifications as read?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                final authProvider = context.read<AuthProvider>();
+                final notificationProvider = context
+                    .read<NotificationProvider>();
+                final user = authProvider.currentUser;
+                if (user != null) {
+                  await notificationProvider.markAllAsRead(user.id);
+                }
+                Navigator.of(context).pop();
+              },
+              child: const Text('Confirm'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showClearAllDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Clear All Notifications'),
+          content: const Text(
+            'Are you sure you want to delete all notifications? This action cannot be undone.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                final authProvider = context.read<AuthProvider>();
+                final notificationProvider = context
+                    .read<NotificationProvider>();
+                final user = authProvider.currentUser;
+                if (user != null) {
+                  await notificationProvider.clearAll(user.id);
+                }
+                Navigator.of(context).pop();
+              },
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Delete All'),
+            ),
+          ],
+        );
+      },
+    );
   }
 }

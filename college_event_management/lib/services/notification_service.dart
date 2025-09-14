@@ -1,6 +1,65 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+
+enum NotificationType {
+  eventCreated,
+  eventUpdated,
+  eventCancelled,
+  registrationConfirmed,
+  registrationRejected,
+  eventReminder,
+  systemAnnouncement,
+  chatMessage,
+}
+
+class NotificationModel {
+  final String id;
+  final String title;
+  final String body;
+  final NotificationType type;
+  final Map<String, dynamic>? data;
+  final DateTime timestamp;
+  final bool isRead;
+
+  NotificationModel({
+    required this.id,
+    required this.title,
+    required this.body,
+    required this.type,
+    this.data,
+    required this.timestamp,
+    this.isRead = false,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'body': body,
+      'type': type.name,
+      'data': data,
+      'timestamp': timestamp.toIso8601String(),
+      'isRead': isRead,
+    };
+  }
+
+  factory NotificationModel.fromJson(Map<String, dynamic> json) {
+    return NotificationModel(
+      id: json['id'],
+      title: json['title'],
+      body: json['body'],
+      type: NotificationType.values.firstWhere(
+        (e) => e.name == json['type'],
+        orElse: () => NotificationType.systemAnnouncement,
+      ),
+      data: json['data'],
+      timestamp: DateTime.parse(json['timestamp']),
+      isRead: json['isRead'] ?? false,
+    );
+  }
+}
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -9,11 +68,15 @@ class NotificationService {
 
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
-  final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  static const String _notificationsKey = 'notifications_history';
+  static const int _maxStoredNotifications = 100;
+
+  static final List<NotificationModel> _notificationHistory = [];
+
+  static Function()? _onNotificationsUpdated;
 
   Future<void> initialize() async {
-    // Khởi tạo local notifications
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher');
 
@@ -23,297 +86,361 @@ class NotificationService {
     await _localNotifications.initialize(
       initializationSettings,
       onDidReceiveNotificationResponse: _onNotificationTapped,
+      onDidReceiveBackgroundNotificationResponse: _onNotificationTapped,
     );
 
-    // Cấu hình Firebase Messaging
-    await _firebaseMessaging.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
-
-    // Lắng nghe thông báo từ Firebase
-    FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
-    FirebaseMessaging.onMessageOpenedApp.listen(_handleBackgroundMessage);
+    await _loadNotificationHistory();
+    await _initializeFirebaseMessaging();
   }
 
   void _onNotificationTapped(NotificationResponse response) {
-    // Xử lý khi người dùng tap vào thông báo
-    print('Notification tapped: ${response.payload}');
+    if (response.payload != null) {
+      try {
+        final data = jsonDecode(response.payload!) as Map<String, dynamic>;
+        final notification = NotificationModel.fromJson(data);
+        markNotificationAsRead(notification.id);
+        _handleNotificationNavigation(notification);
+      } catch (e) {
+        print('Error parsing notification payload: $e');
+      }
+    }
   }
 
-  void _handleForegroundMessage(RemoteMessage message) {
-    // Hiển thị thông báo khi app đang chạy
-    _showLocalNotification(
-      message.notification?.title ?? 'Thông báo mới',
-      message.notification?.body ?? 'Bạn có thông báo mới',
-      message.data,
-    );
+  static void _handleNotificationNavigation(NotificationModel notification) {
+    switch (notification.type) {
+      case NotificationType.eventCreated:
+        if (notification.data?['eventId'] != null) {
+          print('Navigate to event approval: ${notification.data!['eventId']}');
+        }
+        break;
+      case NotificationType.eventUpdated:
+      case NotificationType.eventCancelled:
+        if (notification.data?['eventId'] != null) {
+          print('Navigate to event: ${notification.data!['eventId']}');
+        }
+        break;
+      case NotificationType.registrationConfirmed:
+      case NotificationType.registrationRejected:
+        print('Navigate to registrations');
+        break;
+      case NotificationType.chatMessage:
+        if (notification.data?['eventId'] != null) {
+          print('Navigate to chat: ${notification.data!['eventId']}');
+        }
+        break;
+      default:
+        print('Navigate to home');
+        break;
+    }
   }
 
-  void _handleBackgroundMessage(RemoteMessage message) {
-    // Xử lý thông báo khi app ở background
-    print('Background message: ${message.data}');
+  static Future<void> _initializeFirebaseMessaging() async {
+    try {
+      NotificationSettings settings = await FirebaseMessaging.instance
+          .requestPermission(alert: true, badge: true, sound: true);
+
+      if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+        print('User granted permission');
+      } else {
+        print('User declined or has not accepted permission');
+      }
+    } catch (e) {
+      print('Error initializing Firebase Messaging: $e');
+      return;
+    }
+
+    try {
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+        if (message.notification != null) {
+          final notification = NotificationModel(
+            id: message.messageId ??
+                DateTime.now().millisecondsSinceEpoch.toString(),
+            title: message.notification!.title ?? 'Notification',
+            body: message.notification!.body ?? '',
+            type: _getNotificationTypeFromData(message.data),
+            data: message.data,
+            timestamp: message.sentTime ?? DateTime.now(),
+          );
+          _addNotificationToHistory(notification);
+          _showLocalNotification(
+            notification.title,
+            notification.body,
+            payload: jsonEncode(notification.toJson()),
+          );
+        }
+      });
+
+      FirebaseMessaging.onBackgroundMessage(
+        _firebaseMessagingBackgroundHandler,
+      );
+
+      FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+        _handleNotificationTap(message.data);
+      });
+
+      final initialMessage = await FirebaseMessaging.instance.getInitialMessage();
+      if (initialMessage != null) {
+        _handleNotificationTap(initialMessage.data);
+      }
+    } catch (e) {
+      print('Error setting up Firebase Messaging listeners: $e');
+    }
   }
 
-  Future<void> _showLocalNotification(
+  static Future<void> _showLocalNotification(
     String title,
-    String body,
-    Map<String, dynamic>? data,
-  ) async {
-    const AndroidNotificationDetails androidDetails =
+    String body, {
+    String? payload,
+  }) async {
+    const AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
-          'event_notifications',
-          'Event Notifications',
-          channelDescription: 'Thông báo về sự kiện và đăng ký',
-          importance: Importance.high,
-          priority: Priority.high,
-          showWhen: true,
-          icon: '@mipmap/ic_launcher',
-        );
-
-    const NotificationDetails notificationDetails = NotificationDetails(
-      android: androidDetails,
+      'event_notifications',
+      'Event Notifications',
+      channelDescription: 'Thông báo về sự kiện và đăng ký',
+      importance: Importance.high,
+      priority: Priority.high,
+      playSound: true,
+      enableVibration: true,
     );
 
-    await _localNotifications.show(
+    const DarwinNotificationDetails iOSPlatformChannelSpecifics =
+        DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
+    const NotificationDetails platformChannelSpecifics = NotificationDetails(
+      android: androidPlatformChannelSpecifics,
+      iOS: iOSPlatformChannelSpecifics,
+    );
+
+    await _instance._localNotifications.show(
       DateTime.now().millisecondsSinceEpoch.remainder(100000),
       title,
       body,
-      notificationDetails,
-      payload: data?.toString(),
+      platformChannelSpecifics,
+      payload: payload,
     );
   }
 
-  // Gửi thông báo đăng ký thành công
-  Future<void> sendRegistrationSuccessNotification({
-    required String userId,
-    required String eventTitle,
-    required String eventId,
+  static Future<void> _loadNotificationHistory() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final notificationsJson = prefs.getStringList(_notificationsKey) ?? [];
+      _notificationHistory.clear();
+      for (final jsonStr in notificationsJson) {
+        try {
+          final json = jsonDecode(jsonStr);
+          final notification = NotificationModel.fromJson(json);
+          _notificationHistory.add(notification);
+        } catch (e) {
+          print('Error parsing notification: $e');
+        }
+      }
+      _notificationHistory.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    } catch (e) {
+      print('Error loading notification history: $e');
+    }
+  }
+
+  static Future<void> _saveNotificationHistory() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final notificationsJson = _notificationHistory
+          .take(_maxStoredNotifications)
+          .map((n) => jsonEncode(n.toJson()))
+          .toList();
+      await prefs.setStringList(_notificationsKey, notificationsJson);
+    } catch (e) {
+      print('Error saving notification history: $e');
+    }
+  }
+
+  static void _addNotificationToHistory(NotificationModel notification) {
+    _notificationHistory.insert(0, notification);
+    if (_notificationHistory.length > _maxStoredNotifications) {
+      _notificationHistory.removeRange(
+        _maxStoredNotifications,
+        _notificationHistory.length,
+      );
+    }
+    _saveNotificationHistory();
+    _onNotificationsUpdated?.call();
+  }
+
+  static NotificationType _getNotificationTypeFromData(
+    Map<String, dynamic> data,
+  ) {
+    final type = data['type'] as String?;
+    switch (type) {
+      case 'eventCreated':
+        return NotificationType.eventCreated;
+      case 'eventUpdated':
+        return NotificationType.eventUpdated;
+      case 'eventCancelled':
+        return NotificationType.eventCancelled;
+      case 'registrationConfirmed':
+        return NotificationType.registrationConfirmed;
+      case 'registrationRejected':
+        return NotificationType.registrationRejected;
+      case 'eventReminder':
+        return NotificationType.eventReminder;
+      case 'chatMessage':
+        return NotificationType.chatMessage;
+      default:
+        return NotificationType.systemAnnouncement;
+    }
+  }
+
+  static void _handleNotificationTap(Map<String, dynamic> data) {
+    print('Handling notification tap with data: $data');
+  }
+
+  static Future<void> loadNotificationHistory() async {
+    await _loadNotificationHistory();
+  }
+
+  static void setNotificationUpdateCallback(Function() callback) {
+    _onNotificationsUpdated = callback;
+  }
+
+  static List<NotificationModel> getNotificationHistory() {
+    return List.unmodifiable(_notificationHistory);
+  }
+
+  static Future<void> markNotificationAsRead(String notificationId) async {
+    final index = _notificationHistory.indexWhere(
+      (n) => n.id == notificationId,
+    );
+    if (index != -1) {
+      final updatedNotification = NotificationModel(
+        id: _notificationHistory[index].id,
+        title: _notificationHistory[index].title,
+        body: _notificationHistory[index].body,
+        type: _notificationHistory[index].type,
+        data: _notificationHistory[index].data,
+        timestamp: _notificationHistory[index].timestamp,
+        isRead: true,
+      );
+      _notificationHistory[index] = updatedNotification;
+      await _saveNotificationHistory();
+    }
+  }
+
+  static Future<void> clearNotificationHistory() async {
+    _notificationHistory.clear();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_notificationsKey);
+  }
+
+  static int getUnreadNotificationCount() {
+    return _notificationHistory.where((n) => !n.isRead).length;
+  }
+
+  static Future<void> sendNotificationToAdmin({
+    required String title,
+    required String body,
+    required NotificationType type,
+    Map<String, dynamic>? data,
   }) async {
-    String title = 'Đăng ký thành công! 🎉';
-    String body = 'Bạn đã đăng ký thành công sự kiện "$eventTitle"';
-
-    await _showLocalNotification(title, body, {
-      'type': 'registration_success',
-      'eventId': eventId,
-    });
-
-    // Lưu vào database để hiển thị trong app
-    await _saveNotificationToDatabase(
-      userId: userId,
-      title: title,
-      body: body,
-      type: 'registration_success',
-      eventId: eventId,
-    );
+    try {
+      final Map<String, dynamic> payloadData = {
+        if (data != null) ...data,
+        'targetRole': 'admin',
+      };
+      final notification = NotificationModel(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        title: title,
+        body: body,
+        type: type,
+        data: payloadData,
+        timestamp: DateTime.now(),
+      );
+      _addNotificationToHistory(notification);
+      await _showLocalNotification(
+        notification.title,
+        notification.body,
+        payload: jsonEncode(notification.toJson()),
+      );
+      print('Notification sent to admin: $title');
+    } catch (e) {
+      print('Error sending notification to admin: $e');
+    }
   }
 
-  // Gửi thông báo thanh toán thành công
-  Future<void> sendPaymentSuccessNotification({
-    required String userId,
-    required String eventTitle,
-    required double amount,
-    required String eventId,
-  }) async {
-    String title = 'Thanh toán thành công! 💰';
-    String body =
-        'Bạn đã thanh toán ${amount.toStringAsFixed(0)} VNĐ cho sự kiện "$eventTitle"';
-
-    await _showLocalNotification(title, body, {
-      'type': 'payment_success',
-      'eventId': eventId,
-      'amount': amount.toString(),
-    });
-
-    await _saveNotificationToDatabase(
-      userId: userId,
-      title: title,
-      body: body,
-      type: 'payment_success',
-      eventId: eventId,
-    );
-  }
-
-  // Gửi thông báo được duyệt làm tình nguyện
-  Future<void> sendSupportApprovalNotification({
-    required String userId,
-    required String eventTitle,
-    required String eventId,
-  }) async {
-    String title = 'Được duyệt làm tình nguyện! 🤝';
-    String body = 'Bạn đã được duyệt làm tình nguyện cho sự kiện "$eventTitle"';
-
-    await _showLocalNotification(title, body, {
-      'type': 'support_approval',
-      'eventId': eventId,
-    });
-
-    await _saveNotificationToDatabase(
-      userId: userId,
-      title: title,
-      body: body,
-      type: 'support_approval',
-      eventId: eventId,
-    );
-  }
-
-  // Gửi thông báo hủy đăng ký
-  Future<void> sendCancellationNotification({
-    required String userId,
-    required String eventTitle,
-    required String eventId,
-    required bool isRefund,
-    double? refundAmount,
-  }) async {
-    String title = isRefund ? 'Hủy đăng ký và hoàn tiền! 💸' : 'Hủy đăng ký! ❌';
-    String body = isRefund
-        ? 'Bạn đã hủy đăng ký sự kiện "$eventTitle" và sẽ được hoàn ${refundAmount?.toStringAsFixed(0) ?? '0'} VNĐ'
-        : 'Bạn đã hủy đăng ký sự kiện "$eventTitle"';
-
-    await _showLocalNotification(title, body, {
-      'type': 'cancellation',
-      'eventId': eventId,
-      'isRefund': isRefund.toString(),
-      'refundAmount': refundAmount?.toString(),
-    });
-
-    await _saveNotificationToDatabase(
-      userId: userId,
-      title: title,
-      body: body,
-      type: 'cancellation',
-      eventId: eventId,
-    );
-  }
-
-  // Lưu thông báo vào database
-  Future<void> _saveNotificationToDatabase({
+  static Future<void> sendNotificationToUser({
     required String userId,
     required String title,
     required String body,
-    required String type,
-    required String eventId,
+    required NotificationType type,
+    Map<String, dynamic>? data,
   }) async {
     try {
-      await _firestore.collection('notifications').add({
-        'userId': userId,
-        'title': title,
-        'body': body,
-        'type': type,
-        'eventId': eventId,
-        'isRead': false,
-        'createdAt': Timestamp.now(),
-      });
+      final Map<String, dynamic> payloadData = {
+        if (data != null) ...data,
+        'targetUserId': userId,
+      };
+      final notification = NotificationModel(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        title: title,
+        body: body,
+        type: type,
+        data: payloadData,
+        timestamp: DateTime.now(),
+      );
+      _addNotificationToHistory(notification);
+      await _showLocalNotification(
+        notification.title,
+        notification.body,
+        payload: jsonEncode(notification.toJson()),
+      );
+      print('Notification sent to user $userId: $title');
     } catch (e) {
-      print('Error saving notification to database: $e');
+      print('Error sending notification to user: $e');
     }
   }
 
-  // Lấy danh sách thông báo của user
-  Future<List<Map<String, dynamic>>> getUserNotifications(String userId) async {
+  static Future<void> addTestNotification() async {
+    final testNotification = NotificationModel(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      title: 'Test Notification',
+      body: 'This is a test notification to demonstrate the notification system.',
+      type: NotificationType.systemAnnouncement,
+      timestamp: DateTime.now(),
+    );
+    _addNotificationToHistory(testNotification);
+    await _showLocalNotification(
+      testNotification.title,
+      testNotification.body,
+      payload: jsonEncode(testNotification.toJson()),
+    );
+  }
+}
+
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  print('Handling a background message: ${message.messageId}');
+  if (message.notification != null) {
+    final notification = NotificationModel(
+      id: message.messageId ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      title: message.notification!.title ?? 'Notification',
+      body: message.notification!.body ?? '',
+      type: NotificationService._getNotificationTypeFromData(message.data),
+      data: message.data,
+      timestamp: message.sentTime ?? DateTime.now(),
+    );
     try {
-      // Query đơn giản hơn để tránh lỗi index
-      QuerySnapshot snapshot = await _firestore
-          .collection('notifications')
-          .where('userId', isEqualTo: userId)
-          .get();
-
-      if (snapshot.docs.isNotEmpty) {
-        // Sắp xếp trong code thay vì database
-        List<QueryDocumentSnapshot> docs = snapshot.docs;
-
-        // Sắp xếp theo createdAt
-        docs.sort((a, b) {
-          Map<String, dynamic> aData = a.data() as Map<String, dynamic>;
-          Map<String, dynamic> bData = b.data() as Map<String, dynamic>;
-          Timestamp aTime = aData['createdAt'] ?? Timestamp.now();
-          Timestamp bTime = bData['createdAt'] ?? Timestamp.now();
-          return bTime.compareTo(aTime);
-        });
-
-        // Giới hạn 50 thông báo
-        docs = docs.take(50).toList();
-
-        return docs.map((doc) {
-          Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-          data['id'] = doc.id;
-          return data;
-        }).toList();
+      final prefs = await SharedPreferences.getInstance();
+      final notificationsJson =
+          prefs.getStringList('notifications_history') ?? [];
+      notificationsJson.insert(0, jsonEncode(notification.toJson()));
+      if (notificationsJson.length > 100) {
+        notificationsJson.removeRange(100, notificationsJson.length);
       }
-
-      return [];
+      await prefs.setStringList('notifications_history', notificationsJson);
     } catch (e) {
-      print('Error getting user notifications: $e');
-      return [];
-    }
-  }
-
-  // Đánh dấu thông báo đã đọc
-  Future<void> markNotificationAsRead(String notificationId) async {
-    try {
-      await _firestore.collection('notifications').doc(notificationId).update({
-        'isRead': true,
-      });
-    } catch (e) {
-      print('Error marking notification as read: $e');
-    }
-  }
-
-  // Đánh dấu tất cả thông báo đã đọc
-  Future<void> markAllNotificationsAsRead(String userId) async {
-    try {
-      // Query đơn giản hơn để tránh lỗi index
-      QuerySnapshot snapshot = await _firestore
-          .collection('notifications')
-          .where('userId', isEqualTo: userId)
-          .get();
-
-      if (snapshot.docs.isNotEmpty) {
-        WriteBatch batch = _firestore.batch();
-
-        // Lọc trong code thay vì database
-        for (QueryDocumentSnapshot doc in snapshot.docs) {
-          Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-          bool isRead = data['isRead'] ?? false;
-          if (!isRead) {
-            batch.update(doc.reference, {'isRead': true});
-          }
-        }
-
-        await batch.commit();
-      }
-    } catch (e) {
-      print('Error marking all notifications as read: $e');
-    }
-  }
-
-  // Lấy số lượng thông báo chưa đọc
-  Future<int> getUnreadNotificationCount(String userId) async {
-    try {
-      // Query đơn giản hơn để tránh lỗi index
-      QuerySnapshot snapshot = await _firestore
-          .collection('notifications')
-          .where('userId', isEqualTo: userId)
-          .get();
-
-      if (snapshot.docs.isNotEmpty) {
-        // Lọc trong code thay vì database
-        int unreadCount = 0;
-        for (var doc in snapshot.docs) {
-          Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-          bool isRead = data['isRead'] ?? false;
-          if (!isRead) {
-            unreadCount++;
-          }
-        }
-        return unreadCount;
-      }
-
-      return 0;
-    } catch (e) {
-      print('Error getting unread notification count: $e');
-      return 0;
+      print('Error saving background notification: $e');
     }
   }
 }

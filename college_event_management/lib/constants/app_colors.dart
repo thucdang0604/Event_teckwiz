@@ -68,6 +68,11 @@ class AppColors {
   static const Color adminSecondary = Color(0xFF7C3AED);
   static const Color adminAccent = Color(0xFF06B6D4);
 
+  // Enhanced Colors for Organizer UI
+  static const Color organizerPrimary = Color(0xFF10B981);
+  static const Color organizerSecondary = Color(0xFF059669);
+  static const Color organizerAccent = Color(0xFF34D399);
+
   // Status Colors for Admin
   static const Color statusPending = Color(0xFFF59E0B);
   static const Color statusApproved = Color(0xFF10B981);

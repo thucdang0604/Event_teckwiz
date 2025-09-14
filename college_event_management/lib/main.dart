@@ -3,7 +3,6 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'firebase_options.dart';
 
 import 'providers/auth_provider.dart';
@@ -33,21 +32,12 @@ import 'screens/admin/location_management_screen.dart';
 import 'screens/admin/location_detail_screen.dart';
 import 'screens/admin/event_statistics_screen.dart';
 import 'screens/admin/location_calendar_screen.dart';
-import 'screens/admin/student_management_screen.dart';
 import 'screens/coorganizer/coorganizer_invitations_screen.dart';
 import 'screens/organizer/organizer_dashboard_screen.dart';
 import 'screens/notifications/notifications_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Load .env file
-  try {
-    await dotenv.load(fileName: ".env");
-  } catch (e) {
-    print('⚠️ Could not load .env file: ${e.toString()}');
-    print('📝 Using console logging for email verification');
-  }
 
   // Initialize Firebase
   if (Firebase.apps.isEmpty) {
@@ -73,8 +63,15 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AdminProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
       ],
-      child: Consumer<AuthProvider>(
-        builder: (context, authProvider, _) {
+      child: Consumer2<AuthProvider, NotificationProvider>(
+        builder: (context, authProvider, notificationProvider, _) {
+          // Defer loadNotifications to next frame to avoid build-time notifyListeners
+          final user = authProvider.currentUser;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (user?.id != null) {
+              notificationProvider.loadNotifications(user!.id);
+            }
+          });
           return MaterialApp.router(
             title: 'Quản Lý Sự Kiện',
             debugShowCheckedModeBanner: false,
@@ -132,7 +129,13 @@ final GoRouter _router = GoRouter(
       path: '/register',
       builder: (context, state) => const RegisterScreen(),
     ),
-    GoRoute(path: '/home', builder: (context, state) => const HomeScreen()),
+    GoRoute(
+      path: '/home',
+      builder: (context, state) {
+        final initialTab = state.extra as int?;
+        return HomeScreen(initialTab: initialTab);
+      },
+    ),
     GoRoute(
       path: '/event-detail/:eventId',
       builder: (context, state) {
@@ -236,10 +239,6 @@ final GoRouter _router = GoRouter(
       },
     ),
     GoRoute(
-      path: '/admin/students',
-      builder: (context, state) => const StudentManagementScreen(),
-    ),
-    GoRoute(
       path: '/admin/statistics',
       builder: (context, state) => const EventStatisticsScreen(),
     ),
@@ -256,7 +255,32 @@ final GoRouter _router = GoRouter(
       builder: (context, state) => const OrganizerDashboardScreen(),
     ),
     GoRoute(
+      path: '/organizer/events',
+      builder: (context, state) =>
+          const OrganizerDashboardScreen(), // Temporary - will create separate screen later
+    ),
+    GoRoute(
+      path: '/organizer/coorganizers',
+      builder: (context, state) =>
+          const OrganizerDashboardScreen(), // Temporary - will create separate screen later
+    ),
+    GoRoute(
+      path: '/organizer/analytics',
+      builder: (context, state) =>
+          const OrganizerDashboardScreen(), // Temporary - will create separate screen later
+    ),
+    GoRoute(
+      path: '/organizer/profile',
+      builder: (context, state) =>
+          const OrganizerDashboardScreen(), // Temporary - will create separate screen later
+    ),
+    GoRoute(
       path: '/notifications',
+      builder: (context, state) => const NotificationsScreen(),
+    ),
+    // Admin notifications use the same NotificationsScreen; bottom bar appears for admin
+    GoRoute(
+      path: '/admin/notifications',
       builder: (context, state) => const NotificationsScreen(),
     ),
   ],
