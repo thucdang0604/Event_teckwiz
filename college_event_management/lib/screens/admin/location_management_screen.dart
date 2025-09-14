@@ -5,6 +5,7 @@ import '../../providers/admin_provider.dart';
 import '../../models/location_model.dart';
 import '../../constants/app_colors.dart';
 import '../../utils/navigation_helper.dart';
+import '../../widgets/admin_bottom_navigation_bar.dart';
 
 class LocationManagementScreen extends StatefulWidget {
   const LocationManagementScreen({super.key});
@@ -41,50 +42,8 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
           ),
         ],
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.white,
-        selectedItemColor: AppColors.primary,
-        unselectedItemColor: Colors.grey,
-        currentIndex: 2,
-        onTap: (index) {
-          switch (index) {
-            case 0:
-              context.go('/admin-dashboard');
-              break;
-            case 1:
-              context.go('/admin/users');
-              break;
-            case 2:
-              context.go('/admin/locations');
-              break;
-            case 3:
-              context.go('/admin/approvals');
-              break;
-            case 4:
-              context.go('/admin/statistics');
-              break;
-          }
-        },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard),
-            label: 'Dashboard',
-          ),
-          BottomNavigationBarItem(icon: Icon(Icons.people), label: 'Users'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.location_on),
-            label: 'Locations',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.event_available),
-            label: 'Approvals',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.analytics),
-            label: 'Statistics',
-          ),
-        ],
+      bottomNavigationBar: AdminBottomNavigationBar(
+        currentIndex: 3, // Index cho Locations
       ),
       body: Consumer<AdminProvider>(
         builder: (context, adminProvider, child) {
@@ -245,6 +204,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
     final TextEditingController descriptionController = TextEditingController();
     final TextEditingController addressController = TextEditingController();
     final TextEditingController capacityController = TextEditingController();
+    final TextEditingController facilityController = TextEditingController();
     final List<String> facilities = [];
 
     showDialog(
@@ -294,6 +254,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                   children: [
                     Expanded(
                       child: TextField(
+                        controller: facilityController,
                         decoration: const InputDecoration(
                           labelText: 'Add Facility',
                           border: OutlineInputBorder(),
@@ -303,16 +264,17 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                             setState(() {
                               facilities.add(value);
                             });
+                            facilityController.clear();
                           }
                         },
                       ),
                     ),
                     IconButton(
                       onPressed: () {
-                        if (nameController.text.isNotEmpty) {
+                        if (facilityController.text.isNotEmpty) {
                           setState(() {
-                            facilities.add(nameController.text);
-                            nameController.clear();
+                            facilities.add(facilityController.text);
+                            facilityController.clear();
                           });
                         }
                       },
@@ -346,7 +308,7 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
               child: const Text('Cancel'),
             ),
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
                 if (nameController.text.isNotEmpty &&
                     descriptionController.text.isNotEmpty &&
                     addressController.text.isNotEmpty &&
@@ -361,8 +323,27 @@ class _LocationManagementScreenState extends State<LocationManagementScreen> {
                     createdAt: DateTime.now(),
                     updatedAt: DateTime.now(),
                   );
-                  context.read<AdminProvider>().addLocation(location);
-                  safePop(context, fallbackRoute: '/admin-dashboard');
+                  try {
+                    await context.read<AdminProvider>().addLocation(location);
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Location added successfully'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    }
+                    safePop(context, fallbackRoute: '/admin/locations');
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Failed to add location: $e'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  }
                 }
               },
               child: const Text('Add'),

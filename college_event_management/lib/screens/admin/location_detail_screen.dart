@@ -217,7 +217,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
           ],
         ),
         const SizedBox(height: 16),
-        if (adminProvider.isLoading)
+        if (adminProvider.isLocationEventsLoading)
           const Center(child: CircularProgressIndicator())
         else if (adminProvider.locationEvents.isEmpty)
           Card(

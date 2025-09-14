@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
-import '../../constants/app_colors.dart';
+import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/event_provider.dart';
-import '../../models/event_model.dart';
-import '../events/create_event_screen.dart';
-import '../events/event_detail_screen.dart';
-import '../coorganizer/coorganizer_invitations_screen.dart';
+import '../../providers/notification_provider.dart';
+import '../../constants/app_colors.dart';
+import '../../constants/app_design.dart';
+import '../../widgets/app_bottom_navigation_bar.dart';
 
 class OrganizerDashboardScreen extends StatefulWidget {
   const OrganizerDashboardScreen({super.key});
@@ -18,528 +17,484 @@ class OrganizerDashboardScreen extends StatefulWidget {
 }
 
 class _OrganizerDashboardScreenState extends State<OrganizerDashboardScreen> {
-  int _currentIndex = 0;
-  final PageController _pageController = PageController();
-
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadData();
+      context.read<EventProvider>().loadEvents();
+      context.read<NotificationProvider>().refreshNotifications();
     });
-  }
-
-  void _loadData() async {
-    try {
-      await context.read<EventProvider>().loadEvents();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Lỗi tải dữ liệu: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<AuthProvider>(
-      builder: (context, authProvider, _) {
-        final user = authProvider.currentUser;
-        if (user == null) {
-          return const Center(child: Text('Please login'));
-        }
+    return SafeArea(
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text(
+            'Organizer Dashboard',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.25,
+            ),
+          ),
+          backgroundColor: AppColors.organizerPrimary,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          automaticallyImplyLeading: false,
+          actions: [
+            IconButton(
+              tooltip: 'Refresh Data',
+              icon: const Icon(Icons.refresh),
+              onPressed: () {
+                context.read<EventProvider>().loadEvents();
+                context.read<NotificationProvider>().refreshNotifications();
+              },
+            ),
+            Consumer<NotificationProvider>(
+              builder: (context, notificationProvider, child) {
+                final unreadCount = notificationProvider.unreadCount;
+                return Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    IconButton(
+                      icon: const Icon(
+                        Icons.notifications_outlined,
+                        color: Colors.white,
+                        size: 28,
+                      ),
+                      onPressed: () {
+                        print('Notification button tapped!');
+                        context.go('/organizer/notifications');
+                      },
+                      tooltip: unreadCount > 0
+                          ? 'Notifications (${unreadCount > 99 ? "99+" : unreadCount})'
+                          : 'Notifications',
+                    ),
+                    if (unreadCount > 0)
+                      Positioned(
+                        right: 6,
+                        top: 6,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.error,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.white, width: 1.5),
+                          ),
+                          constraints: const BoxConstraints(
+                            minWidth: 18,
+                            minHeight: 18,
+                          ),
+                          child: Text(
+                            unreadCount > 99 ? '99+' : unreadCount.toString(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
+            Consumer<AuthProvider>(
+              builder: (context, authProvider, child) {
+                return IconButton(
+                  tooltip: 'Logout',
+                  icon: const Icon(Icons.logout),
+                  onPressed: () async {
+                    try {
+                      await authProvider.signOut();
+                      if (!mounted) return;
+                      context.go('/login');
+                    } catch (e) {
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Logout failed: $e'),
+                          backgroundColor: AppColors.error,
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      );
+                    }
+                  },
+                );
+              },
+            ),
+          ],
+        ),
+        body: Consumer<EventProvider>(
+          builder: (context, eventProvider, child) {
+            if (eventProvider.isLoading) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-        return Scaffold(
-          body: PageView(
-            controller: _pageController,
-            onPageChanged: (index) {
-              setState(() {
-                _currentIndex = index;
-              });
-            },
-            children: [
-              _buildHomeTab(user.fullName),
-              _buildMyEventsTab(),
-              const CoOrganizerInvitationsScreen(),
-              _buildProfileTab(),
-            ],
-          ),
-          bottomNavigationBar: BottomNavigationBar(
-            currentIndex: _currentIndex,
-            onTap: (index) {
-              setState(() {
-                _currentIndex = index;
-              });
-              _pageController.animateToPage(
-                index,
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeInOut,
-              );
-            },
-            type: BottomNavigationBarType.fixed,
-            selectedItemColor: AppColors.primary,
-            unselectedItemColor: Colors.grey,
-            items: const [
-              BottomNavigationBarItem(
-                icon: Icon(Icons.home_outlined),
-                label: 'Home',
+            final user = context.watch<AuthProvider>().currentUser;
+            final myEvents = eventProvider.events
+                .where((event) => event.organizerId == user?.id)
+                .toList();
+
+            return Container(
+              color: AppColors.surfaceVariant,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return SingleChildScrollView(
+                    padding: EdgeInsets.fromLTRB(
+                      constraints.maxWidth > 600 ? 24 : 16,
+                      20,
+                      constraints.maxWidth > 600 ? 24 : 16,
+                      40 + MediaQuery.of(context).padding.bottom,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildHeaderSection(user?.fullName ?? 'Organizer'),
+                        const SizedBox(height: 24),
+                        _buildOverviewAndActions(myEvents),
+                        const SizedBox(height: 32),
+                        _buildRecentActivity(),
+                      ],
+                    ),
+                  );
+                },
               ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.event_note_outlined),
-                label: 'My Events',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.mail_outline),
-                label: 'Invited',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.person_outline),
-                label: 'Profile',
-              ),
-            ],
-          ),
-        );
-      },
+            );
+          },
+        ),
+        bottomNavigationBar: const AppBottomNavigationBar(currentIndex: 0),
+      ),
     );
   }
 
-  Widget _buildHomeTab(String userName) {
-    return SingleChildScrollView(
+  Widget _buildHeaderSection(String userName) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: AppDesign.elevatedCardDecoration.copyWith(
+        gradient: LinearGradient(
+          colors: [AppColors.organizerPrimary, AppColors.organizerSecondary],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          _header(context, userName),
-          const SizedBox(height: 16),
-          _quickActions(context),
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.event_available,
+              color: Colors.white,
+              size: 28,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Welcome back, $userName!',
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: AppDesign.heading2.copyWith(
+              color: Colors.white,
+              fontSize: 20,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Manage your events and co-organizers efficiently',
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: AppDesign.bodyMedium.copyWith(
+              color: Colors.white.withOpacity(0.9),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildMyEventsTab() {
-    return Consumer<EventProvider>(
-      builder: (context, eventProvider, _) {
-        final user = context.watch<AuthProvider>().currentUser;
-        if (user == null) return const Center(child: Text('Please login'));
-
-        final myEvents = eventProvider.events
-            .where((event) => event.organizerId == user.id)
-            .toList();
-
-        if (myEvents.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+  Widget _buildOverviewAndActions(List myEvents) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Overview',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: AppDesign.heading2.copyWith(color: const Color(0xFF111827)),
+        ),
+        const SizedBox(height: 16),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final screenWidth = constraints.maxWidth;
+            final crossAxisCount = screenWidth > 600
+                ? 3
+                : screenWidth > 360
+                ? 2
+                : 1;
+            return GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: crossAxisCount,
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 16,
+              childAspectRatio: screenWidth > 600 ? 1.2 : 1.1,
               children: [
-                const Icon(
-                  Icons.event_note_outlined,
-                  size: 64,
-                  color: AppColors.textSecondary,
+                _buildActionCard(
+                  'Create Event',
+                  Icons.add,
+                  AppColors.organizerPrimary,
+                  () => context.go('/create-event'),
+                  subtitle: 'New event',
                 ),
-                const SizedBox(height: 16),
-                const Text(
-                  'No events created yet',
-                  style: TextStyle(
-                    fontSize: 18,
-                    color: AppColors.textSecondary,
-                  ),
+                _buildActionCard(
+                  'My Events',
+                  Icons.event_available,
+                  AppColors.organizerSecondary,
+                  () => context.go('/organizer/events'),
+                  subtitle: '${myEvents.length} events',
                 ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Create your first event to get started',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppColors.textSecondary,
-                  ),
+                _buildActionCard(
+                  'Co-organizers',
+                  Icons.group,
+                  AppColors.organizerAccent,
+                  () => context.go('/organizer/coorganizers'),
+                  subtitle: 'Manage team',
                 ),
-                const SizedBox(height: 24),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const CreateEventScreen(),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.add),
-                  label: const Text('Create Event'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                  ),
+                _buildActionCard(
+                  'Analytics',
+                  Icons.analytics,
+                  AppColors.accent,
+                  () => context.go('/organizer/analytics'),
+                  subtitle: 'View insights',
                 ),
               ],
-            ),
-          );
-        }
-
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: myEvents.length,
-          itemBuilder: (context, index) {
-            final event = myEvents[index];
-            return _buildEventCard(event);
+            );
           },
-        );
-      },
+        ),
+      ],
     );
   }
 
-  Widget _buildProfileTab() {
-    return const Center(child: Text('Profile Tab - Coming Soon'));
+  Widget _buildRecentActivity() {
+    final eventProvider = context.watch<EventProvider>();
+    final user = context.watch<AuthProvider>().currentUser;
+    final myEvents = eventProvider.events
+        .where((event) => event.organizerId == user?.id)
+        .toList();
+
+    final activeEvents = myEvents.where((event) {
+      final now = DateTime.now();
+      return event.startDate.isBefore(now) && event.endDate.isAfter(now);
+    }).length;
+
+    final pendingEvents = myEvents
+        .where((event) => event.status == 'pending' || event.status == 'draft')
+        .length;
+
+    final completedEvents = myEvents
+        .where((event) => event.endDate.isBefore(DateTime.now()))
+        .length;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              'Recent Activity',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppDesign.heading2.copyWith(
+                color: const Color(0xFF111827),
+              ),
+            ),
+            const Spacer(),
+            TextButton.icon(
+              onPressed: () => context.go('/organizer/events'),
+              icon: const Icon(Icons.visibility, size: 16),
+              label: const Text('View All'),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.organizerPrimary,
+                textStyle: AppDesign.labelMedium,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Container(
+          decoration: AppDesign.cardDecoration,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                _buildActivityItem(
+                  'Active Events',
+                  '$activeEvents events currently running',
+                  Icons.event_available,
+                  AppColors.organizerPrimary,
+                ),
+                const Divider(height: 24),
+                _buildActivityItem(
+                  'Pending Events',
+                  '$pendingEvents events waiting for approval',
+                  Icons.pending,
+                  AppColors.warning,
+                ),
+                const Divider(height: 24),
+                _buildActivityItem(
+                  'Completed Events',
+                  '$completedEvents events finished',
+                  Icons.check_circle,
+                  AppColors.success,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
-  Widget _header(BuildContext context, String userName) {
-    return Container(
-      padding: const EdgeInsets.all(16),
+  Widget _buildActionCard(
+    String title,
+    IconData icon,
+    Color color,
+    VoidCallback onTap, {
+    String? subtitle,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: AnimatedContainer(
+        duration: AppDesign.fastAnimation,
+        decoration: AppDesign.cardDecoration,
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: color, size: 24),
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppDesign.labelLarge.copyWith(
+                      color: const Color(0xFF111827),
+                      fontWeight: FontWeight.w600,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppDesign.labelSmall.copyWith(
+                        color: const Color(0xFF6B7280),
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Center(
+              child: Icon(
+                Icons.arrow_forward_ios,
+                size: 16,
+                color: const Color(0xFF9CA3AF),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActivityItem(
+    String title,
+    String subtitle,
+    IconData icon,
+    Color color,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Hello, $userName',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF111827),
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppDesign.bodyMedium.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF111827),
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  'Organizer Dashboard',
-                  style: TextStyle(fontSize: 14, color: Color(0xFF6b7280)),
+                Text(
+                  subtitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppDesign.bodySmall.copyWith(
+                    color: const Color(0xFF6B7280),
+                  ),
                 ),
               ],
             ),
           ),
-          _logoutIconButton(context),
-        ],
-      ),
-    );
-  }
-
-  Widget _logoutIconButton(BuildContext context) {
-    final authProvider = context.watch<AuthProvider>();
-    return Container(
-      width: 44,
-      height: 44,
-      decoration: BoxDecoration(
-        color: AppColors.error.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(22),
-      ),
-      child: IconButton(
-        onPressed: authProvider.isLoading
-            ? null
-            : () {
-                _showLogoutConfirmation(context, authProvider);
-              },
-        icon: authProvider.isLoading
-            ? const SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.error),
-                ),
-              )
-            : Icon(Icons.logout, color: AppColors.error),
-      ),
-    );
-  }
-
-  void _showLogoutConfirmation(
-    BuildContext context,
-    AuthProvider authProvider,
-  ) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Confirm Logout'),
-          content: const Text(
-            'Are you sure you want to logout from your account?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () async {
-                Navigator.of(context).pop();
-                await authProvider.signOut();
-                if (context.mounted) {
-                  context.go('/login');
-                }
-              },
-              child: const Text('Logout'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _quickActions(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: _actionCard(
-                  icon: Icons.add,
-                  color: AppColors.primary,
-                  iconColor: Colors.white,
-                  title: 'Create Event',
-                  desc: 'Create new event',
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const CreateEventScreen(),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _actionCard(
-                  icon: Icons.group_add,
-                  color: Colors.white,
-                  iconColor: const Color(0xFF8b5cf6),
-                  title: 'Invitations',
-                  desc: 'Manage co-organizers',
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const CoOrganizerInvitationsScreen(),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
+          Icon(
+            Icons.arrow_forward_ios,
+            size: 16,
+            color: const Color(0xFF9CA3AF),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _actionCard({
-    required IconData icon,
-    required Color color,
-    required Color iconColor,
-    required String title,
-    required String desc,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-          border: Border.all(color: Colors.grey[200]!, width: 1),
-        ),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: iconColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(icon, color: iconColor, size: 24),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF111827),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              desc,
-              style: const TextStyle(fontSize: 12, color: Color(0xFF6b7280)),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEventCard(EventModel event) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: InkWell(
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => EventDetailScreen(eventId: event.id),
-            ),
-          );
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      event.title,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                  ),
-                  _buildStatusChip(event.status),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                event.description,
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: AppColors.textSecondary,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Icon(
-                    Icons.location_on,
-                    size: 16,
-                    color: AppColors.textSecondary,
-                  ),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      event.location,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Icon(
-                    Icons.access_time,
-                    size: 16,
-                    color: AppColors.textSecondary,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${event.startDate.day}/${event.startDate.month}/${event.startDate.year}',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatusChip(String status) {
-    Color color;
-    String text;
-
-    switch (status) {
-      case 'published':
-        color = AppColors.success;
-        text = 'Published';
-        break;
-      case 'pending':
-        color = AppColors.warning;
-        text = 'Pending';
-        break;
-      case 'rejected':
-        color = AppColors.error;
-        text = 'Rejected';
-        break;
-      case 'draft':
-        color = AppColors.textSecondary;
-        text = 'Draft';
-        break;
-      case 'cancelled':
-        color = AppColors.error;
-        text = 'Cancelled';
-        break;
-      case 'completed':
-        color = AppColors.primary;
-        text = 'Completed';
-        break;
-      default:
-        color = AppColors.textSecondary;
-        text = 'Unknown';
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
-          color: color,
-        ),
       ),
     );
   }

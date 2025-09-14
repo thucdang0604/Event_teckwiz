@@ -6,6 +6,7 @@ import '../../models/coorganizer_invitation_model.dart';
 import '../../services/coorganizer_invitation_service.dart';
 import '../../providers/auth_provider.dart';
 import 'package:intl/intl.dart';
+import '../../widgets/app_bottom_navigation_bar.dart';
 
 class CoOrganizerInvitationsScreen extends StatefulWidget {
   const CoOrganizerInvitationsScreen({super.key});
@@ -38,6 +39,9 @@ class _CoOrganizerInvitationsScreenState
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
     final currentUser = authProvider.currentUser;
+    final role = currentUser?.role;
+    final bool isOrganizer = role == 'organizer';
+    final bool canPop = Navigator.canPop(context);
 
     if (currentUser == null) {
       return const Center(child: Text('Please login to view invitations'));
@@ -47,8 +51,11 @@ class _CoOrganizerInvitationsScreenState
       backgroundColor: AppColors.surfaceVariant,
       appBar: AppBar(
         title: const Text('Co-Organizer Invitations'),
-        backgroundColor: AppColors.primary,
+        backgroundColor: isOrganizer
+            ? AppColors.organizerPrimary
+            : AppColors.primary,
         foregroundColor: Colors.white,
+        automaticallyImplyLeading: canPop,
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: Colors.white,
@@ -67,6 +74,7 @@ class _CoOrganizerInvitationsScreenState
           _buildSentInvitations(currentUser.id),
         ],
       ),
+      bottomNavigationBar: const AppBottomNavigationBar(currentIndex: 2),
     );
   }
 

@@ -258,16 +258,52 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       final sameLocationEvents = events.where(
         (e) => e.location == _locationController.text,
       );
-      for (final ev in sameLocationEvents) {
-        final evStart = ev.startDate;
-        final evEnd = ev.endDate;
-        if (start.isBefore(evEnd) && end.isAfter(evStart)) {
-          return false;
+
+      // Lấy danh sách các ngày trong khoảng thời gian
+      final days = <DateTime>[];
+      DateTime currentDay = DateTime(start.year, start.month, start.day);
+      final endDay = DateTime(end.year, end.month, end.day);
+
+      while (!currentDay.isAfter(endDay)) {
+        days.add(currentDay);
+        currentDay = currentDay.add(const Duration(days: 1));
+      }
+
+      // Kiểm tra xung đột cho từng ngày
+      for (final day in days) {
+        final dayStart =
+            day.isAtSameMomentAs(DateTime(start.year, start.month, start.day))
+            ? start
+            : DateTime(day.year, day.month, day.day, 0, 0);
+        final dayEnd =
+            day.isAtSameMomentAs(DateTime(end.year, end.month, end.day))
+            ? end
+            : DateTime(day.year, day.month, day.day, 23, 59);
+
+        for (final ev in sameLocationEvents) {
+          final evStart = ev.startDate;
+          final evEnd = ev.endDate;
+
+          // Kiểm tra xung đột trong ngày này
+          if (dayStart.isBefore(evEnd) && dayEnd.isAfter(evStart)) {
+            // Kiểm tra xem có cùng ngày không
+            final evDay = DateTime(evStart.year, evStart.month, evStart.day);
+            if (evDay.isAtSameMomentAs(day)) {
+              return false;
+            }
+          }
         }
       }
+
       return true;
     } catch (_) {
       return true;
+    }
+  }
+
+  void _ensureContinuousTime() {
+    if (_startDate.isAfter(_endDate)) {
+      _endDate = _startDate.add(const Duration(hours: 1));
     }
   }
 
@@ -559,6 +595,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                               }
                             });
                             _loadBookedHoursForStartDate(_startDate);
+                            _loadBookedHoursForEndDate(_endDate);
                           },
                           validator: (val) {
                             if (val == null || val.isEmpty) {
@@ -1148,7 +1185,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     if (_selectedLocationId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please select a location first'),
+          content: Text('Vui lòng chọn địa điểm trước'),
           backgroundColor: AppColors.warning,
         ),
       );
@@ -1164,7 +1201,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       builder: (context) {
         return DraggableScrollableSheet(
           expand: false,
-          initialChildSize: 0.9,
+          initialChildSize: 0.85,
           minChildSize: 0.6,
           maxChildSize: 0.95,
           builder: (context, scrollController) {
@@ -1176,22 +1213,28 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Header
                       Row(
-                        children: const [
-                          Text(
-                            'Select Event Time',
+                        children: [
+                          const Text(
+                            'Chọn thời gian sự kiện',
                             style: TextStyle(
-                              fontSize: 18,
+                              fontSize: 20,
                               fontWeight: FontWeight.bold,
                               color: AppColors.textPrimary,
                             ),
                           ),
+                          const Spacer(),
+                          IconButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            icon: const Icon(Icons.close),
+                          ),
                         ],
                       ),
 
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
 
-                      // Start Date (inline, no popup)
+                      // Date selector
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
@@ -1199,84 +1242,436 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: AppColors.grey),
                         ),
-                        child: Row(
+                        child: Column(
                           children: [
-                            const Icon(
-                              Icons.calendar_today,
-                              color: AppColors.primary,
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.calendar_today,
+                                  color: AppColors.primary,
+                                ),
+                                const SizedBox(width: 12),
+                                const Text(
+                                  'Event Schedule:',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Start Date',
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: () async {
+                                      final DateTime? picked =
+                                          await showDatePicker(
+                                            context: context,
+                                            initialDate: _startDate,
+                                            firstDate: DateTime.now(),
+                                            lastDate: DateTime.now().add(
+                                              const Duration(days: 365),
+                                            ),
+                                          );
+                                      if (picked != null) {
+                                        setState(() {
+                                          _startDate = DateTime(
+                                            picked.year,
+                                            picked.month,
+                                            picked.day,
+                                            _startDate.hour,
+                                            0,
+                                          );
+                                          _ensureContinuousTime();
+                                        });
+                                        await _loadBookedHoursForStartDate(
+                                          _startDate,
+                                        );
+                                        sbSetState(() {});
+                                      }
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.primary.withOpacity(
+                                          0.1,
+                                        ),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: AppColors.primary,
+                                        ),
+                                      ),
+                                      child: Column(
+                                        children: [
+                                          Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              const Text(
+                                                'Start Date',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color:
+                                                      AppColors.textSecondary,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 4),
+                                              const Icon(
+                                                Icons.edit,
+                                                size: 14,
+                                                color: AppColors.primary,
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            DateFormat(
+                                              'dd/MM/yyyy',
+                                            ).format(_startDate),
+                                            style: const TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                              color: AppColors.primary,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: () async {
+                                      final DateTime? picked =
+                                          await showDatePicker(
+                                            context: context,
+                                            initialDate: _endDate,
+                                            firstDate: _startDate,
+                                            lastDate: DateTime.now().add(
+                                              const Duration(days: 365),
+                                            ),
+                                          );
+                                      if (picked != null) {
+                                        setState(() {
+                                          _endDate = DateTime(
+                                            picked.year,
+                                            picked.month,
+                                            picked.day,
+                                            _endDate.hour,
+                                            0,
+                                          );
+                                          _ensureContinuousTime();
+                                        });
+                                        await _loadBookedHoursForEndDate(
+                                          _endDate,
+                                        );
+                                        sbSetState(() {});
+                                      }
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.success.withOpacity(
+                                          0.1,
+                                        ),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: AppColors.success,
+                                        ),
+                                      ),
+                                      child: Column(
+                                        children: [
+                                          Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              const Text(
+                                                'End Date',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color:
+                                                      AppColors.textSecondary,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 4),
+                                              const Icon(
+                                                Icons.edit,
+                                                size: 14,
+                                                color: AppColors.success,
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            DateFormat(
+                                              'dd/MM/yyyy',
+                                            ).format(_endDate),
+                                            style: const TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                              color: AppColors.success,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      // Step indicator
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[50],
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey[300]!),
+                        ),
+                        child: Column(
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  width: 32,
+                                  height: 32,
+                                  decoration: BoxDecoration(
+                                    color: _selectingStart
+                                        ? AppColors.primary
+                                        : Colors.grey,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      '1',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    _selectingStart
+                                        ? 'Step 1: Select Start Time'
+                                        : 'Step 1: Start Time Selected',
                                     style: TextStyle(
-                                      fontSize: 14,
-                                      color: AppColors.textSecondary,
-                                    ),
-                                  ),
-                                  Text(
-                                    DateFormat(
-                                      AppConstants.dateTimeFormat,
-                                    ).format(_startDate),
-                                    style: const TextStyle(
                                       fontSize: 16,
-                                      color: AppColors.textPrimary,
                                       fontWeight: FontWeight.w600,
+                                      color: _selectingStart
+                                          ? AppColors.primary
+                                          : Colors.grey,
                                     ),
                                   ),
-                                ],
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Container(
+                                  width: 32,
+                                  height: 32,
+                                  decoration: BoxDecoration(
+                                    color: !_selectingStart
+                                        ? AppColors.success
+                                        : Colors.grey,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      '2',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    !_selectingStart
+                                        ? 'Step 2: Select End Time'
+                                        : 'Step 2: Select End Time',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: !_selectingStart
+                                          ? AppColors.success
+                                          : Colors.grey,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      // Time selection buttons
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                setState(() => _selectingStart = true);
+                                _loadBookedHoursForStartDate(_startDate);
+                                sbSetState(() {});
+                              },
+                              icon: Icon(
+                                Icons.play_arrow,
+                                color: _selectingStart
+                                    ? Colors.white
+                                    : AppColors.primary,
+                              ),
+                              label: Text(
+                                'Select Start Time',
+                                style: TextStyle(
+                                  color: _selectingStart
+                                      ? Colors.white
+                                      : AppColors.primary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _selectingStart
+                                    ? AppColors.primary
+                                    : Colors.white,
+                                foregroundColor: _selectingStart
+                                    ? Colors.white
+                                    : AppColors.primary,
+                                side: BorderSide(
+                                  color: AppColors.primary,
+                                  width: 2,
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 14,
+                                ),
+                                elevation: _selectingStart ? 4 : 2,
+                                shadowColor: _selectingStart
+                                    ? AppColors.primary.withOpacity(0.3)
+                                    : Colors.grey.withOpacity(0.2),
                               ),
                             ),
-                            IconButton(
-                              icon: const Icon(Icons.chevron_left),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton.icon(
                               onPressed: () {
-                                setState(() {
-                                  final d = _startDate.subtract(
-                                    const Duration(days: 1),
-                                  );
-                                  _startDate = DateTime(
-                                    d.year,
-                                    d.month,
-                                    d.day,
-                                    _startDate.hour,
-                                    0,
-                                  );
-                                  if (!_endDate.isAfter(_startDate)) {
-                                    _endDate = _startDate.add(
-                                      const Duration(hours: 1),
-                                    );
-                                  }
-                                });
-                                _loadBookedHoursForStartDate(_startDate);
+                                setState(() => _selectingStart = false);
+                                _loadBookedHoursForEndDate(_endDate);
                                 sbSetState(() {});
                               },
+                              icon: Icon(
+                                Icons.stop,
+                                color: !_selectingStart
+                                    ? Colors.white
+                                    : AppColors.success,
+                              ),
+                              label: Text(
+                                'Select End Time',
+                                style: TextStyle(
+                                  color: !_selectingStart
+                                      ? Colors.white
+                                      : AppColors.success,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: !_selectingStart
+                                    ? AppColors.success
+                                    : Colors.white,
+                                foregroundColor: !_selectingStart
+                                    ? Colors.white
+                                    : AppColors.success,
+                                side: BorderSide(
+                                  color: AppColors.success,
+                                  width: 2,
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 14,
+                                ),
+                                elevation: !_selectingStart ? 4 : 2,
+                                shadowColor: !_selectingStart
+                                    ? AppColors.success.withOpacity(0.3)
+                                    : Colors.grey.withOpacity(0.2),
+                              ),
                             ),
-                            IconButton(
-                              icon: const Icon(Icons.chevron_right),
-                              onPressed: () {
-                                setState(() {
-                                  final d = _startDate.add(
-                                    const Duration(days: 1),
-                                  );
-                                  _startDate = DateTime(
-                                    d.year,
-                                    d.month,
-                                    d.day,
-                                    _startDate.hour,
-                                    0,
-                                  );
-                                  if (!_endDate.isAfter(_startDate)) {
-                                    _endDate = _startDate.add(
-                                      const Duration(hours: 1),
-                                    );
-                                  }
-                                });
-                                _loadBookedHoursForStartDate(_startDate);
-                                sbSetState(() {});
-                              },
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      // Current selection display
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: _selectingStart
+                              ? AppColors.primary.withOpacity(0.1)
+                              : AppColors.success.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: _selectingStart
+                                ? AppColors.primary
+                                : AppColors.success,
+                            width: 2,
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  _selectingStart
+                                      ? Icons.play_arrow
+                                      : Icons.stop,
+                                  color: _selectingStart
+                                      ? AppColors.primary
+                                      : AppColors.success,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  _selectingStart
+                                      ? 'Selecting Start Time'
+                                      : 'Selecting End Time',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: _selectingStart
+                                        ? AppColors.primary
+                                        : AppColors.success,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              _selectingStart
+                                  ? 'Current: ${_startDate.hour.toString().padLeft(2, '0')}:00'
+                                  : 'Current: ${_endDate.hour.toString().padLeft(2, '0')}:00',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: _selectingStart
+                                    ? AppColors.primary
+                                    : AppColors.success,
+                              ),
                             ),
                           ],
                         ),
@@ -1284,149 +1679,260 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
                       const SizedBox(height: 12),
 
-                      // End Date (inline, independent day control)
+                      // Information about continuous time
                       Container(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: AppColors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.grey),
+                          color: Colors.orange[50],
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.orange[200]!),
                         ),
                         child: Row(
                           children: [
-                            const Icon(
-                              Icons.event_available,
-                              color: AppColors.success,
+                            Icon(
+                              Icons.info_outline,
+                              size: 16,
+                              color: Colors.orange[600],
                             ),
-                            const SizedBox(width: 12),
+                            const SizedBox(width: 8),
                             Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'End Date',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: AppColors.textSecondary,
-                                    ),
-                                  ),
-                                  Text(
-                                    DateFormat(
-                                      AppConstants.dateTimeFormat,
-                                    ).format(_endDate),
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      color: AppColors.textPrimary,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
+                              child: Text(
+                                'Events can span multiple consecutive days, as long as there are no time conflicts',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.orange[700],
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.chevron_left),
-                              onPressed: () {
-                                setState(() {
-                                  final d = _endDate.subtract(
-                                    const Duration(days: 1),
-                                  );
-                                  _endDate = DateTime(
-                                    d.year,
-                                    d.month,
-                                    d.day,
-                                    _endDate.hour,
-                                    0,
-                                  );
-                                  if (!_endDate.isAfter(_startDate)) {
-                                    _endDate = _startDate.add(
-                                      const Duration(hours: 1),
-                                    );
-                                  }
-                                });
-                                _loadBookedHoursForEndDate(_endDate);
-                                sbSetState(() {});
-                              },
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.chevron_right),
-                              onPressed: () {
-                                setState(() {
-                                  final d = _endDate.add(
-                                    const Duration(days: 1),
-                                  );
-                                  _endDate = DateTime(
-                                    d.year,
-                                    d.month,
-                                    d.day,
-                                    _endDate.hour,
-                                    0,
-                                  );
-                                  if (!_endDate.isAfter(_startDate)) {
-                                    _endDate = _startDate.add(
-                                      const Duration(hours: 1),
-                                    );
-                                  }
-                                });
-                                _loadBookedHoursForEndDate(_endDate);
-                                sbSetState(() {});
-                              },
                             ),
                           ],
                         ),
                       ),
 
-                      // Display selected times
+                      const SizedBox(height: 20),
+
+                      // Time grid
+                      GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 4,
+                              crossAxisSpacing: 8,
+                              mainAxisSpacing: 8,
+                              childAspectRatio: 2.5,
+                            ),
+                        itemCount: 24,
+                        itemBuilder: (context, index) {
+                          final hour = index;
+                          final isBooked = _selectingStart
+                              ? _bookedHours.contains(hour)
+                              : _bookedHoursEnd.contains(hour);
+                          final isSelected = _selectingStart
+                              ? _startDate.hour == hour
+                              : _endDate.hour == hour;
+
+                          Color bgColor;
+                          Color textColor;
+                          Color borderColor;
+
+                          if (isBooked) {
+                            bgColor = Colors.red[50]!;
+                            textColor = Colors.red[600]!;
+                            borderColor = Colors.red[200]!;
+                          } else if (isSelected) {
+                            bgColor = _selectingStart
+                                ? AppColors.primary
+                                : AppColors.success;
+                            textColor = Colors.white;
+                            borderColor = _selectingStart
+                                ? AppColors.primary
+                                : AppColors.success;
+                          } else {
+                            bgColor = Colors.white;
+                            textColor = AppColors.textPrimary;
+                            borderColor = Colors.grey[300]!;
+                          }
+
+                          return AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            curve: Curves.easeInOut,
+                            child: GestureDetector(
+                              onTap: isBooked
+                                  ? () {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            'Time $hour:00 is already booked',
+                                          ),
+                                          backgroundColor: AppColors.error,
+                                          behavior: SnackBarBehavior.floating,
+                                        ),
+                                      );
+                                    }
+                                  : () async {
+                                      if (_selectingStart) {
+                                        final newStart = DateTime(
+                                          _startDate.year,
+                                          _startDate.month,
+                                          _startDate.day,
+                                          hour,
+                                          0,
+                                        );
+
+                                        setState(() {
+                                          _startDate = newStart;
+                                          _ensureContinuousTime();
+                                        });
+                                        await _loadBookedHoursForStartDate(
+                                          _startDate,
+                                        );
+                                      } else {
+                                        final newEnd = DateTime(
+                                          _endDate.year,
+                                          _endDate.month,
+                                          _endDate.day,
+                                          hour,
+                                          0,
+                                        );
+
+                                        if (newEnd.isAfter(_startDate)) {
+                                          final ok = await _isRangeAvailable(
+                                            _startDate,
+                                            newEnd,
+                                          );
+                                          if (!ok) {
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              const SnackBar(
+                                                content: Text(
+                                                  'This time slot is already booked',
+                                                ),
+                                                backgroundColor:
+                                                    AppColors.error,
+                                              ),
+                                            );
+                                            return;
+                                          }
+
+                                          setState(() {
+                                            _endDate = newEnd;
+                                            _ensureContinuousTime();
+                                          });
+                                          await _loadBookedHoursForEndDate(
+                                            _endDate,
+                                          );
+                                        } else {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                'End time must be after start time',
+                                              ),
+                                              backgroundColor: AppColors.error,
+                                            ),
+                                          );
+                                        }
+                                      }
+                                      sbSetState(() {});
+                                    },
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: bgColor,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: borderColor,
+                                    width: 2,
+                                  ),
+                                  boxShadow: isSelected
+                                      ? [
+                                          BoxShadow(
+                                            color: borderColor.withOpacity(0.4),
+                                            blurRadius: 8,
+                                            offset: const Offset(0, 4),
+                                            spreadRadius: 1,
+                                          ),
+                                        ]
+                                      : [
+                                          BoxShadow(
+                                            color: Colors.grey.withOpacity(0.1),
+                                            blurRadius: 2,
+                                            offset: const Offset(0, 1),
+                                          ),
+                                        ],
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    '${hour.toString().padLeft(2, '0')}:00',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: textColor,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      // Summary
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.1),
+                          color: Colors.blue[50],
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: AppColors.primary.withOpacity(0.3),
-                          ),
+                          border: Border.all(color: Colors.blue[200]!),
                         ),
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'Thời gian đã chọn:',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.textPrimary,
-                              ),
+                            Row(
+                              children: [
+                                Icon(Icons.schedule, color: Colors.blue[600]),
+                                const SizedBox(width: 8),
+                                const Text(
+                                  'Selected Time:',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 12),
                             Row(
                               children: [
                                 Expanded(
                                   child: Container(
                                     padding: const EdgeInsets.all(12),
                                     decoration: BoxDecoration(
-                                      color: AppColors.white,
+                                      color: Colors.white,
                                       borderRadius: BorderRadius.circular(8),
                                       border: Border.all(
                                         color: AppColors.primary,
                                       ),
                                     ),
                                     child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
                                       children: [
                                         const Text(
-                                          'Start:',
+                                          'Bắt đầu',
                                           style: TextStyle(
                                             fontSize: 12,
                                             color: AppColors.textSecondary,
                                           ),
                                         ),
-                                        const SizedBox(height: 4),
                                         Text(
-                                          DateFormat(
-                                            AppConstants.dateTimeFormat,
-                                          ).format(_startDate),
+                                          '${_startDate.hour.toString().padLeft(2, '0')}:00',
                                           style: const TextStyle(
-                                            fontSize: 16,
+                                            fontSize: 18,
                                             fontWeight: FontWeight.bold,
                                             color: AppColors.primary,
                                           ),
@@ -1440,30 +1946,25 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                   child: Container(
                                     padding: const EdgeInsets.all(12),
                                     decoration: BoxDecoration(
-                                      color: AppColors.white,
+                                      color: Colors.white,
                                       borderRadius: BorderRadius.circular(8),
                                       border: Border.all(
                                         color: AppColors.success,
                                       ),
                                     ),
                                     child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
                                       children: [
                                         const Text(
-                                          'End:',
+                                          'Kết thúc',
                                           style: TextStyle(
                                             fontSize: 12,
                                             color: AppColors.textSecondary,
                                           ),
                                         ),
-                                        const SizedBox(height: 4),
                                         Text(
-                                          DateFormat(
-                                            AppConstants.dateTimeFormat,
-                                          ).format(_endDate),
+                                          '${_endDate.hour.toString().padLeft(2, '0')}:00',
                                           style: const TextStyle(
-                                            fontSize: 16,
+                                            fontSize: 18,
                                             fontWeight: FontWeight.bold,
                                             color: AppColors.success,
                                           ),
@@ -1478,214 +1979,57 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                         ),
                       ),
 
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 20),
 
-                      // Switch which bound to edit
-                      Row(
-                        children: [
-                          ChoiceChip(
-                            label: const Text('Chọn giờ bắt đầu'),
-                            selected: _selectingStart,
-                            onSelected: (v) async {
-                              print('Switching to start time selection');
-                              setState(() => _selectingStart = true);
-                              await _loadBookedHoursForStartDate(_startDate);
-                              sbSetState(() {});
-                            },
-                            selectedColor: AppColors.primary.withOpacity(0.2),
-                            labelStyle: TextStyle(
-                              color: _selectingStart
+                      // Confirm button
+                      SizedBox(
+                        width: double.infinity,
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
+                          child: ElevatedButton.icon(
+                            onPressed:
+                                (_startDate.hour != 0 && _endDate.hour != 0)
+                                ? () => Navigator.of(context).pop()
+                                : null,
+                            icon: Icon(
+                              (_startDate.hour != 0 && _endDate.hour != 0)
+                                  ? Icons.check_circle
+                                  : Icons.warning,
+                            ),
+                            label: Text(
+                              (_startDate.hour != 0 && _endDate.hour != 0)
+                                  ? 'Confirm Time'
+                                  : 'Please select complete time',
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor:
+                                  (_startDate.hour != 0 && _endDate.hour != 0)
                                   ? AppColors.primary
-                                  : AppColors.textSecondary,
-                              fontWeight: _selectingStart
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          ChoiceChip(
-                            label: const Text('Chọn giờ kết thúc'),
-                            selected: !_selectingStart,
-                            onSelected: (v) async {
-                              print('Switching to end time selection');
-                              setState(() => _selectingStart = false);
-                              await _loadBookedHoursForEndDate(_endDate);
-                              sbSetState(() {});
-                            },
-                            selectedColor: AppColors.success.withOpacity(0.2),
-                            labelStyle: TextStyle(
-                              color: !_selectingStart
-                                  ? AppColors.success
-                                  : AppColors.textSecondary,
-                              fontWeight: !_selectingStart
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 8),
-
-                      // One grid to pick start or end depending on toggle
-                      GridView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 4,
-                              crossAxisSpacing: 8,
-                              mainAxisSpacing: 8,
-                              childAspectRatio: 2.6,
-                            ),
-                        itemCount: 24,
-                        itemBuilder: (context, index) {
-                          final hour = index;
-                          final isBooked = _selectingStart
-                              ? _bookedHours.contains(hour)
-                              : _bookedHoursEnd.contains(hour);
-                          if (isBooked) {
-                            print(
-                              'Hour $hour is booked for ${_selectingStart ? 'start' : 'end'} selection',
-                            );
-                          }
-                          final isSelectedStart = _startDate.hour == hour;
-                          final isSelectedEnd = _endDate.hour == hour;
-                          final bg = isBooked
-                              ? const Color(0xFFFFE5E5)
-                              : const Color(0xFFE8F8F0);
-                          final border = (isSelectedStart || isSelectedEnd)
-                              ? const Color(0xFF10b981)
-                              : Colors.transparent;
-                          return GestureDetector(
-                            onTap: isBooked
-                                ? () => print(
-                                    'Cannot select hour $hour - it is booked',
-                                  )
-                                : () {
-                                    () async {
-                                      print(
-                                        'Selecting ${_selectingStart ? 'start' : 'end'} time: hour $hour',
-                                      );
-                                      if (_selectingStart) {
-                                        final newStart = DateTime(
-                                          _startDate.year,
-                                          _startDate.month,
-                                          _startDate.day,
-                                          hour,
-                                          0,
-                                        );
-                                        final ok = await _isRangeAvailable(
-                                          newStart,
-                                          _endDate.isAfter(newStart)
-                                              ? _endDate
-                                              : newStart.add(
-                                                  const Duration(hours: 1),
-                                                ),
-                                        );
-                                        if (!ok) return;
-                                        final endDateChanged = !_endDate
-                                            .isAfter(_startDate);
-                                        setState(() {
-                                          _startDate = newStart;
-                                          if (endDateChanged) {
-                                            _endDate = _startDate.add(
-                                              const Duration(hours: 1),
-                                            );
-                                          }
-                                          // giữ nguyên chip chọn, user tự chọn End
-                                          if (_registrationDeadline.isAfter(
-                                                _startDate,
-                                              ) ||
-                                              _registrationDeadline
-                                                  .isAtSameMomentAs(
-                                                    _startDate,
-                                                  )) {
-                                            _registrationDeadlineError =
-                                                'Registration deadline must be before event start time';
-                                          } else {
-                                            _registrationDeadlineError = null;
-                                          }
-                                        });
-                                        // Refresh booked hours for start date
-                                        print(
-                                          'Refreshing booked hours for start date after selection',
-                                        );
-                                        await _loadBookedHoursForStartDate(
-                                          _startDate,
-                                        );
-                                        // If end date was adjusted, refresh its booked hours too
-                                        if (endDateChanged) {
-                                          print(
-                                            'End date was adjusted, refreshing booked hours for end date',
-                                          );
-                                          await _loadBookedHoursForEndDate(
-                                            _endDate,
-                                          );
-                                        }
-                                        sbSetState(() {});
-                                      } else {
-                                        final newEnd = DateTime(
-                                          _endDate.year,
-                                          _endDate.month,
-                                          _endDate.day,
-                                          hour,
-                                          0,
-                                        );
-                                        if (!newEnd.isAfter(_startDate)) return;
-                                        final ok = await _isRangeAvailable(
-                                          _startDate,
-                                          newEnd,
-                                        );
-                                        if (!ok) return;
-                                        setState(() {
-                                          _endDate = newEnd;
-                                        });
-                                        await _loadBookedHoursForEndDate(
-                                          _endDate,
-                                        );
-                                        sbSetState(() {});
-                                      }
-                                    }();
-                                  },
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: bg,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: border, width: 2),
+                                  : Colors.grey[400],
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 32,
+                                vertical: 16,
                               ),
-                              alignment: Alignment.center,
-                              child: Text(
-                                '${hour.toString().padLeft(2, '0')}:00',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: isBooked
-                                      ? const Color(0xFFDC2626)
-                                      : const Color(0xFF10b981),
-                                ),
+                              elevation:
+                                  (_startDate.hour != 0 && _endDate.hour != 0)
+                                  ? 6
+                                  : 2,
+                              shadowColor:
+                                  (_startDate.hour != 0 && _endDate.hour != 0)
+                                  ? AppColors.primary.withOpacity(0.4)
+                                  : Colors.grey.withOpacity(0.2),
+                              textStyle: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
-                          );
-                        },
+                          ),
+                        ),
                       ),
 
                       const SizedBox(height: 16),
-
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: () => Navigator.of(context).pop(),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.primary,
-                                foregroundColor: AppColors.white,
-                              ),
-                              child: const Text('Confirm'),
-                            ),
-                          ),
-                        ],
-                      ),
                     ],
                   ),
                 );

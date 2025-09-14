@@ -5,6 +5,7 @@ import '../../constants/app_constants.dart';
 import '../../constants/app_design.dart';
 import '../../models/user_model.dart';
 import '../../services/auth_service.dart';
+import '../../widgets/admin_bottom_navigation_bar.dart';
 import 'user_detail_screen.dart';
 
 class UserManagementScreen extends StatefulWidget {
@@ -215,81 +216,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
             },
           ),
         ),
-        bottomNavigationBar: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border(
-              top: BorderSide(color: AppColors.cardBorder, width: 1),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.cardShadow,
-                blurRadius: 8,
-                offset: const Offset(0, -2),
-              ),
-            ],
-          ),
-          child: BottomNavigationBar(
-            type: BottomNavigationBarType.fixed,
-            currentIndex: _currentIndex,
-            selectedItemColor: AppColors.adminPrimary,
-            unselectedItemColor: const Color(0xFF9CA3AF),
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            selectedLabelStyle: AppDesign.labelSmall.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-            unselectedLabelStyle: AppDesign.labelSmall,
-            onTap: (index) {
-              setState(() {
-                _currentIndex = index;
-              });
-              switch (index) {
-                case 0:
-                  context.go('/admin-dashboard');
-                  break;
-                case 1:
-                  context.go('/admin/approvals');
-                  break;
-                case 2:
-                  context.go('/admin/users');
-                  break;
-                case 3:
-                  context.go('/admin/locations');
-                  break;
-                case 4:
-                  context.go('/admin/statistics');
-                  break;
-              }
-            },
-            items: const [
-              BottomNavigationBarItem(
-                icon: Icon(Icons.dashboard_outlined),
-                activeIcon: Icon(Icons.dashboard),
-                label: 'Dashboard',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.event_available_outlined),
-                activeIcon: Icon(Icons.event_available),
-                label: 'Approval',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.people_outline),
-                activeIcon: Icon(Icons.people),
-                label: 'Users',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.location_on_outlined),
-                activeIcon: Icon(Icons.location_on),
-                label: 'Locations',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.analytics_outlined),
-                activeIcon: Icon(Icons.analytics),
-                label: 'Statistics',
-              ),
-            ],
-          ),
+        bottomNavigationBar: AdminBottomNavigationBar(
+          currentIndex: _currentIndex,
         ),
       ),
     );

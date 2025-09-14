@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 class AppDesign {
   // Spacing System
   static const double spacing4 = 4.0;
+  static const double spacing6 = 6.0;
   static const double spacing8 = 8.0;
+  static const double spacing10 = 10.0;
   static const double spacing12 = 12.0;
   static const double spacing16 = 16.0;
   static const double spacing20 = 20.0;
@@ -14,6 +16,7 @@ class AppDesign {
   static const double spacing48 = 48.0;
 
   // Border Radius
+  static const double radius6 = 6.0;
   static const double radius8 = 8.0;
   static const double radius12 = 12.0;
   static const double radius16 = 16.0;
@@ -205,7 +208,9 @@ class AppDesign {
 /// Extension for consistent spacing
 extension SpacingExtension on num {
   double get s4 => this * 4.0;
+  double get s6 => this * 6.0;
   double get s8 => this * 8.0;
+  double get s10 => this * 10.0;
   double get s12 => this * 12.0;
   double get s16 => this * 16.0;
   double get s20 => this * 20.0;
