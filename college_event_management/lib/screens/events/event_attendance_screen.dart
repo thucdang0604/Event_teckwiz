@@ -150,6 +150,9 @@ class _EventAttendanceScreenState extends State<EventAttendanceScreen>
         ],
         bottom: TabBar(
           controller: _tabController,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          indicatorColor: Colors.white,
           tabs: const [
             Tab(text: 'Not Attended'),
             Tab(text: 'Checked In'),

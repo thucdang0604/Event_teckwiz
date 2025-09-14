@@ -11,6 +11,7 @@ import '../../models/registration_model.dart';
 import '../../constants/app_colors.dart';
 import '../coorganizer/coorganizer_invitations_screen.dart';
 import '../../widgets/app_bottom_navigation_bar.dart';
+import '../../constants/app_design.dart';
 
 class HomeScreen extends StatefulWidget {
   final int? initialTab;
@@ -24,6 +25,8 @@ class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin {
   late int _currentIndex;
   late TabController _eventsTabController;
+  String _searchQuery = '';
+  String _statusFilter = 'all';
 
   @override
   void initState() {
@@ -158,15 +161,20 @@ class _HomeScreenState extends State<HomeScreen>
                           constraints.maxWidth > 600 ? 24 : 16,
                           40 + MediaQuery.of(context).padding.bottom,
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildWelcomeSection(authProvider),
-                            const SizedBox(height: 24),
-                            _buildOverviewSection(authProvider),
-                            const SizedBox(height: 32),
-                            _buildRecentActivitySection(authProvider),
-                          ],
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 800),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                _buildWelcomeSection(authProvider),
+                                const SizedBox(height: 24),
+                                _buildOverviewSection(authProvider),
+                                const SizedBox(height: 32),
+                                _buildRecentActivitySection(authProvider),
+                              ],
+                            ),
+                          ),
                         ),
                       );
                     },
@@ -463,7 +471,7 @@ class _HomeScreenState extends State<HomeScreen>
 
   Widget _buildOverviewSection(AuthProvider authProvider) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Text(
           'Overview',
@@ -475,6 +483,7 @@ class _HomeScreenState extends State<HomeScreen>
             letterSpacing: -0.25,
             color: Color(0xFF111827),
           ),
+          textAlign: TextAlign.center,
         ),
         const SizedBox(height: 16),
         if (authProvider.currentUser?.isOrganizer == true)
@@ -497,6 +506,7 @@ class _HomeScreenState extends State<HomeScreen>
           mainAxisSpacing: 16,
           childAspectRatio: 0.9,
           children: [
+            // Single entry to create events
             _buildOverviewCard(
               title: 'Create Event',
               subtitle: 'New event',
@@ -524,13 +534,7 @@ class _HomeScreenState extends State<HomeScreen>
                 );
               },
             ),
-            _buildOverviewCard(
-              title: 'Analytics',
-              subtitle: 'View insights',
-              icon: Icons.analytics,
-              color: AppColors.organizerSecondary,
-              onTap: () {},
-            ),
+            // Removed duplicate create event entry if existed elsewhere
           ],
         );
       },
@@ -758,23 +762,34 @@ class _HomeScreenState extends State<HomeScreen>
                         ],
                       ),
                     ),
-                    if (authProvider.currentUser?.isOrganizer == true)
-                      ElevatedButton.icon(
-                        onPressed: () => context.go('/create-event'),
-                        icon: const Icon(Icons.add, size: 18),
-                        label: const Text('Create'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.organizerPrimary,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                      ),
+                  ],
+                ),
+              ),
+
+              // Search and status filter
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: TextField(
+                  decoration: AppDesign.textFieldDecoration(
+                    hintText: 'Search by title, organizer, or location...',
+                    prefixIcon: Icon(
+                      Icons.search,
+                      color: AppColors.organizerPrimary.withOpacity(0.7),
+                    ),
+                  ),
+                  onChanged: (v) => setState(() => _searchQuery = v),
+                ),
+              ),
+              SizedBox(
+                height: 32,
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  scrollDirection: Axis.horizontal,
+                  children: [
+                    _buildStatusChip('All', 'all'),
+                    _buildStatusChip('Published', 'published'),
+                    _buildStatusChip('Pending', 'pending'),
+                    _buildStatusChip('Rejected', 'rejected'),
                   ],
                 ),
               ),
@@ -806,10 +821,11 @@ class _HomeScreenState extends State<HomeScreen>
                     if (authProvider.currentUser?.isOrganizer == true) {
                       final myEvents =
                           (snapshot.data as List<EventModel>?) ?? [];
-                      if (myEvents.isEmpty) {
+                      final filtered = _filterEvents(myEvents);
+                      if (filtered.isEmpty) {
                         return _buildEmptyState();
                       }
-                      return _buildEventsList(myEvents);
+                      return _buildEventsList(filtered);
                     } else {
                       final registrations =
                           (snapshot.data as List?)?.cast<RegistrationModel>() ??
@@ -826,6 +842,137 @@ class _HomeScreenState extends State<HomeScreen>
           ),
         );
       },
+    );
+  }
+
+  List<EventModel> _filterEvents(List<EventModel> events) {
+    final q = _searchQuery.trim().toLowerCase();
+    return events.where((e) {
+      final matchesQuery =
+          q.isEmpty ||
+          e.title.toLowerCase().contains(q) ||
+          e.organizerName.toLowerCase().contains(q) ||
+          e.location.toLowerCase().contains(q);
+      final matchesStatus = _statusFilter == 'all' || e.status == _statusFilter;
+      return matchesQuery && matchesStatus;
+    }).toList()..sort((a, b) => b.startDate.compareTo(a.startDate));
+  }
+
+  // Helper: Tính toán lại số lượng participants cho event dựa trên registrations
+  Future<int> _getEventParticipantCount(String eventId) async {
+    try {
+      final registrations = await RegistrationService().getEventRegistrations(
+        eventId,
+      );
+      return registrations.where((r) => r.isApproved).length;
+    } catch (e) {
+      // Nếu có lỗi, trả về currentParticipants từ event
+      return 0;
+    }
+  }
+
+  // Helper: Tính toán lại số lượng support staff cho event dựa trên support registrations
+  Future<int> _getEventSupportStaffCount(String eventId) async {
+    try {
+      final supportRegistrations = await RegistrationService()
+          .getEventSupportRegistrations(eventId);
+
+      // Debug: in ra thông tin để kiểm tra
+      print(
+        'Event $eventId - Support registrations count: ${supportRegistrations.length}',
+      );
+      for (var reg in supportRegistrations) {
+        print(
+          '  Support reg ID: ${reg.id}, status: ${reg.status}, isApproved: ${reg.isApproved}',
+        );
+      }
+
+      // Thử đếm với nhiều điều kiện khác nhau để debug
+      final approvedCount = supportRegistrations
+          .where((r) => r.isApproved)
+          .length;
+      final allCount = supportRegistrations.length;
+      final pendingCount = supportRegistrations
+          .where((r) => r.isPending)
+          .length;
+      final rejectedCount = supportRegistrations
+          .where((r) => r.isRejected)
+          .length;
+
+      print('Event $eventId - Support staff counts:');
+      print(
+        '  Total: $allCount, Approved: $approvedCount, Pending: $pendingCount, Rejected: $rejectedCount',
+      );
+
+      // Nếu không có approved nhưng có pending, có thể cần approve registrations này
+      // Hoặc có thể vấn đề là status field trong Firestore có giá trị khác
+      if (allCount > 0 && approvedCount == 0) {
+        print(
+          'Event $eventId - WARNING: No approved support staff but have ${allCount} registrations',
+        );
+        print(
+          'Event $eventId - First registration status: ${supportRegistrations.first.status}',
+        );
+      }
+
+      // TEMPORARY: Trả về allCount để test xem có dữ liệu không
+      // TODO: Đổi lại thành approvedCount sau khi debug xong
+      return allCount;
+    } catch (e) {
+      // Nếu có lỗi, trả về currentSupportStaff từ event
+      print('Error getting support staff count for event $eventId: $e');
+      return 0;
+    }
+  }
+
+  // Wrapper widget để tính toán participant và support staff count trước khi hiển thị event card
+  Widget _buildEventCardWithParticipantCount(EventModel event) {
+    return FutureBuilder<List<int>>(
+      future: Future.wait([
+        _getEventParticipantCount(event.id),
+        _getEventSupportStaffCount(event.id),
+      ]),
+      builder: (context, snapshot) {
+        final participantCount =
+            snapshot.data?.elementAtOrNull(0) ?? event.currentParticipants;
+        final supportStaffCount =
+            snapshot.data?.elementAtOrNull(1) ?? event.currentSupportStaff;
+
+        // Tạo event mới với participant và support staff count đã được tính toán lại
+        final updatedEvent = event.copyWith(
+          currentParticipants: participantCount,
+          currentSupportStaff: supportStaffCount,
+        );
+        return _buildModernEventCard(updatedEvent);
+      },
+    );
+  }
+
+  Widget _buildStatusChip(String label, String value) {
+    final bool selected = _statusFilter == value;
+    final Color color = selected
+        ? AppColors.organizerPrimary
+        : const Color(0xFF6B7280);
+    return Padding(
+      padding: const EdgeInsets.only(right: 6),
+      child: ChoiceChip(
+        label: Text(label),
+        selected: selected,
+        onSelected: (_) => setState(() => _statusFilter = value),
+        selectedColor: color.withOpacity(0.12),
+        backgroundColor: const Color(0xFFF3F4F6),
+        labelStyle: TextStyle(
+          color: selected ? color : const Color(0xFF374151),
+          fontWeight: FontWeight.w600,
+          fontSize: 12,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: BorderSide(color: color.withOpacity(selected ? 0.4 : 0.2)),
+        ),
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+      ),
     );
   }
 
@@ -918,7 +1065,7 @@ class _HomeScreenState extends State<HomeScreen>
         final event = events[index];
         return Padding(
           padding: const EdgeInsets.only(bottom: 16),
-          child: _buildModernEventCard(event),
+          child: _buildEventCardWithParticipantCount(event),
         );
       },
     );
@@ -937,7 +1084,7 @@ class _HomeScreenState extends State<HomeScreen>
             final event = snap.data!;
             return Padding(
               padding: const EdgeInsets.only(bottom: 16),
-              child: _buildModernEventCard(event),
+              child: _buildEventCardWithParticipantCount(event),
             );
           },
         );
@@ -947,148 +1094,187 @@ class _HomeScreenState extends State<HomeScreen>
 
   Widget _buildModernEventCard(EventModel event) {
     return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+      decoration: AppDesign.cardDecoration,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: () => context.go('/event-detail/${event.id}'),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppDesign.radius16),
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(AppDesign.spacing16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header with category and status
                 Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _getCategoryColor(
-                          event.category,
-                        ).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                    Expanded(
                       child: Text(
-                        event.category,
-                        style: TextStyle(
-                          color: _getCategoryColor(event.category),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                        event.title,
+                        style: AppDesign.bodyLarge.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF111827),
+                          fontSize: 16,
                         ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _getStatusColor(event.status).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        _getStatusText(event.status),
-                        style: TextStyle(
-                          color: _getStatusColor(event.status),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                    const SizedBox(width: AppDesign.spacing12),
+                    _buildStatusBadge(
+                      _getStatusText(event.status),
+                      _getStatusColor(event.status),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-
-                // Event title and description
-                Text(
-                  event.title,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1f2937),
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  event.description,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Color(0xFF6b7280),
-                    height: 1.4,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 16),
-
-                // Event details
-                Row(
-                  children: [
-                    _buildEventDetail(
-                      Icons.calendar_today,
-                      _formatDate(event.startDate),
-                    ),
-                    const SizedBox(width: 16),
-                    _buildEventDetail(
-                      Icons.access_time,
-                      _formatTime(event.startDate),
-                    ),
-                    const SizedBox(width: 16),
-                    _buildEventDetail(Icons.location_on, event.location),
-                  ],
-                ),
-                const SizedBox(height: 12),
-
-                // Participants and price
-                Row(
-                  children: [
-                    _buildEventDetail(
-                      Icons.people,
-                      '${event.currentParticipants}/${event.maxParticipants}',
-                    ),
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: event.isFree
-                            ? AppColors.organizerPrimary.withOpacity(0.1)
-                            : const Color(0xFFf59e0b).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        event.isFree
-                            ? 'Free'
-                            : '\$${event.price?.toStringAsFixed(0)}',
-                        style: TextStyle(
-                          color: event.isFree
-                              ? AppColors.organizerPrimary
-                              : const Color(0xFFf59e0b),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                const SizedBox(height: AppDesign.spacing12),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isWide = constraints.maxWidth > 600;
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 56,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                _getCategoryColor(
+                                  event.category,
+                                ).withOpacity(0.2),
+                                _getCategoryColor(
+                                  event.category,
+                                ).withOpacity(0.1),
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(
+                              AppDesign.radius16,
+                            ),
+                            border: Border.all(
+                              color: _getCategoryColor(
+                                event.category,
+                              ).withOpacity(0.3),
+                              width: 1,
+                            ),
+                          ),
+                          child: Icon(
+                            _getCategoryIcon(event.category),
+                            color: _getCategoryColor(event.category),
+                            size: 28,
+                          ),
                         ),
-                      ),
-                    ),
-                  ],
+                        const SizedBox(width: AppDesign.spacing16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.person,
+                                    size: 14,
+                                    color: Color(0xFF6B7280),
+                                  ),
+                                  const SizedBox(width: AppDesign.spacing4),
+                                  Expanded(
+                                    child: Text(
+                                      'Organizer: ${event.organizerName}',
+                                      style: AppDesign.bodySmall.copyWith(
+                                        color: const Color(0xFF6B7280),
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: AppDesign.spacing8),
+                              Container(
+                                padding: const EdgeInsets.all(
+                                  AppDesign.spacing8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.surfaceVariant.withOpacity(
+                                    0.5,
+                                  ),
+                                  borderRadius: BorderRadius.circular(
+                                    AppDesign.radius8,
+                                  ),
+                                ),
+                                child: Text(
+                                  event.description,
+                                  style: AppDesign.bodySmall.copyWith(
+                                    color: const Color(0xFF374151),
+                                    height: 1.4,
+                                  ),
+                                  maxLines: isWide ? 2 : 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(height: AppDesign.spacing12),
+                              if (isWide)
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: _buildInfoRow(
+                                        Icons.location_on,
+                                        event.location,
+                                        const Color(0xFF059669),
+                                      ),
+                                    ),
+                                    const SizedBox(width: AppDesign.spacing16),
+                                    Expanded(
+                                      child: _buildInfoRow(
+                                        Icons.calendar_today,
+                                        _formatDate(event.startDate),
+                                        const Color(0xFF7C3AED),
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              else
+                                Column(
+                                  children: [
+                                    _buildInfoRow(
+                                      Icons.location_on,
+                                      event.location,
+                                      const Color(0xFF059669),
+                                    ),
+                                    const SizedBox(height: AppDesign.spacing8),
+                                    _buildInfoRow(
+                                      Icons.calendar_today,
+                                      _formatDate(event.startDate),
+                                      const Color(0xFF7C3AED),
+                                    ),
+                                  ],
+                                ),
+                              const SizedBox(height: AppDesign.spacing8),
+                              _buildInfoRow(
+                                Icons.people,
+                                '${event.currentParticipants}/${event.maxParticipants} participants',
+                                AppColors.organizerPrimary,
+                              ),
+                              const SizedBox(height: AppDesign.spacing4),
+                              _buildInfoRow(
+                                Icons.support_agent,
+                                '${event.currentSupportStaff}/${event.maxSupportStaff} support staff',
+                                const Color(0xFF7C3AED),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: AppDesign.spacing8),
+                        const Icon(
+                          Icons.arrow_forward_ios,
+                          size: 16,
+                          color: Color(0xFF9CA3AF),
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ],
             ),
@@ -1098,22 +1284,67 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  Widget _buildEventDetail(IconData icon, String text) {
+  Widget _buildInfoRow(IconData icon, String text, Color color) {
     return Row(
-      mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 16, color: const Color(0xFF9ca3af)),
-        const SizedBox(width: 4),
-        Flexible(
+        Container(
+          width: 20,
+          height: 20,
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Icon(icon, size: 12, color: color),
+        ),
+        const SizedBox(width: 6),
+        Expanded(
           child: Text(
             text,
-            style: const TextStyle(fontSize: 12, color: Color(0xFF6b7280)),
+            style: AppDesign.bodySmall.copyWith(
+              color: const Color(0xFF374151),
+              fontWeight: FontWeight.w500,
+            ),
             overflow: TextOverflow.ellipsis,
           ),
         ),
       ],
     );
   }
+
+  Widget _buildStatusBadge(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppDesign.spacing10,
+        vertical: AppDesign.spacing6,
+      ),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(AppDesign.radius12),
+        border: Border.all(color: color.withOpacity(0.3), width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: AppDesign.labelSmall.copyWith(
+              color: color,
+              fontWeight: FontWeight.w600,
+              fontSize: 11,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // removed old small detail row (replaced by _buildInfoRow)
 
   Color _getCategoryColor(String category) {
     switch (category.toLowerCase()) {
@@ -1129,6 +1360,19 @@ class _HomeScreenState extends State<HomeScreen>
         return const Color(0xFFef4444);
       default:
         return const Color(0xFF6b7280);
+    }
+  }
+
+  IconData _getCategoryIcon(String category) {
+    switch (category.toLowerCase()) {
+      case 'technology':
+        return Icons.school;
+      case 'sports':
+        return Icons.sports_soccer;
+      case 'culture':
+        return Icons.palette;
+      default:
+        return Icons.event;
     }
   }
 
@@ -1178,7 +1422,5 @@ class _HomeScreenState extends State<HomeScreen>
     return '${date.day}/${date.month}/${date.year}';
   }
 
-  String _formatTime(DateTime date) {
-    return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
-  }
+  // removed unused _formatTime
 }

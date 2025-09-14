@@ -21,13 +21,14 @@ class _EventApprovalScreenState extends State<EventApprovalScreen>
   String _searchQuery = '';
   String _statusFilter = 'all';
   String _sortBy = 'date_desc';
-  String _timeFilter = 'all';
+  String _timeFilter = 'upcoming';
   final Set<String> _selectedEvents = {};
   bool _isSelectionMode = false;
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
   late AnimationController _slideController;
   late Animation<Offset> _slideAnimation;
+  late TabController _tabController;
   @override
   void initState() {
     super.initState();
@@ -51,6 +52,24 @@ class _EventApprovalScreenState extends State<EventApprovalScreen>
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _slideController, curve: Curves.easeOut));
 
+    _tabController = TabController(length: 3, vsync: this, initialIndex: 2);
+    _tabController.addListener(() {
+      if (_tabController.indexIsChanging) return;
+      setState(() {
+        switch (_tabController.index) {
+          case 0:
+            _timeFilter = 'past';
+            break;
+          case 1:
+            _timeFilter = 'ongoing';
+            break;
+          case 2:
+          default:
+            _timeFilter = 'upcoming';
+        }
+      });
+    });
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AdminProvider>().loadAllEvents();
       // Start animations
@@ -63,6 +82,7 @@ class _EventApprovalScreenState extends State<EventApprovalScreen>
   void dispose() {
     _fadeController.dispose();
     _slideController.dispose();
+    _tabController.dispose();
     super.dispose();
   }
 
@@ -71,7 +91,7 @@ class _EventApprovalScreenState extends State<EventApprovalScreen>
     return SafeArea(
       child: Scaffold(
         appBar: PreferredSize(
-          preferredSize: const Size.fromHeight(130),
+          preferredSize: const Size.fromHeight(170),
           child: Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -162,51 +182,71 @@ class _EventApprovalScreenState extends State<EventApprovalScreen>
                 const SizedBox(width: 8),
               ],
               bottom: PreferredSize(
-                preferredSize: const Size.fromHeight(60),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                  child: TextField(
-                    decoration:
-                        AppDesign.textFieldDecoration(
-                          hintText:
-                              'Search by title, organizer, or location...',
-                          prefixIcon: Icon(
-                            Icons.search,
-                            color: AppColors.adminPrimary.withOpacity(0.7),
-                          ),
-                        ).copyWith(
-                          filled: true,
-                          fillColor: Colors.white,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(
-                              AppDesign.radius16,
+                preferredSize: const Size.fromHeight(110),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                      child: TextField(
+                        decoration:
+                            AppDesign.textFieldDecoration(
+                              hintText:
+                                  'Search by title, organizer, or location...',
+                              prefixIcon: Icon(
+                                Icons.search,
+                                color: AppColors.adminPrimary.withOpacity(0.7),
+                              ),
+                            ).copyWith(
+                              filled: true,
+                              fillColor: Colors.white,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(
+                                  AppDesign.radius16,
+                                ),
+                                borderSide: BorderSide(
+                                  color: AppColors.adminPrimary.withOpacity(
+                                    0.2,
+                                  ),
+                                  width: 1.5,
+                                ),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(
+                                  AppDesign.radius16,
+                                ),
+                                borderSide: BorderSide(
+                                  color: AppColors.adminPrimary.withOpacity(
+                                    0.2,
+                                  ),
+                                  width: 1.5,
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(
+                                  AppDesign.radius16,
+                                ),
+                                borderSide: const BorderSide(
+                                  color: AppColors.adminPrimary,
+                                  width: 2,
+                                ),
+                              ),
                             ),
-                            borderSide: BorderSide(
-                              color: AppColors.adminPrimary.withOpacity(0.2),
-                              width: 1.5,
-                            ),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(
-                              AppDesign.radius16,
-                            ),
-                            borderSide: BorderSide(
-                              color: AppColors.adminPrimary.withOpacity(0.2),
-                              width: 1.5,
-                            ),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(
-                              AppDesign.radius16,
-                            ),
-                            borderSide: const BorderSide(
-                              color: AppColors.adminPrimary,
-                              width: 2,
-                            ),
-                          ),
-                        ),
-                    onChanged: (v) => setState(() => _searchQuery = v),
-                  ),
+                        onChanged: (v) => setState(() => _searchQuery = v),
+                      ),
+                    ),
+                    TabBar(
+                      controller: _tabController,
+                      indicatorColor: Colors.white,
+                      labelColor: Colors.white,
+                      unselectedLabelColor: Colors.white70,
+                      tabs: const [
+                        Tab(text: 'Past'),
+                        Tab(text: 'Ongoing'),
+                        Tab(text: 'Upcoming'),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -900,12 +940,7 @@ class _EventApprovalScreenState extends State<EventApprovalScreen>
           ],
         );
       case 'published':
-        return _buildEnhancedActionButton(
-          icon: Icons.cancel,
-          color: AppColors.statusCancelled,
-          onPressed: () => _showCancelDialog(event, adminProvider),
-          tooltip: 'Cancel Event',
-        );
+        return const SizedBox.shrink();
       case 'rejected':
         return _buildEnhancedActionButton(
           icon: Icons.check,
@@ -1304,179 +1339,7 @@ class _EventApprovalScreenState extends State<EventApprovalScreen>
     );
   }
 
-  void _showCancelDialog(EventModel event, AdminProvider adminProvider) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppDesign.radius16),
-        ),
-        title: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: AppColors.statusCancelled.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(AppDesign.radius12),
-              ),
-              child: Icon(
-                Icons.cancel_schedule_send,
-                color: AppColors.statusCancelled,
-                size: 24,
-              ),
-            ),
-            const SizedBox(width: AppDesign.spacing12),
-            Expanded(
-              child: Text(
-                'Cancel Event',
-                style: AppDesign.heading3.copyWith(
-                  color: const Color(0xFF111827),
-                ),
-              ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Event Details:',
-              style: AppDesign.labelLarge.copyWith(
-                color: const Color(0xFF374151),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: AppDesign.spacing8),
-            Container(
-              padding: const EdgeInsets.all(AppDesign.spacing12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF9FAFB),
-                borderRadius: BorderRadius.circular(AppDesign.radius8),
-                border: Border.all(color: const Color(0xFFE5E7EB)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    event.title,
-                    style: AppDesign.bodyMedium.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF111827),
-                    ),
-                  ),
-                  const SizedBox(height: AppDesign.spacing4),
-                  Text(
-                    'Organizer: ${event.organizerName}',
-                    style: AppDesign.bodySmall.copyWith(
-                      color: const Color(0xFF6B7280),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: AppDesign.spacing16),
-            Container(
-              padding: const EdgeInsets.all(AppDesign.spacing12),
-              decoration: BoxDecoration(
-                color: AppColors.statusCancelled.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(AppDesign.radius8),
-                border: Border.all(
-                  color: AppColors.statusCancelled.withOpacity(0.2),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.warning,
-                    color: AppColors.statusCancelled,
-                    size: 20,
-                  ),
-                  const SizedBox(width: AppDesign.spacing8),
-                  Expanded(
-                    child: Text(
-                      'This action will cancel the event and notify all registered participants. This cannot be undone.',
-                      style: AppDesign.bodySmall.copyWith(
-                        color: AppColors.statusCancelled,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: AppDesign.spacing16),
-            Text(
-              'Are you sure you want to cancel this event?',
-              style: AppDesign.bodyMedium.copyWith(
-                color: const Color(0xFF374151),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppDesign.spacing16,
-                vertical: AppDesign.spacing12,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppDesign.radius8),
-              ),
-            ),
-            child: Text(
-              'Keep Event',
-              style: AppDesign.labelLarge.copyWith(
-                color: const Color(0xFF6B7280),
-              ),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              await adminProvider.cancelEvent(event.id);
-              if (mounted) {
-                Navigator.of(context).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Row(
-                      children: [
-                        Icon(
-                          Icons.cancel_schedule_send,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 8),
-                        const Text('Event cancelled successfully'),
-                      ],
-                    ),
-                    backgroundColor: AppColors.statusCancelled,
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppDesign.radius8),
-                    ),
-                  ),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.statusCancelled,
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppDesign.spacing20,
-                vertical: AppDesign.spacing12,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppDesign.radius8),
-              ),
-            ),
-            child: const Text('Cancel Event'),
-          ),
-        ],
-      ),
-    );
-  }
+  // Cancel dialog removed because approved events can no longer be cancelled
 
   Color _getCategoryColor(String category) {
     switch (category.toLowerCase()) {
@@ -1769,15 +1632,15 @@ class _EventApprovalScreenState extends State<EventApprovalScreen>
 
     switch (_timeFilter) {
       case 'upcoming':
-        // Sắp diễn ra: sự kiện chưa bắt đầu
+        // Upcoming: event not started yet
         return startDate.isAfter(now) && event.status == 'published';
       case 'ongoing':
-        // Đang diễn ra: sự kiện đang trong thời gian diễn ra
+        // Ongoing: event is currently happening
         return startDate.isBefore(now) &&
             endDate.isAfter(now) &&
             event.status == 'published';
       case 'past':
-        // Đã qua: sự kiện đã kết thúc
+        // Past: event already finished
         return endDate.isBefore(now) && event.status == 'published';
       case 'pending':
         // Chờ duyệt: sự kiện có trạng thái pending

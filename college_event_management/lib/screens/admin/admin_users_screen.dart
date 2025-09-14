@@ -17,7 +17,7 @@ class AdminUsersScreen extends StatefulWidget {
 
 class _AdminUsersScreenState extends State<AdminUsersScreen>
     with TickerProviderStateMixin {
-  final int _currentIndex = 3; // Users tab
+  final int _currentIndex = 2; // Users tab
   String _searchQuery = '';
   String _roleFilter = 'all';
   String _statusFilter = 'all';
@@ -28,6 +28,8 @@ class _AdminUsersScreenState extends State<AdminUsersScreen>
   late Animation<double> _fadeAnimation;
   late AnimationController _slideController;
   late Animation<Offset> _slideAnimation;
+  late TabController _tabController;
+  String? _tabRoleLock;
 
   @override
   void initState() {
@@ -58,12 +60,24 @@ class _AdminUsersScreenState extends State<AdminUsersScreen>
       _fadeController.forward();
       _slideController.forward();
     });
+
+    _tabController = TabController(length: 2, vsync: this);
+    _tabRoleLock = 'student';
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging) {
+        setState(() {
+          _tabRoleLock = _tabController.index == 0 ? 'student' : 'organizer';
+          _roleFilter = 'all';
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
     _fadeController.dispose();
     _slideController.dispose();
+    _tabController.dispose();
     super.dispose();
   }
 
@@ -72,7 +86,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen>
     return SafeArea(
       child: Scaffold(
         appBar: PreferredSize(
-          preferredSize: const Size.fromHeight(130),
+          preferredSize: const Size.fromHeight(180),
           child: Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -163,50 +177,79 @@ class _AdminUsersScreenState extends State<AdminUsersScreen>
                 const SizedBox(width: 8),
               ],
               bottom: PreferredSize(
-                preferredSize: const Size.fromHeight(60),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                  child: TextField(
-                    decoration:
-                        AppDesign.textFieldDecoration(
-                          hintText: 'Search by name, email, or student ID...',
-                          prefixIcon: Icon(
-                            Icons.search,
-                            color: AppColors.adminPrimary.withOpacity(0.7),
-                          ),
-                        ).copyWith(
-                          filled: true,
-                          fillColor: Colors.white,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(
-                              AppDesign.radius16,
+                preferredSize: const Size.fromHeight(110),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                      child: TextField(
+                        decoration:
+                            AppDesign.textFieldDecoration(
+                              hintText:
+                                  'Search by name, email, or student ID...',
+                              prefixIcon: Icon(
+                                Icons.search,
+                                color: AppColors.adminPrimary.withOpacity(0.7),
+                              ),
+                            ).copyWith(
+                              filled: true,
+                              fillColor: Colors.white,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(
+                                  AppDesign.radius16,
+                                ),
+                                borderSide: BorderSide(
+                                  color: AppColors.adminPrimary.withOpacity(
+                                    0.2,
+                                  ),
+                                  width: 1.5,
+                                ),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(
+                                  AppDesign.radius16,
+                                ),
+                                borderSide: BorderSide(
+                                  color: AppColors.adminPrimary.withOpacity(
+                                    0.2,
+                                  ),
+                                  width: 1.5,
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(
+                                  AppDesign.radius16,
+                                ),
+                                borderSide: const BorderSide(
+                                  color: AppColors.adminPrimary,
+                                  width: 2,
+                                ),
+                              ),
                             ),
-                            borderSide: BorderSide(
-                              color: AppColors.adminPrimary.withOpacity(0.2),
-                              width: 1.5,
-                            ),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(
-                              AppDesign.radius16,
-                            ),
-                            borderSide: BorderSide(
-                              color: AppColors.adminPrimary.withOpacity(0.2),
-                              width: 1.5,
-                            ),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(
-                              AppDesign.radius16,
-                            ),
-                            borderSide: const BorderSide(
-                              color: AppColors.adminPrimary,
-                              width: 2,
-                            ),
-                          ),
+                        onChanged: (v) => setState(() => _searchQuery = v),
+                      ),
+                    ),
+                    SizedBox(
+                      width: double.infinity,
+                      child: TabBar(
+                        controller: _tabController,
+                        isScrollable: false,
+                        indicatorSize: TabBarIndicatorSize.tab,
+                        labelColor: Colors.white,
+                        unselectedLabelColor: Colors.white70,
+                        indicatorColor: Colors.white,
+                        indicatorWeight: 3,
+                        labelStyle: AppDesign.labelLarge.copyWith(
+                          fontWeight: FontWeight.w700,
                         ),
-                    onChanged: (v) => setState(() => _searchQuery = v),
-                  ),
+                        tabs: const [
+                          Tab(text: 'Students'),
+                          Tab(text: 'Organizers'),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -388,10 +431,8 @@ class _AdminUsersScreenState extends State<AdminUsersScreen>
         if (!matchesSearch) return false;
       }
 
-      // Role filter
-      if (_roleFilter != 'all' && user.role != _roleFilter) {
-        return false;
-      }
+      final roleCheck = _tabRoleLock ?? _roleFilter;
+      if (roleCheck != 'all' && user.role != roleCheck) return false;
 
       // Status filter
       if (_statusFilter != 'all') {

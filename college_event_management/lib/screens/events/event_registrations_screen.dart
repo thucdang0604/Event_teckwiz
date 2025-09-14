@@ -431,15 +431,15 @@ class _EventRegistrationsScreenState extends State<EventRegistrationsScreen> {
   String _getStatusText(String status) {
     switch (status) {
       case 'pending':
-        return 'Chờ duyệt';
+        return 'Pending';
       case 'approved':
-        return 'Đã duyệt';
+        return 'Approved';
       case 'rejected':
-        return 'Từ chối';
+        return 'Rejected';
       case 'cancelled':
-        return 'Đã hủy';
+        return 'Cancelled';
       default:
-        return 'Không xác định';
+        return 'Unknown';
     }
   }
 

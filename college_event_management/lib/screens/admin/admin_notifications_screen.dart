@@ -45,6 +45,21 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
           elevation: 0,
           automaticallyImplyLeading: false,
           actions: [
+            TextButton.icon(
+              onPressed: () {
+                // Refresh notifications
+                context.read<NotificationProvider>().refreshNotifications();
+              },
+              icon: const Icon(Icons.refresh, color: Colors.white),
+              label: const Text(
+                'View All',
+                style: TextStyle(color: Colors.white),
+              ),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.white,
+                textStyle: const TextStyle(fontWeight: FontWeight.w500),
+              ),
+            ),
             Consumer<NotificationProvider>(
               builder: (context, provider, child) {
                 if (provider.unreadCount > 0) {

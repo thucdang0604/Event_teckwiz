@@ -3,8 +3,9 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../constants/app_colors.dart';
+import '../../constants/app_design.dart';
 import 'edit_profile_screen.dart';
-import '../settings/settings_screen.dart';
+import 'change_password_screen.dart';
 import '../../widgets/app_bottom_navigation_bar.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -18,7 +19,7 @@ class ProfileScreen extends StatelessWidget {
 
         if (user == null) {
           return const Scaffold(
-            body: Center(child: Text('No user information available')),
+            body: Center(child: CircularProgressIndicator()),
           );
         }
 
@@ -30,17 +31,23 @@ class ProfileScreen extends StatelessWidget {
             : AppColors.primary;
 
         return Scaffold(
+          backgroundColor: AppColors.surfaceVariant,
           appBar: AppBar(
-            title: const Text('Profile'),
+            title: Text(
+              'Profile',
+              style: AppDesign.heading2.copyWith(color: Colors.white),
+            ),
             backgroundColor: roleColor,
             foregroundColor: Colors.white,
+            elevation: 0,
             leading: IconButton(
-              icon: const Icon(Icons.arrow_back),
+              icon: const Icon(Icons.arrow_back, size: 24),
               onPressed: () => context.go('/home'),
+              tooltip: 'Back to Home',
             ),
             actions: [
               IconButton(
-                icon: const Icon(Icons.edit),
+                icon: const Icon(Icons.edit, size: 24),
                 onPressed: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
@@ -53,241 +60,123 @@ class ProfileScreen extends StatelessWidget {
             ],
           ),
           body: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-                // Profile Header
+                // Profile Header with gradient background
                 Container(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [roleColor, roleColor.withOpacity(0.8)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: roleColor.withOpacity(0.3),
-                        blurRadius: 20,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(32),
-                    child: Column(
-                      children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 4),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
-                                blurRadius: 10,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: CircleAvatar(
-                            radius: 50,
-                            backgroundColor: Colors.white,
-                            child: Text(
-                              user.fullName.substring(0, 1).toUpperCase(),
-                              style: const TextStyle(
-                                fontSize: 36,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black87,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        Text(
-                          user.fullName,
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          user.email,
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.white.withOpacity(0.9),
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 16),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 10,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(25),
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.3),
-                              width: 1,
-                            ),
-                          ),
-                          child: Text(
-                            _getRoleText(user.role),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                      ],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
                     ),
                   ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // Information Section
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.08),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _infoRow(Icons.email_outlined, 'Email', user.email),
-                        const SizedBox(height: 12),
-                        _infoRow(
-                          Icons.phone_outlined,
-                          'Phone',
-                          user.phoneNumber ?? 'Not set',
-                        ),
-                        const SizedBox(height: 12),
-                        _infoRow(
-                          Icons.verified_user_outlined,
-                          'Role',
-                          _getRoleText(user.role),
-                        ),
-                        const SizedBox(height: 12),
-                        if (user.isStudent)
-                          _infoRow(
-                            Icons.badge_outlined,
-                            'Student ID',
-                            user.studentId ?? 'Not set',
-                          ),
-                        const SizedBox(height: 16),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: ElevatedButton.icon(
-                            onPressed: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      const EditProfileScreen(),
+                  child: SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+                      child: Column(
+                        children: [
+                          // Avatar section
+                          Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 3),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.2),
+                                  blurRadius: 16,
+                                  offset: const Offset(0, 8),
                                 ),
-                              );
-                            },
-                            icon: const Icon(Icons.edit, size: 16),
-                            label: const Text('Edit Profile'),
+                              ],
+                            ),
+                            child: CircleAvatar(
+                              radius: 48,
+                              backgroundColor: Colors.white,
+                              child: Text(
+                                user.fullName.isNotEmpty
+                                    ? user.fullName
+                                          .substring(0, 1)
+                                          .toUpperCase()
+                                    : '?',
+                                style: TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.bold,
+                                  color: roleColor,
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 20),
+
+                          // Name and role
+                          Text(
+                            user.fullName,
+                            style: AppDesign.heading1.copyWith(
+                              color: Colors.white,
+                              fontSize: 24,
+                            ),
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 8),
+
+                          Text(
+                            user.email,
+                            style: AppDesign.bodyMedium.copyWith(
+                              color: Colors.white.withOpacity(0.9),
+                            ),
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Role badge
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.3),
+                                width: 1,
+                              ),
+                            ),
+                            child: Text(
+                              _getRoleText(user.role),
+                              style: AppDesign.labelMedium.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
 
-                const SizedBox(height: 24),
-
-                // Action Buttons
+                // Main content container
                 Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.08),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
+                  margin: const EdgeInsets.symmetric(horizontal: 20),
                   child: Column(
                     children: [
-                      _buildActionTile(
-                        icon: Icons.settings,
-                        title: 'Settings',
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) => const SettingsScreen(),
-                            ),
-                          );
-                        },
-                      ),
-                      _buildActionTile(
-                        icon: Icons.help,
-                        title: 'Help & Support',
-                        onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Feature under development'),
-                            ),
-                          );
-                        },
-                      ),
-                      _buildActionTile(
-                        icon: Icons.info,
-                        title: 'About App',
-                        onTap: () {
-                          _showAboutDialog(context);
-                        },
-                        isLast: true,
-                      ),
+                      // Personal Information Section
+                      _buildPersonalInfoSection(user, roleColor),
+
+                      const SizedBox(height: 24),
+
+                      // Action buttons section
+                      _buildActionButtons(user, roleColor, context),
+
+                      const SizedBox(height: 40),
                     ],
                   ),
                 ),
-
-                const SizedBox(height: 24),
-
-                // Logout Button
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () async {
-                      await authProvider.signOut();
-                      if (context.mounted) {
-                        context.go('/login');
-                      }
-                    },
-                    icon: const Icon(Icons.logout),
-                    label: const Text('Sign Out'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.error,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      elevation: 2,
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 32),
               ],
             ),
           ),
@@ -297,61 +186,176 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  // Removed legacy row-based info builder in favor of tile-based UI
+  Widget _buildPersonalInfoSection(user, Color roleColor) {
+    return Container(
+      decoration: AppDesign.cardDecoration,
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Personal Information',
+            style: AppDesign.heading3.copyWith(color: AppColors.textPrimary),
+          ),
+          const SizedBox(height: 20),
+          _buildInfoRow(Icons.email_outlined, 'Email', user.email, roleColor),
+          const SizedBox(height: 16),
+          _buildInfoRow(
+            Icons.phone_outlined,
+            'Phone',
+            user.phoneNumber ?? 'Not set',
+            roleColor,
+          ),
+          const SizedBox(height: 16),
+          _buildInfoRow(
+            Icons.verified_user_outlined,
+            'Role',
+            _getRoleText(user.role),
+            roleColor,
+          ),
+          if (user.isStudent) ...[
+            const SizedBox(height: 16),
+            _buildInfoRow(
+              Icons.badge_outlined,
+              'Student ID',
+              user.studentId ?? 'Not set',
+              roleColor,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 
-  Widget _buildActionTile({
-    required IconData icon,
-    required String title,
-    required VoidCallback onTap,
-    bool isLast = false,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          decoration: BoxDecoration(
-            border: isLast
-                ? null
-                : Border(
-                    bottom: BorderSide(
-                      color: const Color(0xFFe2e8f0),
-                      width: 1,
+  Widget _buildActionButtons(user, Color roleColor, BuildContext context) {
+    return Container(
+      decoration: AppDesign.cardDecoration,
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Account Actions',
+            style: AppDesign.heading3.copyWith(color: AppColors.textPrimary),
+          ),
+          const SizedBox(height: 20),
+
+          // Primary actions row
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const EditProfileScreen(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.edit, size: 18),
+                  label: const Text('Edit Profile'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: roleColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
+                  ),
+                ),
+              ),
+              if (user.role == 'organizer') ...[
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => const ChangePasswordScreen(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.lock_reset, size: 18),
+                    label: const Text('Change Password'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: roleColor,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(color: roleColor, width: 1.5),
+                      ),
+                      elevation: 0,
                     ),
                   ),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF10b981).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(icon, color: const Color(0xFF10b981), size: 20),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              const Icon(
-                Icons.arrow_forward_ios,
-                size: 16,
-                color: AppColors.textSecondary,
-              ),
+              ],
             ],
           ),
-        ),
+
+          const SizedBox(height: 16),
+
+          // Logout button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () async {
+                final authProvider = context.read<AuthProvider>();
+                final shouldLogout = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    title: Text('Sign Out', style: AppDesign.heading3),
+                    content: Text(
+                      'Are you sure you want to sign out?',
+                      style: AppDesign.bodyMedium,
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(false),
+                        child: Text('Cancel', style: AppDesign.labelLarge),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(true),
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.error,
+                        ),
+                        child: Text(
+                          'Sign Out',
+                          style: AppDesign.labelLarge.copyWith(
+                            color: AppColors.error,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+
+                if (shouldLogout == true) {
+                  await authProvider.signOut();
+                  if (context.mounted) {
+                    context.go('/login');
+                  }
+                }
+              },
+              icon: const Icon(Icons.logout, size: 20),
+              label: const Text('Sign Out'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.error,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 0,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -368,34 +372,20 @@ class ProfileScreen extends StatelessWidget {
         return 'User';
     }
   }
-
-  void _showAboutDialog(BuildContext context) {
-    showAboutDialog(
-      context: context,
-      applicationName: 'Event Management',
-      applicationVersion: '1.0.0',
-      applicationIcon: const Icon(
-        Icons.event,
-        size: 48,
-        color: AppColors.primary,
-      ),
-      children: [
-        const Text('University Event Management Application'),
-        const SizedBox(height: 16),
-        const Text('Developed with: Flutter + Firebase'),
-        const Text('Version: 1.0.0'),
-      ],
-    );
-  }
 }
 
-Widget _infoRow(IconData icon, String label, String value) {
+Widget _buildInfoRow(
+  IconData icon,
+  String label,
+  String value,
+  Color roleColor,
+) {
   return Container(
-    padding: const EdgeInsets.all(12),
+    padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
-      color: const Color(0xFFF3F4F6),
+      color: roleColor.withOpacity(0.05),
       borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: const Color(0xFFE5E7EB), width: 1),
+      border: Border.all(color: roleColor.withOpacity(0.1), width: 1),
     ),
     child: Row(
       children: [
@@ -403,20 +393,19 @@ Widget _infoRow(IconData icon, String label, String value) {
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: AppColors.primary.withOpacity(0.08),
-            borderRadius: BorderRadius.circular(8),
+            color: roleColor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(10),
           ),
-          child: Icon(icon, color: AppColors.primary),
+          child: Icon(icon, color: roleColor, size: 20),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 16),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 label,
-                style: const TextStyle(
-                  fontSize: 12,
+                style: AppDesign.labelSmall.copyWith(
                   color: AppColors.textSecondary,
                   fontWeight: FontWeight.w600,
                 ),
@@ -424,12 +413,11 @@ Widget _infoRow(IconData icon, String label, String value) {
               const SizedBox(height: 4),
               Text(
                 value,
-                maxLines: 1,
+                maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 16,
+                style: AppDesign.bodyMedium.copyWith(
                   color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],

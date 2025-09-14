@@ -181,32 +181,6 @@ class _EventCoOrganizersScreenState extends State<EventCoOrganizersScreen> {
     }
   }
 
-  Future<void> _cancelInvitation(String invitationId) async {
-    try {
-      await _invitationService.cancelInvitation(invitationId);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Invitation cancelled'),
-            backgroundColor: AppColors.warning,
-          ),
-        );
-      }
-
-      await _loadInvitations();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error cancelling invitation: $e'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -451,18 +425,19 @@ class _EventCoOrganizersScreenState extends State<EventCoOrganizersScreen> {
                 ),
               ),
             ],
-            if (invitation.isPending) ...[
-              const SizedBox(height: 12),
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton.icon(
-                  onPressed: () => _cancelInvitation(invitation.id),
-                  icon: const Icon(Icons.cancel, size: 16),
-                  label: const Text('Cancel Invitation'),
-                  style: TextButton.styleFrom(foregroundColor: AppColors.error),
-                ),
-              ),
-            ],
+            // Disabled cancel invitation functionality
+            // if (invitation.isPending) ...[
+            //   const SizedBox(height: 12),
+            //   Align(
+            //     alignment: Alignment.centerRight,
+            //     child: TextButton.icon(
+            //       onPressed: () => _cancelInvitation(invitation.id),
+            //       icon: const Icon(Icons.cancel, size: 16),
+            //       label: const Text('Cancel Invitation'),
+            //       style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            //     ),
+            //   ),
+            // ],
           ],
         ),
       ),
