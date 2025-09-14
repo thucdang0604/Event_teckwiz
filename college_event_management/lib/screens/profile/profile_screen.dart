@@ -5,6 +5,7 @@ import '../../providers/auth_provider.dart';
 import '../../constants/app_colors.dart';
 import 'edit_profile_screen.dart';
 import '../settings/settings_screen.dart';
+import '../../widgets/app_bottom_navigation_bar.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -21,9 +22,18 @@ class ProfileScreen extends StatelessWidget {
           );
         }
 
+        final role = user.role;
+        final Color roleColor = role == 'admin'
+            ? AppColors.adminPrimary
+            : role == 'organizer'
+            ? AppColors.organizerPrimary
+            : AppColors.primary;
+
         return Scaffold(
           appBar: AppBar(
             title: const Text('Profile'),
+            backgroundColor: roleColor,
+            foregroundColor: Colors.white,
             leading: IconButton(
               icon: const Icon(Icons.arrow_back),
               onPressed: () => context.go('/home'),
@@ -38,6 +48,7 @@ class ProfileScreen extends StatelessWidget {
                     ),
                   );
                 },
+                tooltip: 'Edit Profile',
               ),
             ],
           ),
@@ -48,15 +59,15 @@ class ProfileScreen extends StatelessWidget {
                 // Profile Header
                 Container(
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF10b981), Color(0xFF34d399)],
+                    gradient: LinearGradient(
+                      colors: [roleColor, roleColor.withOpacity(0.8)],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF10b981).withOpacity(0.3),
+                        color: roleColor.withOpacity(0.3),
                         blurRadius: 20,
                         offset: const Offset(0, 8),
                       ),
@@ -86,7 +97,7 @@ class ProfileScreen extends StatelessWidget {
                               style: const TextStyle(
                                 fontSize: 36,
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFF10b981),
+                                color: Colors.black87,
                               ),
                             ),
                           ),
@@ -140,7 +151,7 @@ class ProfileScreen extends StatelessWidget {
 
                 const SizedBox(height: 24),
 
-                // Phone Number Section
+                // Information Section
                 Container(
                   decoration: BoxDecoration(
                     color: Colors.white,
@@ -158,109 +169,40 @@ class ProfileScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF10b981).withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(
-                                Icons.phone,
-                                color: Color(0xFF10b981),
-                                size: 20,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            const Text(
-                              'Phone Number',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                          ],
+                        _infoRow(Icons.email_outlined, 'Email', user.email),
+                        const SizedBox(height: 12),
+                        _infoRow(
+                          Icons.phone_outlined,
+                          'Phone',
+                          user.phoneNumber ?? 'Not set',
                         ),
-                        const SizedBox(height: 20),
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFf8fafc),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: const Color(0xFFe2e8f0),
-                              width: 1,
-                            ),
+                        const SizedBox(height: 12),
+                        _infoRow(
+                          Icons.verified_user_outlined,
+                          'Role',
+                          _getRoleText(user.role),
+                        ),
+                        const SizedBox(height: 12),
+                        if (user.isStudent)
+                          _infoRow(
+                            Icons.badge_outlined,
+                            'Student ID',
+                            user.studentId ?? 'Not set',
                           ),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 40,
-                                height: 40,
-                                decoration: BoxDecoration(
-                                  color: const Color(
-                                    0xFF10b981,
-                                  ).withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(10),
+                        const SizedBox(height: 16),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const EditProfileScreen(),
                                 ),
-                                child: const Icon(
-                                  Icons.phone_outlined,
-                                  color: Color(0xFF10b981),
-                                  size: 20,
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'Current Phone Number',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: AppColors.textSecondary,
-                                        fontWeight: FontWeight.w600,
-                                        letterSpacing: 0.5,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      user.phoneNumber ?? 'Not updated',
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        color: AppColors.textPrimary,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              ElevatedButton.icon(
-                                onPressed: () {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          const EditProfileScreen(),
-                                    ),
-                                  );
-                                },
-                                icon: const Icon(Icons.edit, size: 16),
-                                label: const Text('Edit'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF10b981),
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 8,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                              ),
-                            ],
+                              );
+                            },
+                            icon: const Icon(Icons.edit, size: 16),
+                            label: const Text('Edit Profile'),
                           ),
                         ),
                       ],
@@ -334,7 +276,7 @@ class ProfileScreen extends StatelessWidget {
                     icon: const Icon(Icons.logout),
                     label: const Text('Sign Out'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFef4444),
+                      backgroundColor: AppColors.error,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
@@ -349,6 +291,7 @@ class ProfileScreen extends StatelessWidget {
               ],
             ),
           ),
+          bottomNavigationBar: const AppBottomNavigationBar(currentIndex: 4),
         );
       },
     );
@@ -434,7 +377,7 @@ class ProfileScreen extends StatelessWidget {
       applicationIcon: const Icon(
         Icons.event,
         size: 48,
-        color: Color(0xFF10b981),
+        color: AppColors.primary,
       ),
       children: [
         const Text('University Event Management Application'),
@@ -444,4 +387,55 @@ class ProfileScreen extends StatelessWidget {
       ],
     );
   }
+}
+
+Widget _infoRow(IconData icon, String label, String value) {
+  return Container(
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: const Color(0xFFF3F4F6),
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: const Color(0xFFE5E7EB), width: 1),
+    ),
+    child: Row(
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: AppColors.primary.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: AppColors.primary),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 16,
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
 }

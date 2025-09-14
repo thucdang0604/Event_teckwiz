@@ -2,74 +2,34 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-
-import '../../constants/app_colors.dart';
 import '../../providers/notification_provider.dart';
-import '../../providers/auth_provider.dart';
+import '../../providers/admin_provider.dart';
+import '../../services/notification_service.dart';
+import '../../constants/app_colors.dart';
+import '../../constants/app_design.dart';
 
-// Định nghĩa NotificationType nếu chưa có
-enum NotificationType {
-  eventCreated,
-  eventUpdated,
-  eventCancelled,
-  registrationConfirmed,
-  registrationRejected,
-  eventReminder,
-  chatMessage,
-  unknown,
-}
-
-// Định nghĩa NotificationModel nếu chưa có
-class NotificationModel {
-  final String id;
-  final String title;
-  final String body;
-  final DateTime timestamp;
-  final bool isRead;
-  final NotificationType type;
-  final Map<String, dynamic>? data;
-
-  NotificationModel({
-    required this.id,
-    required this.title,
-    required this.body,
-    required this.timestamp,
-    required this.isRead,
-    required this.type,
-    this.data,
-  });
-}
-
-
-class NotificationsScreen extends StatefulWidget {
-  const NotificationsScreen({super.key});
+class AdminNotificationsScreen extends StatefulWidget {
+  const AdminNotificationsScreen({super.key});
 
   @override
-  State<NotificationsScreen> createState() => _NotificationsScreenState();
+  State<AdminNotificationsScreen> createState() =>
+      _AdminNotificationsScreenState();
 }
 
-class _NotificationsScreenState extends State<NotificationsScreen> {
+class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
+  int _currentIndex = 4; // Notifications tab
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final authProvider = context.read<AuthProvider>();
-      final notificationProvider = context.read<NotificationProvider>();
-      final user = authProvider.currentUser;
-      if (user != null) {
-        await notificationProvider.loadNotifications(user.id);
-      }
-
     // Refresh notifications when screen opens
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<NotificationProvider>().refreshNotifications();
-
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final role = context.watch<AuthProvider>().currentUser?.role;
     return SafeArea(
       child: Scaffold(
         appBar: AppBar(
@@ -81,12 +41,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               letterSpacing: -0.25,
             ),
           ),
-          backgroundColor: role == 'admin'
-              ? AppColors.adminPrimary
-              : AppColors.primary,
+          backgroundColor: AppColors.adminPrimary,
           foregroundColor: Colors.white,
           elevation: 0,
-          automaticallyImplyLeading: true,
+          automaticallyImplyLeading: false,
           actions: [
             Consumer<NotificationProvider>(
               builder: (context, provider, child) {
@@ -123,31 +81,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               color: AppColors.surfaceVariant,
               child: RefreshIndicator(
                 onRefresh: () async {
-
-                  final authProvider = context.read<AuthProvider>();
-                  final user = authProvider.currentUser;
-                  if (user != null) {
-                    await provider.loadNotifications(user.id);
-                  }
+                  provider.refreshNotifications();
                 },
                 child: ListView.builder(
                   padding: const EdgeInsets.all(16),
                   itemCount: notifications.length,
                   itemBuilder: (context, index) {
                     final notification = notifications[index];
-
-                    return _buildNotificationItem(
-                      notification as NotificationModel,
-                      provider,
-                    );
-                  },
-                ),
-              ),
-            );
-          },
-        ),
-        // Xóa bottomNavigationBar vì AppBottomNavigationBar không tồn tại hoặc lỗi import
-
                     return _buildNotificationItem(notification, provider);
                   },
                 ),
@@ -155,8 +95,86 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             );
           },
         ),
-        bottomNavigationBar: const AppBottomNavigationBar(currentIndex: 3),
-
+        bottomNavigationBar: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border(
+              top: BorderSide(color: AppColors.cardBorder, width: 1),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.cardShadow,
+                blurRadius: 8,
+                offset: const Offset(0, -2),
+              ),
+            ],
+          ),
+          child: Consumer<NotificationProvider>(
+            builder: (context, notificationProvider, child) {
+              return BottomNavigationBar(
+                type: BottomNavigationBarType.fixed,
+                currentIndex: _currentIndex,
+                selectedItemColor: AppColors.adminPrimary,
+                unselectedItemColor: const Color(0xFF9CA3AF),
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                selectedLabelStyle: AppDesign.labelSmall.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+                unselectedLabelStyle: AppDesign.labelSmall,
+                onTap: (index) {
+                  setState(() {
+                    _currentIndex = index;
+                  });
+                  switch (index) {
+                    case 0:
+                      context.go('/admin-dashboard');
+                      break;
+                    case 1:
+                      context.go('/admin/approvals');
+                      break;
+                    case 2:
+                      context.go('/admin/users');
+                      break;
+                    case 3:
+                      context.go('/admin/locations');
+                      break;
+                    case 4:
+                      // Already on notifications
+                      break;
+                  }
+                },
+                items: const [
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.dashboard_outlined),
+                    activeIcon: Icon(Icons.dashboard),
+                    label: 'Dashboard',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.event_available_outlined),
+                    activeIcon: Icon(Icons.event_available),
+                    label: 'Approval',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.people_outline),
+                    activeIcon: Icon(Icons.people),
+                    label: 'Users',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.location_on_outlined),
+                    activeIcon: Icon(Icons.location_on),
+                    label: 'Locations',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.notifications_outlined),
+                    activeIcon: Icon(Icons.notifications),
+                    label: 'Notifications',
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
       ),
     );
   }
@@ -319,46 +337,39 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
     if (difference.inDays == 0) {
       if (difference.inHours == 0) {
-
-        return '${difference.inMinutes} minutes ago';
+        return '${difference.inMinutes} phút trước';
       } else {
-        return '${difference.inHours} hours ago';
+        return '${difference.inHours} giờ trước';
       }
     } else if (difference.inDays == 1) {
-      return 'Yesterday';
+      return 'Hôm qua';
     } else if (difference.inDays < 7) {
-      return '${difference.inDays} days ago';
+      return '${difference.inDays} ngày trước';
     } else {
       return DateFormat('dd/MM/yyyy').format(timestamp);
     }
   }
 
   void _handleNotificationTap(NotificationModel notification) {
-
-
+    // Handle navigation based on notification type
+    // This can be extended to navigate to specific screens
     switch (notification.type) {
       case NotificationType.eventCreated:
       case NotificationType.eventUpdated:
       case NotificationType.eventCancelled:
-
-        if (notification.data != null &&
-            notification.data!['eventId'] != null) {
-
-    
-     
-
+        if (notification.data?['eventId'] != null) {
+          // Navigate to event detail screen
           context.go('/event-detail/${notification.data!['eventId']}');
         }
         break;
       case NotificationType.registrationConfirmed:
       case NotificationType.registrationRejected:
-
+        // Navigate to profile or registrations screen
         context.go('/profile');
         break;
       case NotificationType.chatMessage:
-        if (notification.data != null &&
-            notification.data!['eventId'] != null) {
-
+        if (notification.data?['eventId'] != null) {
+          // Navigate to chat screen
           context.go('/event/${notification.data!['eventId']}/chat');
         }
         break;
@@ -382,15 +393,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               child: const Text('Cancel'),
             ),
             TextButton(
-
-              onPressed: () async {
-                final authProvider = context.read<AuthProvider>();
-                final notificationProvider = context
-                    .read<NotificationProvider>();
-                final user = authProvider.currentUser;
-                if (user != null) {
-                  await notificationProvider.markAllAsRead(user.id);
-                }
+              onPressed: () {
+                context.read<NotificationProvider>().markAllAsRead();
                 Navigator.of(context).pop();
               },
               child: const Text('Confirm'),
@@ -416,16 +420,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               child: const Text('Cancel'),
             ),
             TextButton(
-
-              onPressed: () async {
-                final authProvider = context.read<AuthProvider>();
-                final notificationProvider = context
-                    .read<NotificationProvider>();
-                final user = authProvider.currentUser;
-                if (user != null) {
-                  await notificationProvider.clearAll(user.id);
-                }
-
+              onPressed: () {
+                context.read<NotificationProvider>().clearAllNotifications();
                 Navigator.of(context).pop();
               },
               style: TextButton.styleFrom(foregroundColor: Colors.red),

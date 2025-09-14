@@ -10,6 +10,7 @@ import '../../models/event_model.dart';
 import '../../models/registration_model.dart';
 import '../../constants/app_colors.dart';
 import '../coorganizer/coorganizer_invitations_screen.dart';
+import '../../widgets/app_bottom_navigation_bar.dart';
 
 class HomeScreen extends StatefulWidget {
   final int? initialTab;
@@ -63,6 +64,17 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   @override
+  void didUpdateWidget(covariant HomeScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialTab != null &&
+        widget.initialTab != oldWidget.initialTab) {
+      setState(() {
+        _currentIndex = widget.initialTab!;
+      });
+    }
+  }
+
+  @override
   void dispose() {
     _eventsTabController.dispose();
     super.dispose();
@@ -94,6 +106,7 @@ class _HomeScreenState extends State<HomeScreen>
               onPressed: () {
                 // Refresh all data
                 context.read<EventProvider>().loadEvents();
+
                 context.read<NotificationProvider>().loadNotifications(
                   context.read<AuthProvider>().currentUser?.id ?? '',
                 );
@@ -199,7 +212,9 @@ class _HomeScreenState extends State<HomeScreen>
             _buildMyEventsTab(),
           ],
         ),
+
         bottomNavigationBar: _buildBottomNavigation(),
+
         floatingActionButton: Consumer<AuthProvider>(
           builder: (context, authProvider, _) {
             if (authProvider.currentUser?.role == 'organizer' ||
@@ -337,6 +352,97 @@ class _HomeScreenState extends State<HomeScreen>
                   offset: const Offset(0, 4),
                 ),
               ],
+            ),
+            child: const Padding(
+              padding: EdgeInsets.all(32),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+          );
+        }
+
+        final events = snapshot.data as List<EventModel>;
+        final activeEvents = events.where((event) {
+          final now = DateTime.now();
+          return event.startDate.isBefore(now) && event.endDate.isAfter(now);
+        }).length;
+
+        final pendingEvents = events
+            .where(
+              (event) => event.status == 'pending' || event.status == 'draft',
+            )
+            .length;
+
+        final completedEvents = events
+            .where((event) => event.endDate.isBefore(DateTime.now()))
+            .length;
+
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.06),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                _buildActivityItem(
+                  'Active Events',
+                  '$activeEvents events currently running',
+                  Icons.event_available,
+                  AppColors.statusApproved,
+                ),
+                const Divider(height: 24),
+                _buildActivityItem(
+                  'Pending Events',
+                  '$pendingEvents events waiting for approval',
+                  Icons.pending,
+                  AppColors.statusPending,
+                ),
+                const Divider(height: 24),
+                _buildActivityItem(
+                  'Completed Events',
+                  '$completedEvents events finished',
+                  Icons.check_circle,
+                  AppColors.organizerSecondary,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildStudentRecentActivity() {
+    return StreamBuilder<List<EventModel>>(
+      stream: EventService().getEventsStream(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.06),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: const Padding(
+              padding: EdgeInsets.all(32),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+          );
+        }
             ),
             child: const Padding(
               padding: EdgeInsets.all(32),

@@ -1,12 +1,15 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/user_model.dart';
 import '../models/event_model.dart';
 import '../models/location_model.dart';
 import '../models/event_statistics_model.dart';
 import '../constants/app_constants.dart';
+import '../services/event_service.dart';
 
 class AdminService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   Future<List<UserModel>> getAllUsers() async {
     try {
@@ -115,10 +118,14 @@ class AdminService {
 
   Future<void> approveEvent(String eventId) async {
     try {
-      await _firestore
-          .collection(AppConstants.eventsCollection)
-          .doc(eventId)
-          .update({'status': 'published', 'updatedAt': Timestamp.now()});
+      // Lấy thông tin admin hiện tại
+      final currentUser = await _auth.currentUser;
+      if (currentUser == null) {
+        throw Exception('Không tìm thấy thông tin admin');
+      }
+
+      final eventService = EventService();
+      await eventService.approveEvent(eventId, currentUser.uid);
     } catch (e) {
       throw Exception('Lỗi khi duyệt sự kiện: $e');
     }
@@ -126,14 +133,14 @@ class AdminService {
 
   Future<void> rejectEvent(String eventId, String reason) async {
     try {
-      await _firestore
-          .collection(AppConstants.eventsCollection)
-          .doc(eventId)
-          .update({
-            'status': 'rejected',
-            'rejectionReason': reason,
-            'updatedAt': Timestamp.now(),
-          });
+      // Lấy thông tin admin hiện tại
+      final currentUser = await _auth.currentUser;
+      if (currentUser == null) {
+        throw Exception('Không tìm thấy thông tin admin');
+      }
+
+      final eventService = EventService();
+      await eventService.rejectEvent(eventId, currentUser.uid, reason);
     } catch (e) {
       throw Exception('Lỗi khi từ chối sự kiện: $e');
     }
@@ -156,6 +163,15 @@ class AdminService {
 
   Future<void> addLocation(LocationModel location) async {
     try {
+      // Prevent duplicates by name (case-insensitive)
+      final existing = await _firestore
+          .collection('locations')
+          .where('name', isEqualTo: location.name)
+          .get();
+      if (existing.docs.isNotEmpty) {
+        throw Exception('Location name already exists');
+      }
+
       await _firestore.collection('locations').add(location.toFirestore());
     } catch (e) {
       throw Exception('Lỗi khi thêm vị trí: $e');
@@ -183,14 +199,39 @@ class AdminService {
 
   Future<List<EventModel>> getEventsByLocation(String locationName) async {
     try {
-      QuerySnapshot snapshot = await _firestore
-          .collection('events')
-          .where('location', isEqualTo: locationName)
-          .where('isActive', isEqualTo: true)
-          .orderBy('startDate', descending: false)
-          .get();
+      // Try preferred query first (requires composite index)
+      try {
+        QuerySnapshot snapshot = await _firestore
+            .collection('events')
+            .where('location', isEqualTo: locationName)
+            .where('isActive', isEqualTo: true)
+            .orderBy('startDate', descending: false)
+            .get();
 
-      return snapshot.docs.map((doc) => EventModel.fromFirestore(doc)).toList();
+        final events = snapshot.docs
+            .map((doc) => EventModel.fromFirestore(doc))
+            .toList();
+        return events;
+      } catch (e) {
+        // Fallback without composite index: query by location only, then filter/sort in memory
+        print(
+          '⚠️ Missing Firestore index for (location + isActive + startDate). '
+          'Falling back to client-side filter/sort. Error: $e',
+        );
+
+        QuerySnapshot snapshot = await _firestore
+            .collection('events')
+            .where('location', isEqualTo: locationName)
+            .get();
+
+        List<EventModel> events = snapshot.docs
+            .map((doc) => EventModel.fromFirestore(doc))
+            .where((event) => event.isActive == true)
+            .toList();
+
+        events.sort((a, b) => a.startDate.compareTo(b.startDate));
+        return events;
+      }
     } catch (e) {
       throw Exception('Lỗi khi lấy sự kiện theo vị trí: $e');
     }
@@ -256,6 +297,9 @@ class AdminService {
       QuerySnapshot registrationsSnapshot = await _firestore
           .collection('registrations')
           .get();
+      QuerySnapshot feedbacksSnapshot = await _firestore
+          .collection('feedbacks')
+          .get();
 
       int totalUsers = usersSnapshot.docs.length;
       int activeUsers = usersSnapshot.docs
@@ -271,6 +315,7 @@ class AdminService {
           )
           .length;
       int totalRegistrations = registrationsSnapshot.docs.length;
+      int totalFeedbacks = feedbacksSnapshot.docs.length;
 
       return {
         'totalUsers': totalUsers,
@@ -278,6 +323,7 @@ class AdminService {
         'totalEvents': totalEvents,
         'publishedEvents': publishedEvents,
         'totalRegistrations': totalRegistrations,
+        'totalFeedbacks': totalFeedbacks,
       };
     } catch (e) {
       throw Exception('Lỗi khi lấy thống kê tổng quan: $e');

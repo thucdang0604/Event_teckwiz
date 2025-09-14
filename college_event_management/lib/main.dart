@@ -25,13 +25,17 @@ import 'screens/student/student_dashboard_screen.dart';
 import 'constants/app_colors.dart';
 import 'services/notification_service.dart';
 import 'screens/admin/admin_dashboard_screen.dart';
-import 'screens/admin/user_management_screen.dart';
+import 'screens/admin/admin_users_screen.dart';
+import 'screens/admin/admin_locations_screen.dart';
+
 import 'screens/admin/user_detail_screen.dart';
 import 'screens/admin/event_approval_screen.dart';
 import 'screens/admin/location_management_screen.dart';
 import 'screens/admin/location_detail_screen.dart';
 import 'screens/admin/event_statistics_screen.dart';
+import 'screens/admin/admin_statistics_screen.dart';
 import 'screens/admin/location_calendar_screen.dart';
+import 'screens/admin/feedback_moderation_screen.dart';
 import 'screens/coorganizer/coorganizer_invitations_screen.dart';
 import 'screens/organizer/organizer_dashboard_screen.dart';
 import 'screens/notifications/notifications_screen.dart';
@@ -65,12 +69,12 @@ class MyApp extends StatelessWidget {
       ],
       child: Consumer2<AuthProvider, NotificationProvider>(
         builder: (context, authProvider, notificationProvider, _) {
-          // Defer loadNotifications to next frame to avoid build-time notifyListeners
+
+          // Defer setUser to next frame to avoid build-time notifyListeners
           final user = authProvider.currentUser;
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (user?.id != null) {
-              notificationProvider.loadNotifications(user!.id);
-            }
+            notificationProvider.setUser(user?.id, user?.role);
+
           });
           return MaterialApp.router(
             title: 'Quản Lý Sự Kiện',
@@ -198,7 +202,11 @@ final GoRouter _router = GoRouter(
     ),
     GoRoute(
       path: '/admin/users',
-      builder: (context, state) => const UserManagementScreen(),
+      builder: (context, state) => const AdminUsersScreen(),
+    ),
+    GoRoute(
+      path: '/admin/locations',
+      builder: (context, state) => const AdminLocationsScreen(),
     ),
     GoRoute(
       path: '/admin/users/:userId',
@@ -240,7 +248,15 @@ final GoRouter _router = GoRouter(
     ),
     GoRoute(
       path: '/admin/statistics',
+      builder: (context, state) => const AdminStatisticsScreen(),
+    ),
+    GoRoute(
+      path: '/admin/event-statistics',
       builder: (context, state) => const EventStatisticsScreen(),
+    ),
+    GoRoute(
+      path: '/admin/feedback',
+      builder: (context, state) => const FeedbackModerationScreen(),
     ),
     GoRoute(
       path: '/admin/location-calendar',

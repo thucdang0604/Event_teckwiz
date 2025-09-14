@@ -23,6 +23,7 @@ class AppConstants {
   // Event Status
   static const String eventDraft = 'draft';
   static const String eventPublished = 'published';
+  static const String eventPending = 'pending';
   static const String eventCancelled = 'cancelled';
   static const String eventCompleted = 'completed';
 
