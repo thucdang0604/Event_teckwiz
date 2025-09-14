@@ -5,6 +5,7 @@ import '../../models/registration_model.dart';
 import '../../services/registration_service.dart';
 import '../../providers/auth_provider.dart';
 import '../qr/qr_scanner_screen.dart';
+import '../../services/certificate_service.dart';
 
 class EventAttendanceScreen extends StatefulWidget {
   final String eventId;
@@ -28,6 +29,7 @@ class _EventAttendanceScreenState extends State<EventAttendanceScreen>
   String? _errorMessage;
   late TabController _tabController;
   String _search = '';
+  final CertificateService _certificateService = CertificateService();
 
   @override
   void initState() {
@@ -113,6 +115,20 @@ class _EventAttendanceScreenState extends State<EventAttendanceScreen>
       appBar: AppBar(
         title: Text('Attendance Management - ${widget.eventTitle}'),
         actions: [
+          IconButton(
+            onPressed: () async {
+              try {
+                final issued = await _certificateService
+                    .issueCertificatesForEvent(widget.eventId);
+                _toast('Issued $issued certificate(s)');
+                _load();
+              } catch (e) {
+                _toast('Issue certificate error: $e', isError: true);
+              }
+            },
+            icon: const Icon(Icons.picture_as_pdf),
+            tooltip: 'Issue Certificates',
+          ),
           IconButton(
             onPressed: () async {
               final refreshed = await Navigator.push(

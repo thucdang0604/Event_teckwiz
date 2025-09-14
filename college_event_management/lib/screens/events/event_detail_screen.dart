@@ -17,6 +17,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/admin_provider.dart';
 import '../../services/registration_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/certificate_service.dart';
 import '../../models/registration_model.dart';
 import '../../models/support_registration_model.dart';
 import 'package:qr_flutter/qr_flutter.dart' as qr;
@@ -38,6 +39,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
   String? _errorMessage;
   final RegistrationService _registrationService = RegistrationService();
   final AuthService _authService = AuthService();
+  final CertificateService _certificateService = CertificateService();
   RegistrationModel? _myRegistration;
   SupportRegistrationModel? _mySupportRegistration;
   int _pendingCount = 0;
@@ -1030,6 +1032,17 @@ class _EventDetailScreenState extends State<EventDetailScreen>
                 ),
                 const SizedBox(width: 8),
 
+                // Certificates Button
+                Expanded(
+                  child: _buildActionButton(
+                    icon: Icons.picture_as_pdf,
+                    label: 'Certificates',
+                    color: const Color(0xFF065F46),
+                    onPressed: _issueCertificates,
+                  ),
+                ),
+                const SizedBox(width: 8),
+
                 // Support Staff Button
                 if (_event!.maxSupportStaff > 0)
                   Expanded(
@@ -1349,6 +1362,32 @@ class _EventDetailScreenState extends State<EventDetailScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error approving event: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _issueCertificates() async {
+    if (_event == null) return;
+    try {
+      final count = await _certificateService.issueCertificatesForEvent(
+        _event!.id,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Issued $count certificate(s)'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Issue certificate error: $e'),
             backgroundColor: AppColors.error,
           ),
         );

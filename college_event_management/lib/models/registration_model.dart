@@ -27,6 +27,8 @@ class RegistrationModel {
   final String? refundId;
   final String? refundMethod;
   final double? refundAmount;
+  final String? certificateUrl;
+  final DateTime? certificateIssuedAt;
 
   RegistrationModel({
     required this.id,
@@ -55,6 +57,8 @@ class RegistrationModel {
     this.refundId,
     this.refundMethod,
     this.refundAmount,
+    this.certificateUrl,
+    this.certificateIssuedAt,
   });
 
   factory RegistrationModel.fromFirestore(DocumentSnapshot doc) {
@@ -98,6 +102,10 @@ class RegistrationModel {
       refundId: data['refundId'],
       refundMethod: data['refundMethod'],
       refundAmount: data['refundAmount']?.toDouble(),
+      certificateUrl: data['certificateUrl'],
+      certificateIssuedAt: data['certificateIssuedAt'] != null
+          ? (data['certificateIssuedAt'] as Timestamp).toDate()
+          : null,
     );
   }
 
@@ -130,6 +138,10 @@ class RegistrationModel {
       'refundId': refundId,
       'refundMethod': refundMethod,
       'refundAmount': refundAmount,
+      'certificateUrl': certificateUrl,
+      'certificateIssuedAt': certificateIssuedAt != null
+          ? Timestamp.fromDate(certificateIssuedAt!)
+          : null,
     };
   }
 
@@ -160,6 +172,8 @@ class RegistrationModel {
     String? refundId,
     String? refundMethod,
     double? refundAmount,
+    String? certificateUrl,
+    DateTime? certificateIssuedAt,
   }) {
     return RegistrationModel(
       id: id ?? this.id,
@@ -188,6 +202,8 @@ class RegistrationModel {
       refundId: refundId ?? this.refundId,
       refundMethod: refundMethod ?? this.refundMethod,
       refundAmount: refundAmount ?? this.refundAmount,
+      certificateUrl: certificateUrl ?? this.certificateUrl,
+      certificateIssuedAt: certificateIssuedAt ?? this.certificateIssuedAt,
     );
   }
 
