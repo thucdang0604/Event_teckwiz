@@ -149,7 +149,7 @@ class AppBottomNavigationBar extends StatelessWidget {
             // 4 items: Home, Events, Invitations, Profile
             switch (index) {
               case 0:
-                context.go('/organizer-dashboard');
+                context.go('/home');
                 break;
               case 1:
                 context.go('/organizer/events');

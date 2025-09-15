@@ -36,6 +36,7 @@ import 'screens/admin/event_statistics_screen.dart';
 import 'screens/admin/admin_statistics_screen.dart';
 import 'screens/admin/location_calendar_screen.dart';
 import 'screens/admin/feedback_moderation_screen.dart';
+import 'screens/home/home_screen.dart';
 import 'screens/organizer/organizer_dashboard_screen.dart';
 import 'screens/organizer/organizer_events_screen.dart';
 import 'screens/organizer/organizer_coorganizers_screen.dart';
@@ -151,7 +152,7 @@ final GoRouter _router = GoRouter(
     GoRoute(
       path: '/home',
       builder: (context, state) {
-        return const StudentDashboardScreen();
+        return const HomeScreen();
       },
     ),
     GoRoute(
