@@ -37,6 +37,9 @@ import 'screens/admin/admin_statistics_screen.dart';
 import 'screens/admin/location_calendar_screen.dart';
 import 'screens/admin/feedback_moderation_screen.dart';
 import 'screens/organizer/organizer_dashboard_screen.dart';
+import 'screens/organizer/organizer_events_screen.dart';
+import 'screens/organizer/organizer_coorganizers_screen.dart';
+import 'screens/organizer/support_registrations_screen.dart';
 import 'screens/notifications/notifications_screen.dart';
 
 void main() async {
@@ -283,7 +286,7 @@ final GoRouter _router = GoRouter(
     ),
     GoRoute(
       path: '/coorganizer-invitations',
-      builder: (context, state) => const OrganizerDashboardScreen(),
+      builder: (context, state) => const OrganizerCoOrganizersScreen(),
     ),
     GoRoute(
       path: '/organizer-dashboard',
@@ -291,13 +294,11 @@ final GoRouter _router = GoRouter(
     ),
     GoRoute(
       path: '/organizer/events',
-      builder: (context, state) =>
-          const OrganizerDashboardScreen(), // Temporary - will create separate screen later
+      builder: (context, state) => const OrganizerEventsScreen(),
     ),
     GoRoute(
       path: '/organizer/coorganizers',
-      builder: (context, state) =>
-          const OrganizerDashboardScreen(), // Temporary - will create separate screen later
+      builder: (context, state) => const OrganizerCoOrganizersScreen(),
     ),
     GoRoute(
       path: '/organizer/analytics',
@@ -308,6 +309,17 @@ final GoRouter _router = GoRouter(
       path: '/organizer/profile',
       builder: (context, state) =>
           const OrganizerDashboardScreen(), // Temporary - will create separate screen later
+    ),
+    GoRoute(
+      path: '/organizer/support-registrations/:eventId',
+      builder: (context, state) {
+        final eventId = state.pathParameters['eventId']!;
+        final eventTitle = state.uri.queryParameters['title'] ?? 'Event';
+        return SupportRegistrationsScreen(
+          eventId: eventId,
+          eventTitle: eventTitle,
+        );
+      },
     ),
     GoRoute(
       path: '/notifications',

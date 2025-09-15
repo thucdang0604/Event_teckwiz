@@ -149,10 +149,10 @@ class AppBottomNavigationBar extends StatelessWidget {
             // 4 items: Home, Events, Invitations, Profile
             switch (index) {
               case 0:
-                context.go('/home', extra: 0);
+                context.go('/organizer-dashboard');
                 break;
               case 1:
-                context.go('/home', extra: 1);
+                context.go('/organizer/events');
                 break;
               case 2:
                 context.go('/coorganizer-invitations');
@@ -161,14 +161,33 @@ class AppBottomNavigationBar extends StatelessWidget {
                 context.go('/profile');
                 break;
             }
-          } else {
-            // 5 items with Notifications
+          } else if (role == 'admin') {
+            // Admin navigation
             switch (index) {
               case 0:
-                context.go('/home', extra: 0);
+                context.go('/admin-dashboard');
                 break;
               case 1:
-                context.go('/home', extra: 1);
+                context.go('/admin/approvals');
+                break;
+              case 2:
+                context.go('/admin/users');
+                break;
+              case 3:
+                context.go('/notifications');
+                break;
+              case 4:
+                context.go('/profile');
+                break;
+            }
+          } else {
+            // Student navigation - 5 items with Notifications
+            switch (index) {
+              case 0:
+                context.go('/student');
+                break;
+              case 1:
+                context.go('/student', extra: 1);
                 break;
               case 2:
                 context.go('/coorganizer-invitations');
