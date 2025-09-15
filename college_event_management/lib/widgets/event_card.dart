@@ -105,7 +105,7 @@ class EventCard extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Start: ${DateFormat(AppConstants.dateTimeFormat).format(event.startDate)}',
+                      'Start: ${DateFormat(AppConstants.dateTimeFormat).format(event.startDate.toLocal())}',
                       style: const TextStyle(
                         fontSize: 14,
                         color: AppColors.textSecondary,
@@ -123,7 +123,7 @@ class EventCard extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'End: ${DateFormat(AppConstants.dateTimeFormat).format(event.endDate)}',
+                      'End: ${DateFormat(AppConstants.dateTimeFormat).format(event.endDate.toLocal())}',
                       style: const TextStyle(
                         fontSize: 14,
                         color: AppColors.textSecondary,
@@ -194,8 +194,8 @@ class EventCard extends StatelessWidget {
                   else
                     Text(
                       NumberFormat.currency(
-                        locale: 'vi_VN',
-                        symbol: '₫',
+                        locale: 'en_US',
+                        symbol: '\$',
                       ).format(event.price),
                       style: const TextStyle(
                         fontSize: 14,

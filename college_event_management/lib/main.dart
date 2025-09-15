@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'firebase_options.dart';
 
 import 'providers/auth_provider.dart';
@@ -12,7 +12,6 @@ import 'providers/notification_provider.dart';
 import 'screens/splash_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
-import 'screens/home/home_screen.dart';
 import 'screens/events/event_detail_screen.dart';
 import 'screens/events/create_event_screen.dart';
 import 'screens/events/event_registrations_screen.dart';
@@ -22,8 +21,8 @@ import 'screens/chat/event_chat_screen.dart';
 import 'screens/profile/profile_screen.dart';
 import 'screens/profile/edit_profile_screen.dart';
 import 'screens/settings/settings_screen.dart';
-import 'screens/student/student_dashboard_screen.dart';
 import 'constants/app_colors.dart';
+import 'screens/student/student_dashboard_screen.dart';
 import 'services/notification_service.dart';
 import 'screens/admin/admin_dashboard_screen.dart';
 import 'screens/admin/admin_users_screen.dart';
@@ -37,21 +36,36 @@ import 'screens/admin/event_statistics_screen.dart';
 import 'screens/admin/admin_statistics_screen.dart';
 import 'screens/admin/location_calendar_screen.dart';
 import 'screens/admin/feedback_moderation_screen.dart';
-import 'screens/coorganizer/coorganizer_invitations_screen.dart';
 import 'screens/organizer/organizer_dashboard_screen.dart';
 import 'screens/notifications/notifications_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Firebase
-  if (Firebase.apps.isEmpty) {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
+  // Load environment variables
+  try {
+    await dotenv.load(fileName: ".env");
+    print('✅ Environment variables loaded');
+  } catch (e) {
+    print('⚠️ Could not load .env file: $e');
   }
 
+  // Initialize Firebase
+  try {
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+      print('✅ Firebase initialized successfully');
+    }
+  } catch (e) {
+    print('❌ Firebase initialization failed: $e');
+    // App will continue but Firebase features won't work
+  }
+
+  // Initialize core services only
   await NotificationService.initialize();
+
   runApp(const MyApp());
 }
 
@@ -75,13 +89,13 @@ class MyApp extends StatelessWidget {
             notificationProvider.setUser(user?.id, user?.role);
           });
           return MaterialApp.router(
-            title: 'Quản Lý Sự Kiện',
+            title: 'Event Management',
             debugShowCheckedModeBanner: false,
             theme: ThemeData(
               primarySwatch: Colors.blue,
               primaryColor: AppColors.primary,
               scaffoldBackgroundColor: AppColors.background,
-              textTheme: GoogleFonts.interTextTheme(),
+              // textTheme: GoogleFonts.interTextTheme(), // Disabled due to network issues
               appBarTheme: const AppBarTheme(
                 backgroundColor: AppColors.primary,
                 foregroundColor: AppColors.white,
@@ -134,8 +148,7 @@ final GoRouter _router = GoRouter(
     GoRoute(
       path: '/home',
       builder: (context, state) {
-        final initialTab = state.extra as int?;
-        return HomeScreen(initialTab: initialTab);
+        return const StudentDashboardScreen();
       },
     ),
     GoRoute(
@@ -179,7 +192,7 @@ final GoRouter _router = GoRouter(
       path: '/event/:eventId/registrations',
       builder: (context, state) {
         final eventId = state.pathParameters['eventId']!;
-        final eventTitle = state.uri.queryParameters['title'] ?? 'Sự kiện';
+        final eventTitle = state.uri.queryParameters['title'] ?? 'Event';
         return EventRegistrationsScreen(
           eventId: eventId,
           eventTitle: eventTitle,
@@ -270,7 +283,7 @@ final GoRouter _router = GoRouter(
     ),
     GoRoute(
       path: '/coorganizer-invitations',
-      builder: (context, state) => const CoOrganizerInvitationsScreen(),
+      builder: (context, state) => const OrganizerDashboardScreen(),
     ),
     GoRoute(
       path: '/organizer-dashboard',

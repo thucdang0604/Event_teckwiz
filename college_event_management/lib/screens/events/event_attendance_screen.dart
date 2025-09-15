@@ -118,8 +118,7 @@ class _EventAttendanceScreenState extends State<EventAttendanceScreen>
           IconButton(
             onPressed: () async {
               try {
-                final issued = await _certificateService
-                    .issueCertificatesForEvent(widget.eventId);
+                final issued = await _certificateService.issueForEvent(widget.eventId);
                 _toast('Issued $issued certificate(s)');
                 _load();
               } catch (e) {

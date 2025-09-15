@@ -34,7 +34,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isVerifyingEmail = false;
   StudentModel? _foundStudent;
   final StudentService _studentService = StudentService();
-  final EmailService _emailService = EmailService();
+  final EmailService _emailService = EmailService.instance;
 
   @override
   void dispose() {

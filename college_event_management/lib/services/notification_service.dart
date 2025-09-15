@@ -13,6 +13,7 @@ enum NotificationType {
   eventReminder,
   systemAnnouncement,
   chatMessage,
+  certificateIssued,
 }
 
 class NotificationModel {

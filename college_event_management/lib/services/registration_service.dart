@@ -6,10 +6,15 @@ import '../constants/app_constants.dart';
 import 'notification_service.dart';
 import 'event_service.dart';
 import 'payment_service.dart';
+import 'unified_notification_service.dart';
+import 'certificate_service.dart';
 
 class RegistrationService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final PaymentService _paymentService = PaymentService();
+  final UnifiedNotificationService _unifiedNotificationService =
+      UnifiedNotificationService();
+  final CertificateService _certificateService = CertificateService();
 
   // Đăng ký tham gia sự kiện
   Future<String> registerForEvent({
@@ -20,10 +25,51 @@ class RegistrationService {
     Map<String, dynamic>? additionalInfo,
   }) async {
     try {
+      // Lấy thông tin sự kiện để kiểm tra điều kiện đăng ký
+      EventModel? event = await EventService().getEventById(eventId);
+      if (event == null) {
+        throw Exception('Event not found');
+      }
+
+      // Kiểm tra thời gian đăng ký
+      final now = DateTime.now();
+      final eventStart = event.startDate.toLocal();
+      final eventEnd = event.endDate.toLocal();
+      final registrationDeadline = event.registrationDeadline.toLocal();
+
+      // Không cho phép đăng ký nếu sự kiện chưa được publish
+      if (!event.isPublished) {
+        throw Exception('This event is not yet published');
+      }
+
+      // Không cho phép đăng ký nếu đã qua hạn đăng ký
+      if (now.isAfter(registrationDeadline)) {
+        throw Exception('Registration deadline has passed');
+      }
+
+      // Không cho phép đăng ký nếu sự kiện đang diễn ra
+      if (eventStart.isBefore(now) && eventEnd.isAfter(now)) {
+        throw Exception('Registration is not available during the event');
+      }
+
+      // Không cho phép đăng ký nếu sự kiện đã bắt đầu
+      if (eventStart.isBefore(now)) {
+        throw Exception(
+          'Registration is not available after the event has started',
+        );
+      }
+
+      // Không cho phép đăng ký nếu sự kiện đã đầy
+      if (event.isFull) {
+        throw Exception(
+          'This event is full. No more participants can be accepted',
+        );
+      }
+
       // Kiểm tra xem đã đăng ký chưa (chỉ kiểm tra đăng ký active)
       bool alreadyRegistered = await isUserRegisteredForEvent(eventId, userId);
       if (alreadyRegistered) {
-        throw Exception('Bạn đã đăng ký sự kiện này rồi');
+        throw Exception('You have already registered for this event');
       }
 
       // Kiểm tra xem có đăng ký cancelled không (đơn giản hóa để tránh lỗi index)
@@ -54,6 +100,30 @@ class RegistrationService {
           .collection(AppConstants.registrationsCollection)
           .add(registration.toFirestore());
 
+      // Gửi unified notification xác nhận đăng ký
+      try {
+        final event = await EventService().getEventById(eventId);
+        if (event != null) {
+          await _unifiedNotificationService.sendUnifiedNotification(
+            userId: userId,
+            title: 'Đăng ký sự kiện thành công',
+            body: 'Bạn đã đăng ký tham gia sự kiện "${event.title}" thành công',
+            type: NotificationType.registrationConfirmed,
+            data: {
+              'eventId': eventId,
+              'eventTitle': event.title,
+              'eventDate': event.startDate.toIso8601String(),
+              'eventLocation': event.location,
+              'userName': userName,
+            },
+            priority: NotificationPriority.normal,
+          );
+          print('✅ Unified notification sent to user: $userId');
+        }
+      } catch (notificationError) {
+        print('❌ Error sending unified notification: $notificationError');
+      }
+
       return docRef.id;
     } catch (e) {
       throw Exception('Lỗi đăng ký sự kiện: ${e.toString()}');
@@ -70,16 +140,51 @@ class RegistrationService {
     Map<String, dynamic>? additionalInfo,
   }) async {
     try {
-      // Lấy thông tin sự kiện để kiểm tra phíR=
+      // Lấy thông tin sự kiện để kiểm tra phí
       EventModel? event = await EventService().getEventById(eventId);
       if (event == null) {
-        throw Exception('Sự kiện không tồn tại');
+        throw Exception('Event not found');
+      }
+
+      // Kiểm tra thời gian đăng ký
+      final now = DateTime.now();
+      final eventStart = event.startDate.toLocal();
+      final eventEnd = event.endDate.toLocal();
+      final registrationDeadline = event.registrationDeadline.toLocal();
+
+      // Không cho phép đăng ký nếu sự kiện chưa được publish
+      if (!event.isPublished) {
+        throw Exception('This event is not yet published');
+      }
+
+      // Không cho phép đăng ký nếu đã qua hạn đăng ký
+      if (now.isAfter(registrationDeadline)) {
+        throw Exception('Registration deadline has passed');
+      }
+
+      // Không cho phép đăng ký nếu sự kiện đang diễn ra
+      if (eventStart.isBefore(now) && eventEnd.isAfter(now)) {
+        throw Exception('Registration is not available during the event');
+      }
+
+      // Không cho phép đăng ký nếu sự kiện đã bắt đầu
+      if (eventStart.isBefore(now)) {
+        throw Exception(
+          'Registration is not available after the event has started',
+        );
+      }
+
+      // Không cho phép đăng ký nếu sự kiện đã đầy
+      if (event.isFull) {
+        throw Exception(
+          'This event is full. No more participants can be accepted',
+        );
       }
 
       // Kiểm tra xem đã đăng ký chưa (chỉ kiểm tra đăng ký active)
       bool alreadyRegistered = await isUserRegisteredForEvent(eventId, userId);
       if (alreadyRegistered) {
-        throw Exception('Bạn đã đăng ký sự kiện này rồi');
+        throw Exception('You have already registered for this event');
       }
 
       // Kiểm tra xem có đăng ký cancelled không (đơn giản hóa để tránh lỗi index)
@@ -164,6 +269,29 @@ class RegistrationService {
           .collection(AppConstants.registrationsCollection)
           .add(registration.toFirestore());
 
+      // Gửi unified notification xác nhận đăng ký
+      try {
+        await _unifiedNotificationService.sendUnifiedNotification(
+          userId: userId,
+          title: 'Đăng ký sự kiện thành công',
+          body: 'Bạn đã đăng ký tham gia sự kiện "${event.title}" thành công',
+          type: NotificationType.registrationConfirmed,
+          data: {
+            'eventId': eventId,
+            'eventTitle': event.title,
+            'eventDate': event.startDate.toIso8601String(),
+            'eventLocation': event.location,
+            'userName': userName,
+            'isPaid': paymentId != null,
+            'amountPaid': amountPaid,
+          },
+          priority: NotificationPriority.normal,
+        );
+        print('✅ Unified notification sent to user: $userId');
+      } catch (notificationError) {
+        print('❌ Error sending unified notification: $notificationError');
+      }
+
       // If auto-approved, refresh event participant count
       if (paymentId != null) {
         try {
@@ -197,6 +325,27 @@ class RegistrationService {
 
       // Lấy thông tin sự kiện để xác định điều kiện hoàn tiền
       EventModel? event = await EventService().getEventById(eventId);
+
+      // Kiểm tra thời gian sự kiện trước khi cho phép hủy
+      if (event != null) {
+        final now = DateTime.now();
+        final eventStart = event.startDate.toLocal();
+        final eventEnd = event.endDate.toLocal();
+
+        // Không cho phép hủy nếu sự kiện đang diễn ra
+        if (eventStart.isBefore(now) && eventEnd.isAfter(now)) {
+          throw Exception(
+            'Cannot cancel registration during the event. Please contact the organizer.',
+          );
+        }
+
+        // Không cho phép hủy nếu sự kiện đã bắt đầu
+        if (eventStart.isBefore(now)) {
+          throw Exception(
+            'Cannot cancel registration after the event has started. Please contact the organizer.',
+          );
+        }
+      }
 
       // Cập nhật trạng thái đăng ký
       await _firestore
@@ -446,7 +595,7 @@ class RegistrationService {
             .collection(AppConstants.registrationsCollection)
             .doc(registrationId)
             .get();
-        final data = regDoc.data() as Map<String, dynamic>?;
+        final data = regDoc.data();
         final String eventId = data?['eventId'] ?? '';
         if (eventId.isNotEmpty) {
           await _updateEventParticipantCountByEvent(eventId);
@@ -480,7 +629,7 @@ class RegistrationService {
             .collection(AppConstants.registrationsCollection)
             .doc(registrationId)
             .get();
-        final data = regDoc.data() as Map<String, dynamic>?;
+        final data = regDoc.data();
         final String eventId = data?['eventId'] ?? '';
         if (eventId.isNotEmpty) {
           await _updateEventParticipantCountByEvent(eventId);
@@ -520,14 +669,72 @@ class RegistrationService {
             .collection(AppConstants.registrationsCollection)
             .doc(registrationId)
             .get();
-        final data = regDoc.data() as Map<String, dynamic>?;
+        final data = regDoc.data();
         final String eventId = data?['eventId'] ?? '';
         if (eventId.isNotEmpty) {
           await _updateEventParticipantCountByEvent(eventId);
         }
       } catch (_) {}
+
+      // Tự động tạo chứng chỉ sau khi checkout
+      try {
+        await _generateCertificateAfterCheckout(registrationId);
+      } catch (certError) {
+        print('Error generating certificate after checkout: $certError');
+        // Không throw error vì checkout đã thành công
+      }
     } catch (e) {
       throw Exception('Lỗi checkout: ${e.toString()}');
+    }
+  }
+
+  // Tạo chứng chỉ sau khi checkout
+  Future<void> _generateCertificateAfterCheckout(String registrationId) async {
+    try {
+      // Lấy thông tin đăng ký
+      final regDoc = await _firestore
+          .collection(AppConstants.registrationsCollection)
+          .doc(registrationId)
+          .get();
+
+      if (!regDoc.exists) return;
+
+      final regData = regDoc.data();
+      final String eventId = regData?['eventId'] ?? '';
+      final String userId = regData?['userId'] ?? '';
+      final String userName = regData?['userName'] ?? '';
+      final String userEmail = regData?['userEmail'] ?? '';
+
+      if (eventId.isEmpty || userId.isEmpty) return;
+
+      // Kiểm tra xem có đủ điều kiện nhận chứng chỉ không
+      final isEligible = await _certificateService.isEligibleForCertificate(
+        eventId: eventId,
+        userId: userId,
+      );
+
+      if (!isEligible) return;
+
+      // Lấy thông tin sự kiện
+      final event = await EventService().getEventById(eventId);
+      if (event == null) return;
+
+      // Tạo chứng chỉ
+      await _certificateService.generateCertificate(
+        registrationId: registrationId,
+        eventId: eventId,
+        userId: userId,
+        userName: userName,
+        userEmail: userEmail,
+        eventTitle: event.title,
+        issuedBy: event.organizerId,
+        issuedByName: event.organizerName,
+      );
+
+      print('✅ Certificate generated for user $userId after checkout');
+    } catch (e) {
+      print('❌ Error in _generateCertificateAfterCheckout: $e');
+      rethrow;
     }
   }
 
@@ -579,6 +786,40 @@ class RegistrationService {
     Map<String, dynamic>? additionalInfo,
   }) async {
     try {
+      // Lấy thông tin sự kiện để kiểm tra điều kiện đăng ký
+      EventModel? event = await EventService().getEventById(eventId);
+      if (event == null) {
+        throw Exception('Event not found');
+      }
+
+      // Kiểm tra thời gian đăng ký
+      final now = DateTime.now();
+      final eventStart = event.startDate.toLocal();
+      final eventEnd = event.endDate.toLocal();
+      final registrationDeadline = event.registrationDeadline.toLocal();
+
+      // Không cho phép đăng ký nếu sự kiện chưa được publish
+      if (!event.isPublished) {
+        throw Exception('This event is not yet published');
+      }
+
+      // Không cho phép đăng ký nếu đã qua hạn đăng ký
+      if (now.isAfter(registrationDeadline)) {
+        throw Exception('Registration deadline has passed');
+      }
+
+      // Không cho phép đăng ký nếu sự kiện đang diễn ra
+      if (eventStart.isBefore(now) && eventEnd.isAfter(now)) {
+        throw Exception('Registration is not available during the event');
+      }
+
+      // Không cho phép đăng ký nếu sự kiện đã bắt đầu
+      if (eventStart.isBefore(now)) {
+        throw Exception(
+          'Registration is not available after the event has started',
+        );
+      }
+
       // Kiểm tra xem đã đăng ký chưa (cả participant và support)
       bool alreadyRegistered = await isUserRegisteredForEvent(eventId, userId);
       bool alreadySupportRegistered = await isUserRegisteredForSupport(
@@ -677,6 +918,30 @@ class RegistrationService {
           registrationDoc.data() as Map<String, dynamic>;
       String userId = registrationData['userId'] ?? '';
       String eventId = registrationData['eventId'] ?? '';
+
+      // Lấy thông tin sự kiện để kiểm tra thời gian
+      EventModel? event = await EventService().getEventById(eventId);
+
+      // Kiểm tra thời gian sự kiện trước khi cho phép hủy
+      if (event != null) {
+        final now = DateTime.now();
+        final eventStart = event.startDate.toLocal();
+        final eventEnd = event.endDate.toLocal();
+
+        // Không cho phép hủy nếu sự kiện đang diễn ra
+        if (eventStart.isBefore(now) && eventEnd.isAfter(now)) {
+          throw Exception(
+            'Cannot cancel support registration during the event. Please contact the organizer.',
+          );
+        }
+
+        // Không cho phép hủy nếu sự kiện đã bắt đầu
+        if (eventStart.isBefore(now)) {
+          throw Exception(
+            'Cannot cancel support registration after the event has started. Please contact the organizer.',
+          );
+        }
+      }
 
       // Cập nhật trạng thái đăng ký hỗ trợ
       await _firestore
