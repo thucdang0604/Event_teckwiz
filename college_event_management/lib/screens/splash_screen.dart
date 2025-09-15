@@ -55,7 +55,7 @@ class _SplashScreenState extends State<SplashScreen>
           } else if (user.isStudent) {
             context.go('/student');
           } else if (user.isOrganizer) {
-            context.go('/organizer-dashboard');
+            context.go('/home');
           } else {
             context.go('/home');
           }
