@@ -68,7 +68,7 @@ class _OrganizerDashboardScreenState extends State<OrganizerDashboardScreen> {
                       ),
                       onPressed: () {
                         print('Notification button tapped!');
-                        context.go('/organizer/notifications');
+                        context.go('/notifications');
                       },
                       tooltip: unreadCount > 0
                           ? 'Notifications (${unreadCount > 99 ? "99+" : unreadCount})'
