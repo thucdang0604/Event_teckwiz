@@ -4,11 +4,15 @@ import '../models/user_model.dart';
 import '../models/student_model.dart';
 import '../services/student_service.dart';
 import '../constants/app_constants.dart';
+import 'email_scheduler_service.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final StudentService _studentService = StudentService();
+  EmailSchedulerService? _emailScheduler;
+  EmailSchedulerService get _emailSchedulerInstance =>
+      _emailScheduler ??= EmailSchedulerService();
 
   // Đăng ký người dùng mới
   Future<UserModel?> registerWithEmailAndPassword({
@@ -69,6 +73,18 @@ class AuthService {
             .collection(AppConstants.usersCollection)
             .doc(userCredential.user!.uid)
             .set(newUser.toFirestore());
+
+        // Gửi welcome email
+        try {
+          await _emailSchedulerInstance.scheduleWelcomeEmail(
+            userEmail: email,
+            userName: fullName,
+            userRole: role,
+          );
+          print('✅ Welcome email scheduled for: $email');
+        } catch (emailError) {
+          print('❌ Error scheduling welcome email: $emailError');
+        }
 
         return newUser;
       }

@@ -9,6 +9,7 @@ class AppConstants {
   static const String registrationsCollection = 'registrations';
   static const String supportRegistrationsCollection = 'support_registrations';
   static const String notificationsCollection = 'notifications';
+  static const String certificatesCollection = 'certificates';
 
   // User Roles
   static const String adminRole = 'admin';

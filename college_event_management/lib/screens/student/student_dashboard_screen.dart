@@ -12,9 +12,7 @@ import '../events/event_detail_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../../services/registration_service.dart';
 import '../../services/event_service.dart';
-import '../../services/coorganizer_invitation_service.dart';
 import '../qr/student_qr_scanner_screen.dart';
-import '../coorganizer/coorganizer_invitations_screen.dart';
 import 'package:qr_flutter/qr_flutter.dart' as qr;
 
 class StudentDashboardScreen extends StatefulWidget {
@@ -86,7 +84,7 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                     _currentIndex = index;
                   });
                 },
-                itemCount: 6,
+                itemCount: 5,
                 itemBuilder: (context, index) {
                   switch (index) {
                     case 0:
@@ -107,10 +105,8 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                     case 2:
                       return const _TicketsTab();
                     case 3:
-                      return const _InvitationsTab();
-                    case 4:
                       return const _CertificatesTab();
-                    case 5:
+                    case 4:
                       return _ProfileTab(onLogout: _showLogoutConfirmation);
                     default:
                       return _HomeTab(
@@ -159,10 +155,6 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.confirmation_num_outlined),
             label: 'Tickets',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.group_add_outlined),
-            label: 'Invitations',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.workspace_premium_outlined),
@@ -499,58 +491,17 @@ class _HomeTab extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(child: _buildCoOrganizerInvitationsCard(context)),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _actionCard(
-                icon: Icons.settings,
-                color: Colors.white,
-                iconColor: const Color(0xFF6b7280),
-                title: 'Settings',
-                desc: 'App settings',
-                onTap: () {
-                  onNavigateToTab(5); // Navigate to Profile tab
-                },
-              ),
-            ),
-          ],
+        _actionCard(
+          icon: Icons.settings,
+          color: Colors.white,
+          iconColor: const Color(0xFF6b7280),
+          title: 'Settings',
+          desc: 'App settings',
+          onTap: () {
+            onNavigateToTab(4); // Navigate to Profile tab
+          },
         ),
       ],
-    );
-  }
-
-  Widget _buildCoOrganizerInvitationsCard(BuildContext context) {
-    final authProvider = context.watch<AuthProvider>();
-    final currentUser = authProvider.currentUser;
-
-    if (currentUser == null) {
-      return const SizedBox.shrink();
-    }
-
-    return StreamBuilder<int>(
-      stream: CoOrganizerInvitationService()
-          .getPendingInvitationsCount(currentUser.id)
-          .asStream(),
-      builder: (context, snapshot) {
-        final pendingCount = snapshot.data ?? 0;
-
-        return _actionCard(
-          icon: Icons.group_add,
-          color: Colors.white,
-          iconColor: const Color(0xFF8b5cf6),
-          title: 'Invitations',
-          desc: pendingCount > 0 ? '$pendingCount pending' : 'Co-organizer',
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => const CoOrganizerInvitationsScreen(),
-              ),
-            );
-          },
-        );
-      },
     );
   }
 
@@ -980,17 +931,21 @@ class _EventsTabState extends State<_EventsTab> {
                                 ),
                               );
                             },
-                            icon: const Icon(Icons.visibility, size: 18),
+                            icon: Icon(
+                              _getEventButtonIcon(event, registration),
+                              size: 18,
+                            ),
                             label: Text(
-                              registration != null
-                                  ? 'View Registration'
-                                  : 'View Details & Register',
+                              _getEventButtonText(event, registration),
                               style: const TextStyle(
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
+                              backgroundColor: _getEventButtonColor(
+                                event,
+                                registration,
+                              ),
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(vertical: 12),
                               shape: RoundedRectangleBorder(
@@ -1051,6 +1006,117 @@ class _EventsTabState extends State<_EventsTab> {
 
   String _formatDate(DateTime date) {
     return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+  }
+
+  IconData _getEventButtonIcon(
+    EventModel event,
+    RegistrationModel? registration,
+  ) {
+    if (registration != null) {
+      return Icons.visibility;
+    }
+
+    final now = DateTime.now();
+    final isRegistrationDeadlinePassed = now.isAfter(
+      event.registrationDeadline,
+    );
+    final isEventStarted = now.isAfter(event.startDate);
+    final isEventInProgress =
+        now.isAfter(event.startDate) && now.isBefore(event.endDate);
+    final isEventFull = event.isFull;
+    final isEventPublished = event.isPublished;
+
+    if (!isEventPublished) {
+      return Icons.schedule;
+    }
+
+    if (isEventInProgress) {
+      return Icons.event_busy;
+    }
+
+    if (isEventStarted) {
+      return Icons.event_available;
+    }
+
+    if (isRegistrationDeadlinePassed) {
+      return Icons.access_time;
+    }
+
+    if (isEventFull) {
+      return Icons.person_off;
+    }
+
+    return Icons.add_circle;
+  }
+
+  String _getEventButtonText(
+    EventModel event,
+    RegistrationModel? registration,
+  ) {
+    if (registration != null) {
+      return 'View Registration';
+    }
+
+    final now = DateTime.now();
+    final isRegistrationDeadlinePassed = now.isAfter(
+      event.registrationDeadline,
+    );
+    final isEventStarted = now.isAfter(event.startDate);
+    final isEventInProgress =
+        now.isAfter(event.startDate) && now.isBefore(event.endDate);
+    final isEventFull = event.isFull;
+    final isEventPublished = event.isPublished;
+
+    if (!isEventPublished) {
+      return 'Event Not Published';
+    }
+
+    if (isEventInProgress) {
+      return 'Event In Progress';
+    }
+
+    if (isEventStarted) {
+      return 'Event Started';
+    }
+
+    if (isRegistrationDeadlinePassed) {
+      return 'Registration Closed';
+    }
+
+    if (isEventFull) {
+      return 'Event Full';
+    }
+
+    return 'View Details & Register';
+  }
+
+  Color _getEventButtonColor(
+    EventModel event,
+    RegistrationModel? registration,
+  ) {
+    if (registration != null) {
+      return AppColors.primary;
+    }
+
+    final now = DateTime.now();
+    final isRegistrationDeadlinePassed = now.isAfter(
+      event.registrationDeadline,
+    );
+    final isEventStarted = now.isAfter(event.startDate);
+    final isEventInProgress =
+        now.isAfter(event.startDate) && now.isBefore(event.endDate);
+    final isEventFull = event.isFull;
+    final isEventPublished = event.isPublished;
+
+    if (!isEventPublished ||
+        isEventInProgress ||
+        isEventStarted ||
+        isRegistrationDeadlinePassed ||
+        isEventFull) {
+      return Colors.grey;
+    }
+
+    return AppColors.primary;
   }
 
   Widget _registrationStatusBadge(String status) {
@@ -2082,19 +2148,6 @@ class _CertificatesTab extends StatelessWidget {
   }
 }
 
-class _InvitationsTab extends StatelessWidget {
-  const _InvitationsTab();
-
-  @override
-  Widget build(BuildContext context) {
-    return Navigator(
-      onGenerateRoute: (settings) => MaterialPageRoute(
-        builder: (context) => const CoOrganizerInvitationsScreen(),
-      ),
-    );
-  }
-}
-
 class _ProfileTab extends StatelessWidget {
   final Function(BuildContext, AuthProvider) onLogout;
 
@@ -2498,3 +2551,4 @@ class _ProfileTab extends StatelessWidget {
     );
   }
 }
+

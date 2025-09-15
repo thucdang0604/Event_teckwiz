@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'package:qr_flutter/qr_flutter.dart' as qr;
 import '../../providers/auth_provider.dart';
 import '../../providers/admin_provider.dart';
 import '../../services/registration_service.dart';
@@ -190,7 +189,7 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Đăng ký và thanh toán thành công! Đã được tự động duyệt.',
+              'Registration and payment successful! Automatically approved.',
             ),
             backgroundColor: AppColors.success,
           ),
@@ -208,78 +207,252 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
     }
   }
 
-  void _showQRCode() {
-    if (_myRegistration != null) {
-      _showQRCodeDialog(
-        _myRegistration!,
-        'Participant QR Code',
-        'Registration',
+  Widget _buildCancelButton() {
+    final now = DateTime.now();
+    final eventStart = widget.event.startDate.toLocal();
+    final eventEnd = widget.event.endDate.toLocal();
+
+    final isEventHappening = eventStart.isBefore(now) && eventEnd.isAfter(now);
+    final isEventStarted = eventStart.isBefore(now);
+    final isEventEnded = eventEnd.isBefore(now);
+
+    // Don't show cancel button if event has ended
+    if (isEventEnded) {
+      return const SizedBox.shrink();
+    }
+
+    if (isEventHappening) {
+      return ElevatedButton.icon(
+        onPressed: null, // Disabled during event
+        icon: const Icon(Icons.block),
+        label: const Text('Event in Progress - Cannot Cancel'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.grey,
+          foregroundColor: AppColors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        ),
       );
-    } else if (_mySupportRegistration != null) {
-      _showQRCodeDialog(
-        _mySupportRegistration!,
-        'Support Staff QR Code',
-        'Support',
+    }
+
+    if (isEventStarted) {
+      return ElevatedButton.icon(
+        onPressed: null, // Disabled after event started
+        icon: const Icon(Icons.block),
+        label: const Text('Event Started - Cannot Cancel'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.grey,
+          foregroundColor: AppColors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        ),
       );
+    }
+
+    return ElevatedButton.icon(
+      onPressed: _isLoading ? null : _handleCancelOrRefund,
+      icon: Icon(
+        _myRegistration?.isPaid == true ? Icons.money_off : Icons.cancel,
+      ),
+      label: Text(
+        _myRegistration?.isPaid == true
+            ? 'Cancel & Request Refund'
+            : 'Cancel Registration',
+      ),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: _myRegistration?.isPaid == true
+            ? AppColors.warning
+            : AppColors.error,
+        foregroundColor: AppColors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      ),
+    );
+  }
+
+  Future<void> _handleCancelOrRefund() async {
+    // Check if event is currently happening or has already started
+    final now = DateTime.now();
+    final eventStart = widget.event.startDate.toLocal();
+    final eventEnd = widget.event.endDate.toLocal();
+
+    // Check if event is currently in progress
+    final isEventInProgress = eventStart.isBefore(now) && eventEnd.isAfter(now);
+
+    // Check if event has already started (even if ended)
+    final isEventStarted = eventStart.isBefore(now);
+
+    if (isEventInProgress) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Cannot cancel registration during the event. Please contact the organizer.',
+            ),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+      return;
+    }
+
+    if (isEventStarted) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Cannot cancel registration after the event has started. Please contact the organizer.',
+            ),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+      return;
+    }
+
+    if (_myRegistration?.isPaid == true) {
+      // If paid, show refund dialog
+      await _requestRefund();
+    } else {
+      // If not paid, just cancel registration
+      await _cancelRegistration();
     }
   }
 
-  void _showQRCodeDialog(dynamic registration, String title, String type) {
-    showDialog(
+  Future<void> _cancelRegistration() async {
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(title),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE5E7EB), width: 1),
-              ),
-              child: Column(
-                children: [
-                  // QR Code Widget
-                  SizedBox(
-                    width: 120,
-                    height: 120,
-                    child: qr.QrImageView(
-                      data: registration.qrCode ?? '',
-                      version: qr.QrVersions.auto,
-                      size: 120,
-                      backgroundColor: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '$type ID: ${registration.id.substring(0, 8)}...',
-                    style: const TextStyle(
-                      fontSize: 10,
-                      color: Color(0xFF9CA3AF),
-                      fontFamily: 'monospace',
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'Show this QR code at the event for check-in',
-              style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
-              textAlign: TextAlign.center,
-            ),
-          ],
+        title: const Text('Cancel Registration'),
+        content: const Text(
+          'Are you sure you want to cancel your registration? This action cannot be undone.',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('No'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Yes, Cancel'),
           ),
         ],
       ),
     );
+
+    if (confirmed == true) {
+      setState(() {
+        _isLoading = true;
+      });
+
+      try {
+        if (_myRegistration != null) {
+          await _registrationService.cancelRegistration(_myRegistration!.id);
+        } else if (_mySupportRegistration != null) {
+          await _registrationService.cancelSupportRegistration(
+            _mySupportRegistration!.id,
+          );
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Registration cancelled successfully'),
+              backgroundColor: AppColors.success,
+            ),
+          );
+          Navigator.of(context).pop();
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error cancelling registration: $e'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
+    }
+  }
+
+  Future<void> _requestRefund() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Request Refund'),
+        content: const Text(
+          'Are you sure you want to request a refund? This will cancel your registration and process a refund.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('No'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.warning,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Yes, Request Refund'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      setState(() {
+        _isLoading = true;
+      });
+
+      try {
+        // Simulate refund process
+        await Future.delayed(const Duration(seconds: 2));
+
+        if (_myRegistration != null) {
+          await _registrationService.cancelRegistration(_myRegistration!.id);
+        } else if (_mySupportRegistration != null) {
+          await _registrationService.cancelSupportRegistration(
+            _mySupportRegistration!.id,
+          );
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Refund requested successfully. You will receive your money back within 3-5 business days.',
+              ),
+              backgroundColor: AppColors.success,
+            ),
+          );
+          Navigator.of(context).pop();
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error processing refund: $e'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
+    }
   }
 
   Widget _buildPaymentDialog() {
@@ -355,8 +528,8 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
                       const SizedBox(height: 4),
                       Text(
                         NumberFormat.currency(
-                          locale: 'vi_VN',
-                          symbol: '₫',
+                          locale: 'en_US',
+                          symbol: '\$',
                         ).format(widget.event.price),
                         style: const TextStyle(
                           fontSize: 20,
@@ -380,7 +553,7 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
                       SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Đây là thanh toán giả lập. Sau khi thanh toán thành công, đăng ký sẽ được tự động duyệt.',
+                          'This is a simulated payment. After successful payment, registration will be automatically approved.',
                           style: TextStyle(fontSize: 12, color: AppColors.info),
                         ),
                       ),
@@ -459,6 +632,18 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
         (_myRegistration != null && !_myRegistration!.isCancelled) ||
         (_mySupportRegistration != null &&
             !_mySupportRegistration!.isCancelled);
+
+    // Check registration availability with detailed conditions
+    final bool isRegistrationDeadlinePassed = DateTime.now().isAfter(
+      widget.event.registrationDeadline,
+    );
+    final bool isEventStarted = DateTime.now().isAfter(widget.event.startDate);
+    final bool isEventInProgress =
+        DateTime.now().isAfter(widget.event.startDate) &&
+        DateTime.now().isBefore(widget.event.endDate);
+    final bool isEventFull = widget.event.isFull;
+    final bool isEventPublished = widget.event.isPublished;
+
     final bool canRegister =
         widget.event.isRegistrationOpen && !hasAnyRegistration;
 
@@ -540,35 +725,21 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
                                         _mySupportRegistration?.isApproved ==
                                             true
                                     ? _myRegistration?.isPaid == true
-                                          ? 'Đăng ký đã được duyệt! (Đã thanh toán)'
-                                          : 'Đăng ký đã được duyệt!'
+                                          ? 'Registration approved! (Paid)'
+                                          : 'Registration approved!'
                                     : _myRegistration?.isCancelled == true ||
                                           _mySupportRegistration?.isCancelled ==
                                               true
-                                    ? 'Đăng ký đã bị hủy.'
-                                    : 'Đăng ký đang chờ duyệt.',
+                                    ? 'Registration cancelled.'
+                                    : 'Registration pending approval.',
                                 style: const TextStyle(fontSize: 14),
                               ),
-                              // Disabled cancel functionality - only show QR if approved
+                              // Show cancel button for approved registrations regardless of registration status
                               if (_myRegistration?.isApproved == true ||
                                   _mySupportRegistration?.isApproved ==
                                       true) ...[
                                 const SizedBox(height: 12),
-                                Center(
-                                  child: ElevatedButton.icon(
-                                    onPressed: _isLoading ? null : _showQRCode,
-                                    icon: const Icon(Icons.qr_code),
-                                    label: const Text('Show QR Code'),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppColors.primary,
-                                      foregroundColor: AppColors.white,
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 24,
-                                        vertical: 12,
-                                      ),
-                                    ),
-                                  ),
-                                ),
+                                Center(child: _buildCancelButton()),
                               ],
                             ],
                           ),
@@ -580,23 +751,53 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
                         color: AppColors.error.withOpacity(0.1),
                         child: Padding(
                           padding: const EdgeInsets.all(16),
-                          child: Row(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Icon(Icons.info, color: AppColors.error),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  widget.event.isRegistrationOpen
-                                      ? 'Registration is not available'
-                                      : 'Registration is closed',
-                                  style: const TextStyle(fontSize: 14),
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.info,
+                                    color: AppColors.error,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  const Expanded(
+                                    child: Text(
+                                      'Registration Not Available',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.error,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                _getRegistrationUnavailableReason(
+                                  isRegistrationDeadlinePassed,
+                                  isEventStarted,
+                                  isEventInProgress,
+                                  isEventFull,
+                                  isEventPublished,
+                                  hasAnyRegistration,
                                 ),
+                                style: const TextStyle(fontSize: 14),
                               ),
                             ],
                           ),
                         ),
                       ),
                       const SizedBox(height: 16),
+
+                      // Show cancel button for approved registrations even when registration is closed
+                      if (hasAnyRegistration &&
+                          (_myRegistration?.isApproved == true ||
+                              _mySupportRegistration?.isApproved == true)) ...[
+                        Center(child: _buildCancelButton()),
+                        const SizedBox(height: 16),
+                      ],
                     ] else ...[
                       // Registration Type Selection
                       Card(
@@ -709,7 +910,7 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
                                     ),
                                     const SizedBox(width: 8),
                                     Text(
-                                      'Start: ${DateFormat(AppConstants.dateTimeFormat).format(widget.event.startDate)}',
+                                      'Start: ${DateFormat(AppConstants.dateTimeFormat).format(widget.event.startDate.toLocal())}',
                                       style: const TextStyle(
                                         fontSize: 14,
                                         color: AppColors.textSecondary,
@@ -727,7 +928,7 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
                                     ),
                                     const SizedBox(width: 8),
                                     Text(
-                                      'End: ${DateFormat(AppConstants.dateTimeFormat).format(widget.event.endDate)}',
+                                      'End: ${DateFormat(AppConstants.dateTimeFormat).format(widget.event.endDate.toLocal())}',
                                       style: const TextStyle(
                                         fontSize: 14,
                                         color: AppColors.textSecondary,
@@ -748,7 +949,7 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
                                       ),
                                       const SizedBox(width: 8),
                                       Text(
-                                        'Phí tham gia: ${NumberFormat.currency(locale: 'vi_VN', symbol: '₫').format(widget.event.price)}',
+                                        'Participation Fee: ${NumberFormat.currency(locale: 'en_US', symbol: '\$').format(widget.event.price)}',
                                         style: const TextStyle(
                                           fontSize: 14,
                                           color: AppColors.primary,
@@ -1035,5 +1236,40 @@ class _EventRegistrationScreenState extends State<EventRegistrationScreen> {
         ],
       ),
     );
+  }
+
+  String _getRegistrationUnavailableReason(
+    bool isRegistrationDeadlinePassed,
+    bool isEventStarted,
+    bool isEventInProgress,
+    bool isEventFull,
+    bool isEventPublished,
+    bool hasAnyRegistration,
+  ) {
+    if (hasAnyRegistration) {
+      return 'You have already registered for this event.';
+    }
+
+    if (!isEventPublished) {
+      return 'This event is not yet published.';
+    }
+
+    if (isEventInProgress) {
+      return 'Registration is not available during the event.';
+    }
+
+    if (isEventStarted) {
+      return 'Registration is not available after the event has started.';
+    }
+
+    if (isRegistrationDeadlinePassed) {
+      return 'Registration deadline has passed.';
+    }
+
+    if (isEventFull) {
+      return 'This event is full. No more participants can be accepted.';
+    }
+
+    return 'Registration is currently not available.';
   }
 }

@@ -2,9 +2,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/event_model.dart';
 import '../constants/app_constants.dart';
 import '../services/notification_service.dart';
+import 'unified_notification_service.dart';
 
 class EventService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final UnifiedNotificationService _unifiedNotificationService =
+      UnifiedNotificationService();
 
   // Lấy danh sách sự kiện - chỉ hiển thị sự kiện đã được duyệt cho sinh viên
   Future<List<EventModel>> getEvents({
@@ -173,11 +176,11 @@ class EventService {
             'approvedBy': approvedBy,
           });
 
-      // Gửi notification cho organizer về việc sự kiện được duyệt
+      // Gửi unified notification cho organizer về việc sự kiện được duyệt
       try {
         final event = await getEventById(eventId);
         if (event != null) {
-          await NotificationService.sendNotificationToUser(
+          await _unifiedNotificationService.sendUnifiedNotification(
             userId: event.organizerId,
             title: 'Sự kiện được duyệt',
             body: 'Sự kiện "${event.title}" của bạn đã được duyệt và xuất bản',
@@ -186,11 +189,17 @@ class EventService {
               'type': 'event_approved',
               'eventId': eventId,
               'eventTitle': event.title,
+              'eventDate': event.startDate.toIso8601String(),
+              'organizerName': event.organizerName,
             },
+            priority: NotificationPriority.high,
+          );
+          print(
+            '✅ Unified notification sent to organizer: ${event.organizerId}',
           );
         }
       } catch (e) {
-        print('Lỗi gửi notification khi duyệt sự kiện: $e');
+        print('Lỗi gửi unified notification khi duyệt sự kiện: $e');
       }
     } catch (e) {
       throw Exception('Lỗi duyệt sự kiện: ${e.toString()}');
@@ -214,11 +223,11 @@ class EventService {
             'rejectionReason': reason,
           });
 
-      // Gửi notification cho organizer về việc sự kiện bị từ chối
+      // Gửi unified notification cho organizer về việc sự kiện bị từ chối
       try {
         final event = await getEventById(eventId);
         if (event != null) {
-          await NotificationService.sendNotificationToUser(
+          await _unifiedNotificationService.sendUnifiedNotification(
             userId: event.organizerId,
             title: 'Sự kiện bị từ chối',
             body:
@@ -229,11 +238,16 @@ class EventService {
               'eventId': eventId,
               'eventTitle': event.title,
               'reason': reason,
+              'organizerName': event.organizerName,
             },
+            priority: NotificationPriority.high,
+          );
+          print(
+            '✅ Unified notification sent to organizer: ${event.organizerId}',
           );
         }
       } catch (e) {
-        print('Lỗi gửi notification khi từ chối sự kiện: $e');
+        print('Lỗi gửi unified notification khi từ chối sự kiện: $e');
       }
     } catch (e) {
       throw Exception('Lỗi từ chối sự kiện: ${e.toString()}');

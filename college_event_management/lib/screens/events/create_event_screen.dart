@@ -649,7 +649,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                         ),
                                       ),
                                       Text(
-                                        '${DateFormat(AppConstants.dateTimeFormat).format(_startDate)} - ${DateFormat(AppConstants.dateTimeFormat).format(_endDate)}',
+                                        '${DateFormat(AppConstants.dateTimeFormat).format(_startDate.toLocal())} - ${DateFormat(AppConstants.dateTimeFormat).format(_endDate.toLocal())}',
                                         style: const TextStyle(
                                           fontSize: 16,
                                           color: AppColors.textPrimary,
@@ -817,7 +817,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                           const SizedBox(height: 16),
                           CustomTextField(
                             controller: _priceController,
-                            label: 'Ticket Price (VND)',
+                            label: 'Ticket Price (USD)',
                             hint: 'Enter ticket price',
                             keyboardType: TextInputType.number,
                             prefixIcon: Icons.attach_money,

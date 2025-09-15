@@ -88,7 +88,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
 
       if (event != null &&
           authProvider.currentUser?.role == 'student' &&
-          event.status != 'published') {
+          event.status != AppConstants.eventPublished) {
         setState(() {
           _errorMessage = 'Sự kiện này chưa được duyệt hoặc không tồn tại';
           _isLoading = false;
@@ -530,7 +530,8 @@ class _EventDetailScreenState extends State<EventDetailScreen>
                       ],
                     ),
                   ),
-                  if (_event!.requirements != null) ...[
+                  if (_event!.requirements != null &&
+                      _event!.requirements!.trim().isNotEmpty) ...[
                     const SizedBox(height: 16),
                     Container(
                       padding: const EdgeInsets.all(16),
@@ -588,7 +589,8 @@ class _EventDetailScreenState extends State<EventDetailScreen>
                       ),
                     ),
                   ],
-                  if (_event!.contactInfo != null) ...[
+                  if (_event!.contactInfo != null &&
+                      _event!.contactInfo!.trim().isNotEmpty) ...[
                     const SizedBox(height: 16),
                     Container(
                       padding: const EdgeInsets.all(16),
@@ -713,9 +715,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
                       ),
                     ),
                   ],
-                  const SizedBox(
-                    height: 80,
-                  ),
+                  const SizedBox(height: 80),
                 ],
               ),
             ),
@@ -725,7 +725,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
       floatingActionButton: _buildFloatingActionButton(
         isAdmin: isAdmin,
         isOrganizerRole: isOrganizerRole,
-        isEventHost: isEventOrganizer,
+        isEventHost: isEventHost,
         canRegister: canRegister,
         hasActiveRegistration: hasActiveRegistration,
       ),
@@ -790,15 +790,15 @@ class _EventDetailScreenState extends State<EventDetailScreen>
               _buildCompactInfoCard(
                 Icons.play_arrow,
                 'Start',
-                dateFormatter.format(_event!.startDate),
-                timeFormatter.format(_event!.startDate),
+                dateFormatter.format(_event!.startDate.toLocal()),
+                timeFormatter.format(_event!.startDate.toLocal()),
                 const Color(0xFF10B981),
               ),
               _buildCompactInfoCard(
                 Icons.stop,
                 'End',
-                dateFormatter.format(_event!.endDate),
-                timeFormatter.format(_event!.endDate),
+                dateFormatter.format(_event!.endDate.toLocal()),
+                timeFormatter.format(_event!.endDate.toLocal()),
                 const Color(0xFFF59E0B),
               ),
               _buildCompactInfoCard(
@@ -871,8 +871,8 @@ class _EventDetailScreenState extends State<EventDetailScreen>
                   child: _buildStatsCard(
                     Icons.attach_money,
                     NumberFormat.currency(
-                      locale: 'vi_VN',
-                      symbol: '₫',
+                      locale: 'en_US',
+                      symbol: '\$',
                     ).format(_event!.price),
                     'Fee',
                     const Color(0xFF059669),
@@ -1437,7 +1437,14 @@ class _EventDetailScreenState extends State<EventDetailScreen>
         }
 
         return FloatingActionButton.extended(
-          onPressed: null,
+          onPressed:
+              (_myRegistration?.isApproved == true ||
+                  _mySupportRegistration?.isApproved == true)
+              ? () {
+                  // Navigate to registration detail screen for cancellation
+                  context.push('/event/${widget.eventId}/register');
+                }
+              : null,
           backgroundColor: buttonColor,
           icon: Icon(buttonIcon, color: AppColors.white),
           label: Text(
@@ -1521,34 +1528,7 @@ class _EventDetailScreenState extends State<EventDetailScreen>
         );
       }
     }
-  }
-
-  Future<void> _issueCertificates() async {
-    if (_event == null) return;
-    try {
-      final count = await _certificateService.issueCertificatesForEvent(
-        _event!.id,
-      );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Issued $count certificate(s)'),
-            backgroundColor: AppColors.success,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Issue certificate error: $e'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
-    }
-  }
-
+  } 
   void _showRejectDialog() {
     final TextEditingController reasonController = TextEditingController();
 
